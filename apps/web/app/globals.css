@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * The House runs night-first. The reader can switch the *reader* to ivory
+ * paper (brief §7), but the site around it stays dark — that is the brand,
+ * not a preference.
+ */
+
+@layer base {
+  :root {
+    --sf-ink: #0b0b0b;
+    --sf-ivory: #f4ecdc;
+    --sf-gold: #c89528;
+    --sf-grey: #cfcfcf;
+    --sf-grey-muted: #8a8a8a;
+    --sf-rule: rgba(244, 236, 220, 0.1);
+
+    /* Reader preferences, overridden inline from user_settings. */
+    --reader-scale: 1;
+    --reader-leading: 1.75;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--sf-ink);
+    color: var(--sf-grey);
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  ::selection {
+    background: rgba(200, 149, 40, 0.28);
+    color: var(--sf-ivory);
+  }
+
+  /* Focus is gold and always visible. Accessibility is not optional. */
+  :focus-visible {
+    outline: 2px solid var(--sf-gold);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  /*
+   * The eyebrow. Small caps, widely tracked, muted — this one treatment
+   * appears above nearly every section in the House
+   * ("THE LIBRARY OF FEELINGS", "A NOTE FROM THE LIBRARIAN").
+   */
+  .sf-eyebrow {
+    @apply font-ui text-micro uppercase text-grey-muted;
+    letter-spacing: 0.18em;
+  }
+
+  .sf-rule {
+    @apply border-0 border-t border-solid;
+    border-color: var(--sf-rule);
+  }
+
+  /*
+   * Story prose. Applied to the rendered MDX body and nowhere else.
+   * The custom properties let the reader controls change size and leading
+   * without a re-render.
+   */
+  .sf-prose {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: calc(1.1875rem * var(--reader-scale));
+    line-height: var(--reader-leading);
+    color: var(--sf-grey);
+    max-width: 34rem;
+  }
+
+  .sf-prose p { margin-bottom: 1.5em; }
+
+  .sf-prose p:first-of-type::first-letter {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    float: left;
+    font-size: 3.6em;
+    line-height: 0.82;
+    padding-right: 0.08em;
+    padding-top: 0.06em;
+    color: var(--sf-ivory);
+  }
+
+  /* Section markers (":: The House Waits") render as a quiet caps line. */
+  .sf-prose h2 {
+    @apply font-ui text-micro uppercase text-grey-muted;
+    letter-spacing: 0.18em;
+    margin: 3.5em 0 1.5em;
+  }
+
+  .sf-prose blockquote {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.4em;
+    line-height: 1.4;
+    color: var(--sf-ivory);
+    border-left: 1px solid var(--sf-gold);
+    padding-left: 1.25em;
+    margin: 2em 0;
+    font-style: italic;
+  }
+
+  .sf-prose em { font-style: italic; }
+  .sf-prose strong { color: var(--sf-ivory); font-weight: 500; }
+
+  /* Daylight reading mode. */
+  .sf-reader-paper {
+    background: #f7f3ea;
+  }
+  .sf-reader-paper .sf-prose,
+  .sf-reader-paper .sf-prose strong {
+    color: #1a1714;
+  }
+  .sf-reader-paper .sf-prose p:first-of-type::first-letter { color: #1a1714; }
+}

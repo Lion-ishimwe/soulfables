@@ -1,0 +1,179 @@
+'use server';
+
+import type { Route } from 'next';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
+
+/**
+ * Auth server actions.
+ *
+ * Every one of these validates input with Zod before it reaches Supabase,
+ * and returns a plain `{ error }` shape rather than throwing — the forms
+ * render errors inline, and a thrown error in a server action surfaces as
+ * a generic crash page, which tells the reader nothing useful.
+ *
+ * Note the deliberate ambiguity in `requestPasswordReset`: it returns the
+ * same message whether or not the address exists. Anything else turns the
+ * reset form into an account-enumeration oracle.
+ */
+
+const emailSchema = z.string().trim().toLowerCase().email('That does not look like an email address.');
+
+const passwordSchema = z
+  .string()
+  .min(10, 'Use at least 10 characters — length matters more than symbols.')
+  .max(200, 'That password is too long.');
+
+const signInSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, 'Enter your password.'),
+  next: z.string().optional(),
+});
+
+const signUpSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  displayName: z.string().trim().min(1, 'What should the House call you?').max(80),
+});
+
+export type ActionResult = { error?: string; message?: string };
+
+/**
+ * Only ever redirect to a path on this site. The cast is safe precisely
+ * because of the checks above it: an open redirect would let a phishing
+ * link bounce a freshly-authenticated reader off to another domain.
+ */
+function safeNext(next: unknown): Route {
+  if (typeof next !== 'string') return '/account/library' as Route;
+  if (!next.startsWith('/') || next.startsWith('//')) return '/account/library' as Route;
+  return next as Route;
+}
+
+async function siteOrigin(): Promise<string> {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  const h = await headers();
+  const host = h.get('host') ?? 'localhost:3000';
+  const proto = host.startsWith('localhost') ? 'http' : 'https';
+  return `${proto}://${host}`;
+}
+
+export async function signIn(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = signInSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+    next: formData.get('next'),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    // Do not distinguish "no such account" from "wrong password".
+    return { error: 'That email and password do not match. Try again.' };
+  }
+
+  revalidatePath('/', 'layout');
+  redirect(safeNext(parsed.data.next));
+}
+
+export async function signUp(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = signUpSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+    displayName: formData.get('displayName'),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const origin = await siteOrigin();
+
+  const { error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+      // Read by the handle_new_user() trigger to seed the profile.
+      data: { display_name: parsed.data.displayName },
+    },
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return {
+    message:
+      'Check your email. There is a link waiting that opens the door.',
+  };
+}
+
+export async function requestPasswordReset(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = emailSchema.safeParse(formData.get('email'));
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const origin = await siteOrigin();
+
+  // Result deliberately ignored: revealing whether the address exists
+  // would let anyone test which emails have Soulfables accounts.
+  await supabase.auth.resetPasswordForEmail(parsed.data, {
+    redirectTo: `${origin}/auth/callback?next=/account/password`,
+  });
+
+  return {
+    message:
+      'If that address has an account, a reset link is on its way.',
+  };
+}
+
+export async function updatePassword(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = passwordSchema.safeParse(formData.get('password'));
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: parsed.data });
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/', 'layout');
+  redirect('/account/library' as Route);
+}
+
+export async function signOut(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath('/', 'layout');
+  redirect('/');
+}

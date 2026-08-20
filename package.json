@@ -1,0 +1,23 @@
+{
+  "name": "soulfables",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Soulfables — Every Soul Has a Story. Monorepo for the web, admin, and shared packages.",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=@soulfables/web",
+    "build": "npm run build --workspace=@soulfables/web",
+    "start": "npm run start --workspace=@soulfables/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:reset": "node scripts/db-reset.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs"
+  }
+}

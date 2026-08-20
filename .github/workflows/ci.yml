@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Typecheck, lint, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck --workspaces --if-present
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build against no database on purpose: the content layer must
+          # keep rendering, and the admin surface must say plainly that it
+          # is not connected rather than crashing the build.
+          NEXT_PUBLIC_SITE_URL: https://soulfables.co
+
+  database:
+    name: Migrations and RLS coverage
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: soulfables_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Create the roles and schemas Supabase provides
+        # The migrations reference auth.users, storage.*, and auth.uid().
+        # In CI those do not exist, so stand up the minimum needed to
+        # prove the SQL is valid and the policies attach.
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d soulfables_test <<'SQL'
+          create schema if not exists auth;
+          create schema if not exists storage;
+          create role anon;
+          create role authenticated;
+          create role service_role;
+
+          create table auth.users (
+            id uuid primary key default gen_random_uuid(),
+            email text,
+            raw_user_meta_data jsonb default '{}'::jsonb
+          );
+
+          create table storage.buckets (
+            id text primary key,
+            name text,
+            public boolean default false,
+            file_size_limit bigint,
+            allowed_mime_types text[]
+          );
+
+          create table storage.objects (
+            id uuid primary key default gen_random_uuid(),
+            bucket_id text,
+            name text
+          );
+
+          -- Stand-in for the Supabase helper the policies call.
+          create or replace function auth.uid() returns uuid
+            language sql stable as $$ select null::uuid $$;
+          SQL
+
+      - name: Apply migrations in order
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for f in database/migrations/*.sql; do
+            echo "--- $f"
+            psql -h localhost -U postgres -d soulfables_test \
+                 -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Apply seed
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for f in database/seed/*.sql; do
+            psql -h localhost -U postgres -d soulfables_test \
+                 -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: RLS coverage
+        # Fails the build if a new table shipped without policies.
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d soulfables_test \
+               -v ON_ERROR_STOP=1 -f database/checks/rls_coverage.sql
+
+      - name: Seed is idempotent
+        # Re-running must not error or duplicate.
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for f in database/seed/*.sql; do
+            psql -h localhost -U postgres -d soulfables_test \
+                 -v ON_ERROR_STOP=1 -f "$f"
+          done

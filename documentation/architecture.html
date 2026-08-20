@@ -1,0 +1,877 @@
+<title>Soulfables Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap">
+
+<style>
+  /* ---------------------------------------------------------------
+     Tokens. Dark is the House default; paper is the considered
+     alternative for anyone reading at length in daylight.
+     --------------------------------------------------------------- */
+  :root {
+    --ground:      #0B0B0B;
+    --raised:      #141414;
+    --raised-2:    #1A1A1A;
+    --ivory:       #F4ECDC;
+    --body:        #CFCFCF;
+    --muted:       #8A8A8A;
+    --gold:        #C89528;
+    --gold-soft:   #D9AE55;
+    --gold-wash:   rgba(200,149,40,0.10);
+    --rule:        rgba(244,236,220,0.11);
+    --rule-strong: rgba(244,236,220,0.20);
+    --code-bg:     #131313;
+    --ok:          #7C9A6B;
+    --warn:        #C89528;
+    --risk:        #C4685A;
+    --shadow:      0 24px 70px -40px rgba(0,0,0,0.95);
+  }
+
+  :root:not([data-theme="dark"]) { }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ground:      #F7F3EA;
+      --raised:      #FFFDF8;
+      --raised-2:    #F1EADC;
+      --ivory:       #1A1714;
+      --body:        #3D3730;
+      --muted:       #6B6259;
+      --gold:        #9A6E12;
+      --gold-soft:   #7E5A0C;
+      --gold-wash:   rgba(154,110,18,0.09);
+      --rule:        rgba(26,23,20,0.14);
+      --rule-strong: rgba(26,23,20,0.26);
+      --code-bg:     #EFE8D9;
+      --ok:          #4F6B41;
+      --warn:        #8A6410;
+      --risk:        #9A4436;
+      --shadow:      0 24px 60px -44px rgba(60,50,35,0.5);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground:      #F7F3EA;
+    --raised:      #FFFDF8;
+    --raised-2:    #F1EADC;
+    --ivory:       #1A1714;
+    --body:        #3D3730;
+    --muted:       #6B6259;
+    --gold:        #9A6E12;
+    --gold-soft:   #7E5A0C;
+    --gold-wash:   rgba(154,110,18,0.09);
+    --rule:        rgba(26,23,20,0.14);
+    --rule-strong: rgba(26,23,20,0.26);
+    --code-bg:     #EFE8D9;
+    --ok:          #4F6B41;
+    --warn:        #8A6410;
+    --risk:        #9A4436;
+    --shadow:      0 24px 60px -44px rgba(60,50,35,0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--body);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--gold-wash); color: var(--ivory); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    html { scroll-behavior: auto; }
+  }
+  html { scroll-behavior: smooth; }
+
+  /* ---------------------------------------------------------------
+     Shell
+     --------------------------------------------------------------- */
+  .shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 120px;
+  }
+
+  @media (min-width: 1000px) {
+    .shell { grid-template-columns: 232px minmax(0,1fr); gap: 72px; padding: 0 40px 140px; }
+  }
+
+  /* Section index */
+  .index { display: none; }
+  @media (min-width: 1000px) {
+    .index {
+      display: block;
+      position: sticky;
+      top: 0;
+      align-self: start;
+      max-height: 100vh;
+      overflow-y: auto;
+      padding: 56px 0 40px;
+    }
+  }
+  .index-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .2em;
+    color: var(--muted); margin: 0 0 18px;
+  }
+  .index ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .index a {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 6px 0;
+    color: var(--muted); text-decoration: none;
+    font-size: 13.5px; line-height: 1.4;
+    border-bottom: 1px solid transparent;
+    transition: color .2s cubic-bezier(.22,.61,.36,1);
+  }
+  .index a:hover { color: var(--ivory); }
+  .index a .n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--gold); flex: none; width: 14px;
+  }
+
+  main { min-width: 0; }
+
+  /* ---------------------------------------------------------------
+     Masthead
+     --------------------------------------------------------------- */
+  .masthead { padding: 88px 0 0; border-bottom: 1px solid var(--rule); }
+  .lamp { color: var(--gold); font-size: 15px; letter-spacing: .3em; }
+  .eyebrow {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .2em;
+    color: var(--muted); margin: 0;
+  }
+  h1 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 300;
+    font-size: clamp(2.7rem, 6.5vw, 4.1rem);
+    line-height: 1.04;
+    color: var(--ivory);
+    margin: 20px 0 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .standfirst {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(1.18rem, 2.4vw, 1.5rem);
+    font-style: italic;
+    font-weight: 300;
+    line-height: 1.45;
+    color: var(--muted);
+    margin: 18px 0 0;
+    max-width: 34em;
+    text-wrap: balance;
+  }
+  .docmeta {
+    display: flex; flex-wrap: wrap; gap: 0;
+    margin: 44px 0 0;
+    border-top: 1px solid var(--rule);
+  }
+  .docmeta div {
+    flex: 1 1 150px; padding: 18px 20px 20px 0;
+  }
+  .docmeta dt {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .18em;
+    color: var(--muted); margin: 0 0 6px;
+  }
+  .docmeta dd {
+    margin: 0; font-size: 14px; color: var(--ivory);
+  }
+
+  /* ---------------------------------------------------------------
+     Sections
+     --------------------------------------------------------------- */
+  section { padding: 72px 0 0; scroll-margin-top: 24px; }
+  section > .sec-head { display: flex; gap: 16px; align-items: baseline; margin-bottom: 8px; }
+  .sec-num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; color: var(--gold); flex: none; padding-top: 6px;
+  }
+  h2 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 300;
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    line-height: 1.12;
+    color: var(--ivory);
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: Inter, sans-serif;
+    font-size: 13px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .12em;
+    color: var(--ivory);
+    margin: 44px 0 14px;
+  }
+  h4 {
+    font-family: Inter, sans-serif;
+    font-size: 14.5px; font-weight: 600;
+    color: var(--ivory); margin: 28px 0 8px;
+  }
+  p { margin: 0 0 17px; max-width: 68ch; }
+  .lede { font-size: 17.5px; color: var(--body); max-width: 64ch; }
+  a { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--rule-strong); }
+  a:hover { color: var(--gold-soft); border-color: currentColor; }
+  strong { color: var(--ivory); font-weight: 600; }
+  em { font-style: italic; }
+
+  ul, ol { max-width: 68ch; padding-left: 20px; margin: 0 0 17px; }
+  li { margin-bottom: 9px; }
+  li::marker { color: var(--muted); }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .875em;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 2px;
+    color: var(--ivory);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    margin: 0 0 20px;
+  }
+  pre code {
+    background: none; padding: 0;
+    font-size: 12.5px; line-height: 1.7; color: var(--body);
+  }
+
+  hr.rule { border: 0; border-top: 1px solid var(--rule); margin: 0; }
+
+  /* ---------------------------------------------------------------
+     Callouts — echo the "note from the Librarian" treatment
+     --------------------------------------------------------------- */
+  .note {
+    border-left: 2px solid var(--gold);
+    background: var(--gold-wash);
+    padding: 20px 24px;
+    margin: 0 0 22px;
+    max-width: 68ch;
+  }
+  .note.risk { border-left-color: var(--risk); background: color-mix(in srgb, var(--risk) 8%, transparent); }
+  .note.ok { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+  .note-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .18em;
+    color: var(--gold); margin: 0 0 8px;
+  }
+  .note.risk .note-label { color: var(--risk); }
+  .note.ok .note-label { color: var(--ok); }
+  .note p:last-child { margin-bottom: 0; }
+
+  /* ---------------------------------------------------------------
+     Decisions
+     --------------------------------------------------------------- */
+  .decisions { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 28px 0 0; }
+  .decision { background: var(--ground); padding: 24px 26px; }
+  .decision-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; margin-bottom: 10px; }
+  .decision-id {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--gold);
+  }
+  .decision-q { font-family: Inter, sans-serif; font-size: 16px; font-weight: 600; color: var(--ivory); margin: 0; flex: 1 1 240px; }
+  .chip {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    padding: 3px 9px; border: 1px solid var(--rule-strong); color: var(--muted);
+    white-space: nowrap;
+  }
+  .chip.blocks { color: var(--risk); border-color: color-mix(in srgb, var(--risk) 45%, transparent); }
+  .decision p { font-size: 14.5px; margin-bottom: 10px; }
+  .decision .rec { font-size: 14.5px; color: var(--body); margin: 0; }
+  .decision .rec b { color: var(--ivory); }
+
+  /* ---------------------------------------------------------------
+     Tables
+     --------------------------------------------------------------- */
+  .table-wrap { overflow-x: auto; margin: 0 0 22px; border: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; font-size: 14px; }
+  caption {
+    text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .18em;
+    color: var(--muted); padding: 16px 18px 12px;
+  }
+  th, td { text-align: left; padding: 12px 18px; border-top: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--muted); font-weight: 500;
+  }
+  td { color: var(--body); }
+  td strong, th:first-child + td strong { color: var(--ivory); }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr:hover { background: var(--raised); }
+  tfoot td { border-top: 1px solid var(--rule-strong); color: var(--ivory); font-weight: 500; }
+
+  /* ---------------------------------------------------------------
+     Flow — the delivery chain, with the trust boundary marked
+     --------------------------------------------------------------- */
+  .flow { border: 1px solid var(--rule); margin: 0 0 22px; }
+  .flow-band {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px;
+    background: var(--raised);
+    border-bottom: 1px solid var(--rule);
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .16em; color: var(--muted);
+  }
+  .flow-band .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; }
+  .flow-band.trusted .dot { background: var(--ok); }
+  .flow-band.trusted { color: var(--ok); }
+  .flow-step { display: flex; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--rule); }
+  .flow-step:last-child { border-bottom: 0; }
+  .flow-n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--gold); flex: none; width: 20px; padding-top: 2px;
+  }
+  .flow-step div { min-width: 0; }
+  .flow-step b { display: block; color: var(--ivory); font-size: 14.5px; font-weight: 500; }
+  .flow-step span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+
+  /* ---------------------------------------------------------------
+     Phase cards
+     --------------------------------------------------------------- */
+  .phases { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 0 0 22px; }
+  @media (min-width: 720px) { .phases { grid-template-columns: repeat(2, 1fr); } }
+  .phase { background: var(--ground); padding: 22px 24px; }
+  .phase-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .phase-n { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; color: var(--gold); }
+  .phase-wk { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .phase h4 { margin: 0 0 8px; font-size: 17px; font-family: "Cormorant Garamond", Georgia, serif; font-weight: 400; }
+  .phase p { font-size: 13.5px; margin: 0; color: var(--muted); }
+  .phase.launch { background: var(--raised); }
+  .phase.launch .phase-n { color: var(--ok); }
+
+  /* ---------------------------------------------------------------
+     Footer
+     --------------------------------------------------------------- */
+  .doc-footer { margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--rule); }
+  .doc-footer p { font-size: 13px; color: var(--muted); }
+  .sig { font-family: "Cormorant Garamond", Georgia, serif; font-style: italic; font-size: 19px; color: var(--muted); }
+</style>
+
+<div class="shell">
+
+  <nav class="index" aria-label="Sections">
+    <p class="index-label">Contents</p>
+    <ol>
+      <li><a href="#findings"><span class="n">00</span> What we found</a></li>
+      <li><a href="#decisions"><span class="n">01</span> Decisions required</a></li>
+      <li><a href="#technical"><span class="n">02</span> Technical architecture</a></li>
+      <li><a href="#schema"><span class="n">03</span> Database schema</a></li>
+      <li><a href="#product"><span class="n">04</span> Product architecture</a></li>
+      <li><a href="#flows"><span class="n">05</span> UX &amp; user flows</a></li>
+      <li><a href="#roadmap"><span class="n">06</span> Development roadmap</a></li>
+      <li><a href="#cost"><span class="n">07</span> Cost estimate</a></li>
+      <li><a href="#milestones"><span class="n">08</span> Milestones</a></li>
+      <li><a href="#security"><span class="n">09</span> Security plan</a></li>
+      <li><a href="#deployment"><span class="n">10</span> Deployment plan</a></li>
+      <li><a href="#ownership"><span class="n">11</span> Ownership checklist</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <p class="lamp" aria-hidden="true">✦</p>
+      <p class="eyebrow" style="margin-top:14px">Soulfables · Phase 0 deliverable</p>
+      <h1>Architecture for the House</h1>
+      <p class="standfirst">How Soulfables gets built so that it launches small, scales into the full ecosystem, and never again fails to put a book in a customer's hands.</p>
+
+      <dl class="docmeta">
+        <div><dt>Prepared for</dt><dd>Apophia Kamwine</dd></div>
+        <div><dt>Status</dt><dd>Draft for review</dd></div>
+        <div><dt>Supersedes</dt><dd>Base44 build</dd></div>
+        <div><dt>Scope</dt><dd>Web, admin, mobile, backend</dd></div>
+      </dl>
+    </header>
+
+    <!-- ============================================================ -->
+    <section id="findings">
+      <div class="sec-head"><span class="sec-num">00</span><h2>What we found</h2></div>
+      <p class="lede">Before proposing anything, we audited what Soulfables already is. The brief describes a platform to build; the live site describes a product that already exists and is further along than the brief admits.</p>
+
+      <p><code>soulfables.co</code> currently 301-redirects to <code>soulfables.base44.app</code>. The House is running on Base44, an AI app-builder. That single fact explains most of the brief: why §1 insists on "a real software product, not a no-code prototype," why §26 is unusually specific about ownership, and why §23 notes that delivery problems have already happened.</p>
+
+      <p>What the audit turned up matters, because it changes what this project is:</p>
+
+      <ul>
+        <li><strong>32 stories across 27 shelves</strong>, four authors — including <em>The Librarian</em>, which is a House persona rather than a person.</li>
+        <li><strong>Shelves are not categories.</strong> They are emotional entry points with their own copy, a curated first read, and a Librarian's note that deliberately sends readers <em>elsewhere</em>. The shelf labelled "Sleepless" lives at <code>/shelf/anxiety</code> — label, URL and theme are already three different things.</li>
+        <li><strong>The journey graph already exists.</strong> Each shelf page states where readers arrive from and where they continue to. Today that is editorial judgement. It is also, structurally, the Soulfables Intelligence Platform from §14 — already designed, just not yet computed.</li>
+        <li><strong>The shop sells five things, not one.</strong> An ebook at $7.99, an anthology at $16, a journal at $18, a reflection deck at $15, and a $45 bundle containing everything. The brief describes a single-ebook system; the reality needs bundles that fan out into multiple entitlements.</li>
+        <li><strong><code>/wander</code> and <code>/residents</code> return 404</strong> while both sit in the main navigation.</li>
+        <li>The footer exposes a <strong>"Studio" column</strong> — Roadmap, Design System, UI Kit — internal tooling leaking into the public site.</li>
+      </ul>
+
+      <div class="note">
+        <p class="note-label">The consequence</p>
+        <p>This is not a greenfield build. It is a <strong>migration with live customers, existing content, and indexed URLs</strong> — and the brief is silent on all three. Cutover is scoped in §06 rather than discovered during launch week.</p>
+      </div>
+
+      <h3>What the brief gets right</h3>
+      <p>Worth stating plainly, because it shapes how much of this document is correction versus confirmation: §22's rule that a frontend success message is never proof of payment, §23's entitlement chain, §11's private-by-default journal, §26's ownership clause, and the instinct to treat architecture as the first deliverable are all correct and are carried through unchanged.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="decisions">
+      <div class="sec-head"><span class="sec-num">01</span><h2>Decisions required</h2></div>
+      <p class="lede">Five questions only Soulfables can answer. Two of them block the build; the rest can be deferred but get more expensive the later they are made.</p>
+
+      <div class="decisions">
+
+        <article class="decision">
+          <div class="decision-top">
+            <span class="decision-id">D1</span>
+            <p class="decision-q">How does Soulfables take money?</p>
+            <span class="chip blocks">Blocks Phase 3</span>
+          </div>
+          <p>Stripe does not support businesses registered in Rwanda. The brief names Stripe with "subject to availability" attached, but this is the largest practical constraint in the project and it is a legal and tax decision before it is a technical one. Three viable paths:</p>
+          <ul>
+            <li><strong>Merchant of record</strong> (Paddle, Lemon Squeezy) — they become the legal seller, absorbing both the entity problem and EU VAT on digital goods, which the brief never mentions. Higher fees, far less administration.</li>
+            <li><strong>African payment infrastructure</strong> (Flutterwave, Paystack) — supports RWF and MTN Mobile Money, which matters if a meaningful share of readers are East African.</li>
+            <li><strong>Stripe through a foreign entity</strong> (US LLC, UK Ltd) — unlocks Stripe, but adds company formation, accounting, and cross-border tax obligations.</li>
+          </ul>
+          <p class="rec"><b>Recommendation:</b> a merchant of record for global card payments, with an African PSP added in Phase 3.5 if local sales justify it. The audience for a Rwandan author writing in English is likely split between diaspora and local readers, and those two groups pay by different rails.</p>
+        </article>
+
+        <article class="decision">
+          <div class="decision-top">
+            <span class="decision-id">D2</span>
+            <p class="decision-q">What carries over from Base44?</p>
+            <span class="chip blocks">Blocks Phase 2</span>
+          </div>
+          <p>Existing buyers, existing orders, 32 story bodies, and the current URL structure. If any Soulfables page ranks in search today, changing URLs without 301 redirects loses that ranking permanently.</p>
+          <p class="rec"><b>Recommendation:</b> preserve every existing URL shape (<code>/shelf/:slug</code>, <code>/stories</code>, <code>/shop</code>), export story bodies to MDX, and import prior customers with entitlement rows so their books appear in the new library on day one. If the honest answer is "nothing worth carrying over," that is a fine answer — but it should be written down rather than assumed.</p>
+        </article>
+
+        <article class="decision">
+          <div class="decision-top">
+            <span class="decision-id">D3</span>
+            <p class="decision-q">What is the budget ceiling?</p>
+            <span class="chip">Scopes everything</span>
+          </div>
+          <p>The brief asks for a cost estimate across 30 sections without naming a range. No developer can scope that honestly, and quotes received against it will not be comparable.</p>
+          <p class="rec"><b>Recommendation:</b> set a figure for Phases 1–3 only and treat later phases as separately funded. §07 gives the ranges to choose from.</p>
+        </article>
+
+        <article class="decision">
+          <div class="decision-top">
+            <span class="decision-id">D4</span>
+            <p class="decision-q">May the AI companion read journal entries?</p>
+            <span class="chip">Design constraint</span>
+          </div>
+          <p>"Private by default" (§11) and "an AI that helps users journal" (§13) quietly contradict each other. This needs an explicit answer, because it is very hard to walk back after readers have trusted the journal with real material.</p>
+          <p class="rec"><b>Recommendation:</b> no by default, opt-in per entry. The schema already carries both a global setting and a per-entry flag, and the AI service reads only where both are true.</p>
+        </article>
+
+        <article class="decision">
+          <div class="decision-top">
+            <span class="decision-id">D5</span>
+            <p class="decision-q">Flutter, or share code with the web?</p>
+            <span class="chip">Phase 5</span>
+          </div>
+          <p>The brief's own folder diagram implies <code>packages/design-system</code> and <code>packages/models</code> are shared across apps. They cannot be: those are TypeScript, and Flutter is Dart. Mobile will duplicate both.</p>
+          <p class="rec"><b>Recommendation:</b> keep Flutter — a reader with offline audio is exactly what it is good at — but generate Dart types from the database schema so drift is caught by CI rather than by readers. Choose React Native instead only if code sharing matters more than native reading polish.</p>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="technical">
+      <div class="sec-head"><span class="sec-num">02</span><h2>Technical architecture</h2></div>
+      <p class="lede">Next.js and Supabase, as the brief proposes. Two deviations, both in the direction of less structure at the start.</p>
+
+      <h3>Stack</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>Confirmed technology choices</caption>
+          <thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Web</strong></td><td>Next.js 15, React 19, TypeScript, Tailwind</td><td>Server rendering is non-negotiable for §19. Stories must be indexable.</td></tr>
+            <tr><td><strong>Database</strong></td><td>Supabase Postgres + RLS</td><td>Authorisation in the database, not the app. See §09.</td></tr>
+            <tr><td><strong>Auth</strong></td><td>Supabase Auth</td><td>Email/password plus magic link. Social later.</td></tr>
+            <tr><td><strong>Files</strong></td><td>Supabase Storage, three buckets</td><td>Public media, protected audio, private paid files.</td></tr>
+            <tr><td><strong>Payments</strong></td><td>Provider-agnostic adapter</td><td>Pending D1. Nothing in the schema presupposes a vendor.</td></tr>
+            <tr><td><strong>Email</strong></td><td>Resend or Postmark</td><td>Transactional only; the Weekly Letter is a separate send path.</td></tr>
+            <tr><td><strong>Mobile</strong></td><td>Flutter, Riverpod, GoRouter</td><td>Phase 5. Types generated from the schema.</td></tr>
+            <tr><td><strong>AI</strong></td><td>Provider adapter, pgvector in Postgres</td><td>Model choice stays swappable per §13.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Deviation 1 — admin ships inside the web app</h3>
+      <p>The brief specifies <code>apps/admin</code> as a separate application. For launch, admin is a protected route group inside <code>apps/web</code> instead: one deployment, one auth session, one RLS surface, roughly half the configuration. The folder shape in §4 of the brief remains the destination, not the starting commit. Splitting it out later is a mechanical change; maintaining two apps from week one is a permanent tax paid for a benefit that arrives much later.</p>
+
+      <h3>Deviation 2 — the monorepo starts smaller</h3>
+      <p>Workspace packages exist from the start (<code>design-system</code>, <code>models</code>, <code>shared</code>) but ship TypeScript source consumed directly by Next, with no build step of their own. Publishing pipelines get added when a second consumer genuinely needs them.</p>
+
+      <pre><code>soulfables/
+├── apps/
+│   ├── web/            Next.js — public site + /admin route group
+│   └── mobile/         Flutter (Phase 5)
+├── packages/
+│   ├── design-system/  Tokens measured from the live site
+│   ├── models/         Types generated from the schema
+│   └── shared/         Validation, formatting, constants
+├── services/
+│   └── ai/             Companion + embeddings (Phase 6)
+├── database/
+│   ├── migrations/     12 numbered SQL files
+│   └── seed/           The House as it stands today
+├── documentation/
+└── infrastructure/</code></pre>
+
+      <div class="note">
+        <p class="note-label">Already built</p>
+        <p>The schema, RLS policies, storage buckets, and design tokens described in this document exist as working SQL and TypeScript in the repository. They are evidence for the design, not an implementation head start — the build begins after this document is approved.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="schema">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Database schema</h2></div>
+      <p class="lede">Twelve migrations, roughly fifty tables. Three decisions in it are worth defending, because they are what let the MVP stay small without foreclosing §14.</p>
+
+      <h3>Shelves and themes are different things</h3>
+      <p>The live site already proves they must be. A <strong>theme</strong> is flat editorial classification used for filters and SEO. A <strong>shelf</strong> is a place in the House with a title, a tagline, a Librarian's note, a curated entry story, and a position in the journey graph. Modelling them as one table would force a rename to break a URL, or a re-tag of every story to change a shelf's copy.</p>
+
+      <h3>The journey graph is rows, not prose</h3>
+      <p>"Readers usually come here from Grief, Love, Heartbreak — and usually continue to Healing, Hope, Forgiveness" is currently editorial instinct. Storing those edges as rows with a <code>weight</code> and an <code>is_editorial</code> flag costs almost nothing now, and means the same interface can later be driven by observed behaviour without a redesign. The recommendation system in §15 becomes a scheduled job that recomputes weights, not a new feature.</p>
+
+      <pre><code>shelf_journeys
+  shelf_id  →  related_shelf_id
+  direction     arrives_from | continues_to
+  weight        0.0000 – 1.0000
+  is_editorial  true today, false once computed</code></pre>
+
+      <h3>Entitlements are the only source of access</h3>
+      <p>This is the answer to §23, and it is one sentence: <strong>access to a file is never derived from an order, a session, a redirect, or anything the browser said — only from a row in <code>entitlements</code>, written by a verified webhook.</strong></p>
+      <p>Everything around it exists to make that rule survivable. Products have many files (<code>epub</code>, <code>pdf</code>, future formats). Bundles fan out at grant time, so buying the $45 library produces an entitlement per contained product. Refunds revoke. A partial unique index permits re-purchase after revocation. Webhook events are logged with a unique provider event id, so a provider retry storm cannot double-grant.</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>Schema by area</caption>
+          <thead><tr><th>Migration</th><th>Covers</th><th>Notable</th></tr></thead>
+          <tbody>
+            <tr><td class="num">0001</td><td>Extensions, enums, helpers</td><td>Taxonomy is tables, never enums, so admin can extend it</td></tr>
+            <tr><td class="num">0002</td><td>Profiles, roles, settings</td><td>Roles in their own table — a profile update cannot escalate privilege</td></tr>
+            <tr><td class="num">0003</td><td>Authors, shelves, themes, journeys</td><td>Personas flagged separately from people</td></tr>
+            <tr><td class="num">0004</td><td>Stories, sections, audio, relations</td><td>MDX bodies; sections anchor bookmarks and audio cues</td></tr>
+            <tr><td class="num">0005</td><td>Progress, saves, bookmarks, passages</td><td>Text and audio positions tracked separately</td></tr>
+            <tr><td class="num">0006</td><td>Journal, moods, prompts</td><td>Private by default; per-entry AI consent</td></tr>
+            <tr><td class="num">0007</td><td>Products, orders, entitlements</td><td>Bundles, multi-format files, idempotent webhooks</td></tr>
+            <tr><td class="num">0008</td><td>Plans, subscriptions</td><td>Membership grants real entitlement rows — one download path</td></tr>
+            <tr><td class="num">0009</td><td>Weekly Letter, voices, residents</td><td>Letter is a publication with an archive, not an ESP integration</td></tr>
+            <tr><td class="num">0010</td><td>AI, analytics, audit, email log</td><td>Every send recorded, so delivery is answerable from the database</td></tr>
+            <tr><td class="num">0011</td><td>Row Level Security</td><td>Deny by default across every table</td></tr>
+            <tr><td class="num">0012</td><td>Storage buckets</td><td>No public bucket a paid file could be uploaded to by mistake</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="product">
+      <div class="sec-head"><span class="sec-num">04</span><h2>Product architecture</h2></div>
+      <p class="lede">What the House is made of, and which parts are load-bearing at launch.</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>Surfaces and their state</caption>
+          <thead><tr><th>Surface</th><th>Job</th><th>Phase</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Home</strong></td><td>Asks "How is your heart today?" and routes by feeling, not genre</td><td class="num">1</td></tr>
+            <tr><td><strong>Library</strong></td><td>All stories, filterable; every filtered view its own indexable URL</td><td class="num">2</td></tr>
+            <tr><td><strong>Shelf</strong></td><td>The distinctive surface: entry story, Librarian's note, journey graph</td><td class="num">2</td></tr>
+            <tr><td><strong>Reader</strong></td><td>Fixed measure, in-page controls, night and paper modes</td><td class="num">2</td></tr>
+            <tr><td><strong>Bookshop</strong></td><td>Five product kinds including a bundle</td><td class="num">3</td></tr>
+            <tr><td><strong>My Library</strong></td><td>Purchased, saved, reading, finished, bookmarks</td><td class="num">3</td></tr>
+            <tr><td><strong>Journal</strong></td><td>Daily question, mood, story-linked reflections</td><td class="num">4</td></tr>
+            <tr><td><strong>Weekly Letter</strong></td><td>Archive plus double opt-in subscription</td><td class="num">4</td></tr>
+            <tr><td><strong>Wander</strong></td><td>Currently 404. A Librarian-chosen story for the hour you are in</td><td class="num">4</td></tr>
+            <tr><td><strong>Admin</strong></td><td>Stories, products, files, featured slots, orders, entitlements</td><td class="num">1–3</td></tr>
+            <tr><td><strong>Residents</strong></td><td>Currently 404. Concept unsettled; modelled thinly on purpose</td><td class="num">7</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The gap the brief leaves open</h3>
+      <p>Content operations. How a story actually gets written and into the system — MDX, a rich text editor, paste from a document — plus draft, review, and scheduled publish, is one line in §17 and is the surface Soulfables will touch every single day. It matters more than several features listed above it, and is scoped into Phase 1 rather than Phase 2.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="flows">
+      <div class="sec-head"><span class="sec-num">05</span><h2>UX &amp; user flows</h2></div>
+      <p class="lede">The flow that has already failed once, drawn with its trust boundary marked. Everything above the line is a claim; everything below it is evidence.</p>
+
+      <div class="flow">
+        <div class="flow-band"><span class="dot"></span> Untrusted — the browser may lie about any of this</div>
+        <div class="flow-step"><span class="flow-n">1</span><div><b>Reader opens a product page</b><span>Price and formats read from the database, never hard-coded.</span></div></div>
+        <div class="flow-step"><span class="flow-n">2</span><div><b>Checkout begins</b><span>Server creates a pending order and a provider session. The amount is computed server-side from <code>product_prices</code>.</span></div></div>
+        <div class="flow-step"><span class="flow-n">3</span><div><b>Reader pays at the provider</b><span>Card details never touch Soulfables infrastructure.</span></div></div>
+        <div class="flow-step"><span class="flow-n">4</span><div><b>Browser returns to a thank-you page</b><span>This page grants nothing. It shows "we're confirming your order" and polls.</span></div></div>
+
+        <div class="flow-band trusted"><span class="dot"></span> Trusted — server-side, signature-verified</div>
+        <div class="flow-step"><span class="flow-n">5</span><div><b>Provider webhook arrives</b><span>Signature verified. Event logged with a unique id — a duplicate is a no-op, not a double grant.</span></div></div>
+        <div class="flow-step"><span class="flow-n">6</span><div><b>Order marked paid</b><span>Only this step may set <code>paid_at</code>. Nothing else in the system can.</span></div></div>
+        <div class="flow-step"><span class="flow-n">7</span><div><b>Entitlements granted</b><span>One row per product; bundles fan out to their contents.</span></div></div>
+        <div class="flow-step"><span class="flow-n">8</span><div><b>Delivery email sent and logged</b><span>Recorded in <code>email_events</code>, so "did they get it?" is answerable from the database.</span></div></div>
+        <div class="flow-step"><span class="flow-n">9</span><div><b>Files appear in My Library</b><span>Each download mints a short-lived signed URL after re-checking the entitlement, and logs the mint.</span></div></div>
+      </div>
+
+      <div class="note risk">
+        <p class="note-label">The failure this prevents</p>
+        <p>If step 5 never arrives, the customer sees "we're confirming your order" and an alert fires — they do not see a success screen with no book behind it. The failure mode of every bug in this chain is <em>a customer who has to wait</em>, never <em>a stranger who gets the file</em>.</p>
+      </div>
+
+      <h3>Guest checkout</h3>
+      <p>Orders may be placed without an account and are claimed when someone later signs up with the same email, at which point entitlements are granted retroactively. This also handles importing prior Base44 customers: create paid orders against their email addresses, and their library assembles itself when they sign in.</p>
+
+      <h3>Other flows specified in full</h3>
+      <ul>
+        <li><strong>Account</strong> — register, verify, sign in, reset, delete (with full data export).</li>
+        <li><strong>Reading</strong> — open, progress autosaved, resume across devices, complete, prompted to reflect.</li>
+        <li><strong>Journal</strong> — daily question, mood, optional story link, private save, private search.</li>
+        <li><strong>Premium</strong> — listing and blurb public for SEO; body never sent to the browser unless access passes.</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="roadmap">
+      <div class="sec-head"><span class="sec-num">06</span><h2>Development roadmap</h2></div>
+      <p class="lede">The brief's seven phases, resequenced once. Phase 3 moves ahead of Phase 2, because selling reliably is the problem Soulfables actually has today.</p>
+
+      <div class="phases">
+        <div class="phase launch">
+          <div class="phase-top"><span class="phase-n">P1</span><span class="phase-wk">3–4 weeks</span></div>
+          <h4>Foundation</h4>
+          <p>Repo, CI, Supabase, schema, RLS, auth, design system, admin shell, content operations. Ends with Soulfables able to write and publish a story unaided.</p>
+        </div>
+        <div class="phase launch">
+          <div class="phase-top"><span class="phase-n">P2</span><span class="phase-wk">4–5 weeks</span></div>
+          <h4>Bookshop &amp; delivery</h4>
+          <p>Products, checkout, webhook, entitlements, signed downloads, My Library, receipts. Includes importing prior customers. <strong>This is the revenue fix.</strong></p>
+        </div>
+        <div class="phase launch">
+          <div class="phase-top"><span class="phase-n">P3</span><span class="phase-wk">4–5 weeks</span></div>
+          <h4>Library &amp; reader</h4>
+          <p>Content migration from Base44 with 301s, shelves, journey graph, reader, search, saves, bookmarks. <strong>Public launch at the end of this phase.</strong></p>
+        </div>
+        <div class="phase">
+          <div class="phase-top"><span class="phase-n">P4</span><span class="phase-wk">2–3 weeks</span></div>
+          <h4>Journal &amp; Letter</h4>
+          <p>Private journal, prompts, moods, story-linked reflections, Letter archive and double opt-in. Wander ships here.</p>
+        </div>
+        <div class="phase">
+          <div class="phase-top"><span class="phase-n">P5</span><span class="phase-wk">8–12 weeks</span></div>
+          <h4>Mobile</h4>
+          <p>Flutter for iOS and Android: auth, library, reader, journal, offline audio. Longest phase; entirely optional at launch.</p>
+        </div>
+        <div class="phase">
+          <div class="phase-top"><span class="phase-n">P6</span><span class="phase-wk">4–6 weeks</span></div>
+          <h4>Intelligence</h4>
+          <p>Embeddings, content-based recommendations, computed journey weights, then the AI companion with its safety layer.</p>
+        </div>
+        <div class="phase">
+          <div class="phase-top"><span class="phase-n">P7</span><span class="phase-wk">4–6 weeks</span></div>
+          <h4>Residents</h4>
+          <p>Community and membership, once the concept is decided. Deliberately last.</p>
+        </div>
+      </div>
+
+      <div class="note ok">
+        <p class="note-label">Launchable scope</p>
+        <p>Phases 1–3, roughly <strong>11–14 weeks</strong> for one senior full-stack developer. Everything after that is a funded extension, not a prerequisite. Keep the Base44 site live and selling throughout — revenue should not go dark for a rebuild.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="cost">
+      <div class="sec-head"><span class="sec-num">07</span><h2>Cost estimate</h2></div>
+      <p class="lede">Given as effort in weeks against rate bands, rather than a single figure. A quote that does not decompose this way cannot be compared to another quote.</p>
+
+      <h3>Build cost — Phases 1 to 3</h3>
+      <p>Assumes one senior full-stack developer at roughly 40 hours per week, 440–560 hours total.</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>Launchable web platform, by sourcing model</caption>
+          <thead><tr><th>Sourcing</th><th class="num">Rate</th><th class="num">Phases 1–3</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><strong>East Africa, senior</strong></td><td class="num">$15–35/hr</td><td class="num">$7k – $20k</td><td>Local timezone; vet Postgres and payments depth specifically</td></tr>
+            <tr><td><strong>Global remote freelance</strong></td><td class="num">$35–75/hr</td><td class="num">$15k – $42k</td><td>Widest pool; strongest reference-checking burden</td></tr>
+            <tr><td><strong>Agency / studio</strong></td><td class="num">$100–200/hr</td><td class="num">$44k – $112k</td><td>Continuity and cover; usually oversized for this scope</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Later phases, at the same rates: Journal and Letter add 15–20% of the above; Mobile roughly doubles the total; Intelligence and Residents add 30–45% each. Mobile is the single largest discretionary cost in the project.</p>
+
+      <h3>Running cost</h3>
+      <p>These figures are firm rather than estimated, and hold comfortably to the first several thousand readers.</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>Monthly infrastructure</caption>
+          <thead><tr><th>Service</th><th>Tier</th><th class="num">At launch</th><th class="num">At scale</th></tr></thead>
+          <tbody>
+            <tr><td>Supabase</td><td>Pro</td><td class="num">$25</td><td class="num">$25–100</td></tr>
+            <tr><td>Vercel</td><td>Pro</td><td class="num">$20</td><td class="num">$20–60</td></tr>
+            <tr><td>Email</td><td>Resend / Postmark</td><td class="num">$0–20</td><td class="num">$20–50</td></tr>
+            <tr><td>Error monitoring</td><td>Sentry</td><td class="num">$0</td><td class="num">$26</td></tr>
+            <tr><td>CDN &amp; DNS</td><td>Cloudflare</td><td class="num">$0</td><td class="num">$0–20</td></tr>
+            <tr><td>Domain</td><td>Registrar</td><td class="num">~$1</td><td class="num">~$1</td></tr>
+            <tr><td>AI companion</td><td>Usage-based</td><td class="num">$0</td><td class="num">$30–150</td></tr>
+          </tbody>
+          <tfoot><tr><td colspan="2">Total</td><td class="num">$46–66</td><td class="num">$120–400</td></tr></tfoot>
+        </table>
+      </div>
+
+      <p>Payment fees sit on top and depend entirely on D1: a merchant of record takes roughly 5% plus a fixed fee, Stripe around 2.9% plus 30¢, African PSPs around 3–4% on international cards. On a $7.99 ebook that difference is real but small; on the $45 bundle it is worth modelling before choosing.</p>
+
+      <div class="note">
+        <p class="note-label">On the estimate</p>
+        <p>Rate bands are market observations, not quotes, and vary with individual experience and negotiation. Treat the hours as the durable part of this estimate and the money as indicative.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="milestones">
+      <div class="sec-head"><span class="sec-num">08</span><h2>Milestones</h2></div>
+      <p class="lede">Each one is a demonstrable capability, not a percentage. Payment is tied to demonstration.</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>Acceptance criteria by milestone</caption>
+          <thead><tr><th>#</th><th>Milestone</th><th>Accepted when</th></tr></thead>
+          <tbody>
+            <tr><td class="num">M0</td><td><strong>Architecture</strong></td><td>This document approved; D1 and D2 answered; accounts created under Soulfables ownership</td></tr>
+            <tr><td class="num">M1</td><td><strong>Foundation</strong></td><td>Soulfables writes, schedules and publishes a story through admin, with no developer involved</td></tr>
+            <tr><td class="num">M2</td><td><strong>Payment spike</strong></td><td>A real test purchase produces a verified webhook, an entitlement, and a working signed download</td></tr>
+            <tr><td class="num">M3</td><td><strong>Bookshop</strong></td><td>All five products purchasable; the $45 bundle grants every contained product; refund revokes access</td></tr>
+            <tr><td class="num">M4</td><td><strong>Security review</strong></td><td>User A provably cannot reach User B's orders, files, or journal — demonstrated live, not asserted</td></tr>
+            <tr><td class="num">M5</td><td><strong>Library</strong></td><td>All 32 stories migrated, every old URL 301s, reader works on phone and desktop</td></tr>
+            <tr><td class="num">M6</td><td><strong>Launch</strong></td><td>DNS cut over, prior customers imported and emailed, monitoring live, rollback rehearsed</td></tr>
+            <tr><td class="num">M7</td><td><strong>Handover</strong></td><td>Documentation complete; a second developer runs the project locally from the README alone</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <p class="note-label">M2 comes early on purpose</p>
+        <p>The riskiest part of this project is the payment-to-download chain, and it has already failed once. Proving it end-to-end in week five — before the library, before the design polish — is worth more than any other sequencing choice in this roadmap.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="security">
+      <div class="sec-head"><span class="sec-num">09</span><h2>Security plan</h2></div>
+      <p class="lede">Authorisation lives in the database. Application code is a convenience layer over it, never the thing standing between a stranger and a paid file.</p>
+
+      <h3>Row Level Security, deny by default</h3>
+      <p>RLS is enabled on every table. A table with no policy is reachable only by the service role, which exists solely in server-side code and is never shipped to a browser or a phone. Two exceptions are deliberate and worth stating out loud:</p>
+      <ul>
+        <li><strong>Staff cannot read journal entries.</strong> No policy grants it. An administrator can see that a reader has fourteen entries; never what any of them says. Deletion requests are actioned by a logged script, not by browsing a dashboard.</li>
+        <li><strong>No client role can write entitlements.</strong> There is no insert, update, or delete policy for any client on that table. Access is granted only by the service role, only after a signature-verified webhook.</li>
+      </ul>
+
+      <h3>Paid files</h3>
+      <p>Every EPUB and PDF lives in a private bucket with no read policy for anyone — including the customer who owns the book. Downloads are served exclusively as short-lived signed URLs minted server-side after <code>has_entitlement()</code> passes, and every mint is logged with IP and user agent. There is no public bucket into which a paid file could be uploaded by mistake.</p>
+
+      <h3>Payment integrity</h3>
+      <ul>
+        <li>Amounts are computed server-side from the database. A tampered client price is ignored.</li>
+        <li>Webhook signatures are verified before the payload is read.</li>
+        <li>Event ids are unique-indexed, making replays and retry storms no-ops.</li>
+        <li><code>paid_at</code> is writable only by the webhook handler.</li>
+      </ul>
+
+      <h3>Also covered</h3>
+      <p>Rate limiting on auth, checkout, download, and AI endpoints. Zod validation at every boundary. Secrets in the platform secret store, never in a repository or on a developer's machine alone. Audit logging on every admin action, append-only, with no update or delete policy for any role including owner. Dependency scanning in CI. Quarterly access review.</p>
+
+      <h3>Safety, which is a security concern here</h3>
+      <p>A library about heartbreak, grief and healing, paired with an emotional AI companion, will encounter readers in crisis. "Not a therapist" (§13) is necessary and nowhere near sufficient. The plan is: a distress classifier on companion input, routing to region-appropriate crisis resources held in a table the House can correct without a deploy, no diagnostic language, flagged turns retained for review, and the journal consent rule from D4 enforced in the query itself rather than in a prompt.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="deployment">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Deployment plan</h2></div>
+
+      <h3>Environments</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Environment</th><th>Purpose</th><th>Data</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Local</strong></td><td>Development</td><td>Seeded; no real customers</td></tr>
+            <tr><td><strong>Preview</strong></td><td>Per pull request</td><td>Staging database, provider test mode</td></tr>
+            <tr><td><strong>Staging</strong></td><td>Rehearsal and acceptance</td><td>Anonymised copy of production</td></tr>
+            <tr><td><strong>Production</strong></td><td>Live</td><td>Real; access logged</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Pipeline</h3>
+      <p>Every pull request runs typecheck, lint, unit and integration tests, an RLS coverage check that fails the build if a new table has no policy, and a preview deployment. Merges to <code>main</code> deploy to staging automatically; production releases are tagged and manually promoted. Database migrations are forward-only, numbered, reviewed as code, and applied before the deployment that depends on them.</p>
+
+      <h3>Cutover from Base44</h3>
+      <ol>
+        <li>Freeze content edits on Base44.</li>
+        <li>Export stories to MDX; import with slugs preserved exactly.</li>
+        <li>Import prior customers as paid orders with entitlements.</li>
+        <li>Verify all 32 stories and the full checkout chain on staging against the production database.</li>
+        <li>Publish the 301 map; test every legacy URL.</li>
+        <li>Cut DNS during the lowest-traffic window, with the Base44 deployment retained as an immediate rollback.</li>
+        <li>Email prior customers that their library is ready.</li>
+        <li>Watch error rates and webhook success for 48 hours before declaring completion.</li>
+      </ol>
+
+      <h3>Backup and recovery</h3>
+      <p>Daily automated Postgres backups with point-in-time recovery to seven days, plus a weekly off-platform export so recovery does not depend on a single vendor account remaining accessible. Storage buckets versioned. Target recovery point one hour, recovery time four hours. <strong>Restores are rehearsed quarterly</strong> — an untested backup is a belief, not a backup.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="ownership">
+      <div class="sec-head"><span class="sec-num">11</span><h2>Ownership checklist</h2></div>
+      <p class="lede">§26 of the brief is a promise being asked of a developer. It works far better as a set of accounts that already exist.</p>
+
+      <p>Create every one of these under a Soulfables address <strong>before</strong> a developer is engaged, then invite them in with the access they need. Ownership you create is ownership you hold; ownership you request is a clause you have to enforce later, usually at the worst moment.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Account</th><th>Owner</th><th>Developer gets</th></tr></thead>
+          <tbody>
+            <tr><td>GitHub organisation</td><td>Soulfables</td><td>Member with write access</td></tr>
+            <tr><td>Supabase organisation</td><td>Soulfables</td><td>Developer role</td></tr>
+            <tr><td>Vercel team</td><td>Soulfables</td><td>Member</td></tr>
+            <tr><td>Payment account</td><td>Soulfables</td><td>Restricted API keys only</td></tr>
+            <tr><td>Domain registrar</td><td>Soulfables</td><td>No access required</td></tr>
+            <tr><td>Email sending</td><td>Soulfables</td><td>API key</td></tr>
+            <tr><td>Analytics &amp; monitoring</td><td>Soulfables</td><td>Member</td></tr>
+            <tr><td>AI provider</td><td>Soulfables</td><td>Scoped key</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Two additions to the contract itself: an explicit IP assignment clause, and a requirement that no production secret exists solely on a developer's machine.</p>
+
+      <div class="note">
+        <p class="note-label">One line to add to §30</p>
+        <p>"No capability may be added that cannot be operated by Soulfables through the admin dashboard or a documented runbook." That sentence prevents developer lock-in more effectively than the entire ownership list, because it constrains the <em>design</em> rather than the paperwork.</p>
+      </div>
+    </section>
+
+    <footer class="doc-footer">
+      <p>Prepared as the Phase 0 deliverable described in the Soulfables development brief. Sections 02 through 10 answer the nine artefacts requested there. Sections 00, 01 and 11 were added because the audit surfaced questions the brief did not anticipate.</p>
+      <p class="sig">Every soul has a story. This is how it gets delivered.</p>
+    </footer>
+
+  </main>
+</div>
