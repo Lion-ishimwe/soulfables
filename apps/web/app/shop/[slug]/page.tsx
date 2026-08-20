@@ -2,16 +2,20 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getProducts } from '@/lib/content';
+import { isPaymentsConfigured } from '@/lib/payments/provider';
+import { BuyForm } from '@/components/buy-form';
 
 /*
  * A product page.
  *
- * Checkout is deliberately not wired up here. The payment provider is an
- * open decision (D1 in the architecture document) and Stripe is not
- * available to a Rwanda-registered business, so the buy control routes to
- * a holding page rather than to a provider we have not chosen. Everything
- * around it — pricing from the database, the formats a product ships in,
- * the entitlement copy — is real and does not change when D1 is answered.
+ * The price shown here is read from the database, and the buy form posts
+ * only a slug — the amount is computed server-side at checkout, so there
+ * is no field a tampered client could use to name its own price.
+ *
+ * When no payment provider is configured the control routes to a holding
+ * page instead of a dead button. That state should be temporary; if it
+ * appears in production, PAYMENT_API_KEY and PAYMENT_WEBHOOK_SECRET are
+ * missing from the environment.
  */
 
 export const revalidate = 300;
@@ -55,6 +59,10 @@ export default async function ProductPage({
 
   const others = products.filter((p) => p.slug !== slug).slice(0, 3);
 
+  // Until a provider is configured the buy control routes to a holding
+  // page rather than a dead button.
+  const paymentsReady = isPaymentsConfigured();
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Book',
@@ -97,12 +105,16 @@ export default async function ProductPage({
             {product.formats.join(' + ')} · Instant access · Yours to keep
           </p>
 
-          <Link
-            href="/shop/checkout-unavailable"
-            className="mt-8 inline-block w-full border border-gold/50 px-10 py-4 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
-          >
-            {product.ctaLabel}
-          </Link>
+          {paymentsReady ? (
+            <BuyForm slug={product.slug} ctaLabel={product.ctaLabel} />
+          ) : (
+            <Link
+              href="/shop/checkout-unavailable"
+              className="mt-8 inline-block w-full border border-gold/50 px-10 py-4 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
+            >
+              {product.ctaLabel}
+            </Link>
+          )}
 
           <p className="mt-6 text-xs leading-normal text-grey-muted">
             Every purchase appears in your library the moment payment clears,

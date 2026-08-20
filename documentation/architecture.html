@@ -287,6 +287,7 @@
     white-space: nowrap;
   }
   .chip.blocks { color: var(--risk); border-color: color-mix(in srgb, var(--risk) 45%, transparent); }
+  .chip.resolved { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
   .decision p { font-size: 14.5px; margin-bottom: 10px; }
   .decision .rec { font-size: 14.5px; color: var(--body); margin: 0; }
   .decision .rec b { color: var(--ivory); }
@@ -410,9 +411,9 @@
         <li>The footer exposes a <strong>"Studio" column</strong> — Roadmap, Design System, UI Kit — internal tooling leaking into the public site.</li>
       </ul>
 
-      <div class="note">
-        <p class="note-label">The consequence</p>
-        <p>This is not a greenfield build. It is a <strong>migration with live customers, existing content, and indexed URLs</strong> — and the brief is silent on all three. Cutover is scoped in §06 rather than discovered during launch week.</p>
+      <div class="note ok">
+        <p class="note-label">The consequence — since resolved</p>
+        <p>The audit raised this as an unscoped migration with live customers, existing content and indexed URLs. Soulfables has since decided on a <strong>clean start</strong>: the existing site is a design reference, not a data source. Stories are authored again through the admin, and customers who bought previously are granted access by hand, with a note recording why. See D2.</p>
       </div>
 
       <h3>What the brief gets right</h3>
@@ -422,7 +423,7 @@
     <!-- ============================================================ -->
     <section id="decisions">
       <div class="sec-head"><span class="sec-num">01</span><h2>Decisions required</h2></div>
-      <p class="lede">Five questions only Soulfables can answer. Two of them block the build; the rest can be deferred but get more expensive the later they are made.</p>
+      <p class="lede">Five questions only Soulfables can answer. The two that blocked the build have been answered and are recorded below; the remaining three can be deferred but get more expensive the later they are made.</p>
 
       <div class="decisions">
 
@@ -430,25 +431,22 @@
           <div class="decision-top">
             <span class="decision-id">D1</span>
             <p class="decision-q">How does Soulfables take money?</p>
-            <span class="chip blocks">Blocks Phase 3</span>
+            <span class="chip resolved">Resolved · Stripe</span>
           </div>
-          <p>Stripe does not support businesses registered in Rwanda. The brief names Stripe with "subject to availability" attached, but this is the largest practical constraint in the project and it is a legal and tax decision before it is a technical one. Three viable paths:</p>
-          <ul>
-            <li><strong>Merchant of record</strong> (Paddle, Lemon Squeezy) — they become the legal seller, absorbing both the entity problem and EU VAT on digital goods, which the brief never mentions. Higher fees, far less administration.</li>
-            <li><strong>African payment infrastructure</strong> (Flutterwave, Paystack) — supports RWF and MTN Mobile Money, which matters if a meaningful share of readers are East African.</li>
-            <li><strong>Stripe through a foreign entity</strong> (US LLC, UK Ltd) — unlocks Stripe, but adds company formation, accounting, and cross-border tax obligations.</li>
-          </ul>
-          <p class="rec"><b>Recommendation:</b> a merchant of record for global card payments, with an African PSP added in Phase 3.5 if local sales justify it. The audience for a Rwandan author writing in English is likely split between diaspora and local readers, and those two groups pay by different rails.</p>
+          <p><strong>The business is not registered in Rwanda</strong>, which was the constraint that ruled Stripe out. Stripe is the provider, and the build targets it.</p>
+          <p>One residual check: Stripe onboards businesses in roughly 46 countries, so "not Rwanda" narrows the question without closing it. Confirm the country of registration against Stripe's supported list before the first live charge.</p>
+          <p class="rec"><b>How this is insulated:</b> everything in the commerce path — order creation, entitlement granting, downloads, My Library — is written against a provider interface and imports no Stripe code. If the entity turns out to sit somewhere Stripe does not serve, <code>lib/payments/stripe.ts</code> is replaced by one new file satisfying the same contract. The alternatives, unchanged: a merchant of record (Paddle, Lemon Squeezy), which also absorbs EU VAT on digital goods; or an African PSP (Flutterwave, Paystack) if local card and mobile-money volume justifies it.</p>
         </article>
 
         <article class="decision">
           <div class="decision-top">
             <span class="decision-id">D2</span>
             <p class="decision-q">What carries over from Base44?</p>
-            <span class="chip blocks">Blocks Phase 2</span>
+            <span class="chip resolved">Resolved · Clean start</span>
           </div>
-          <p>Existing buyers, existing orders, 32 story bodies, and the current URL structure. If any Soulfables page ranks in search today, changing URLs without 301 redirects loses that ranking permanently.</p>
-          <p class="rec"><b>Recommendation:</b> preserve every existing URL shape (<code>/shelf/:slug</code>, <code>/stories</code>, <code>/shop</code>), export story bodies to MDX, and import prior customers with entitlement rows so their books appear in the new library on day one. If the honest answer is "nothing worth carrying over," that is a fine answer — but it should be written down rather than assumed.</p>
+          <p><strong>Nothing is migrated.</strong> The new platform is built fresh, taking the existing site as a design and structural reference rather than as a data source. Stories are authored again through the admin; books are uploaded there.</p>
+          <p>That disposes of three of the four unscoped items — story bodies, orders, and the URL map. No import script, no 301 map, no cutover freeze.</p>
+          <p class="rec"><b>The fourth item, existing buyers, is handled deliberately:</b> the admin grants access by hand. A customer who bought on the old site creates an account, and staff grant them the product from <code>/admin/entitlements</code>. Those grants are recorded as <code>source = 'manual'</code> with <code>granted_by</code> and a required note, so the reason survives in the audit trail. This is slower than an import and better suited to the volume — and it means no guessed-at record ever becomes an entitlement.</p>
         </article>
 
         <article class="decision">
@@ -663,7 +661,7 @@
         <div class="phase launch">
           <div class="phase-top"><span class="phase-n">P3</span><span class="phase-wk">4–5 weeks</span></div>
           <h4>Library &amp; reader</h4>
-          <p>Content migration from Base44 with 301s, shelves, journey graph, reader, search, saves, bookmarks. <strong>Public launch at the end of this phase.</strong></p>
+          <p>Shelves, journey graph, reader, search, saves, bookmarks — plus re-authoring the stories through the admin. <strong>Public launch at the end of this phase.</strong></p>
         </div>
         <div class="phase">
           <div class="phase-top"><span class="phase-n">P4</span><span class="phase-wk">2–3 weeks</span></div>
@@ -758,8 +756,8 @@
             <tr><td class="num">M2</td><td><strong>Payment spike</strong></td><td>A real test purchase produces a verified webhook, an entitlement, and a working signed download</td></tr>
             <tr><td class="num">M3</td><td><strong>Bookshop</strong></td><td>All five products purchasable; the $45 bundle grants every contained product; refund revokes access</td></tr>
             <tr><td class="num">M4</td><td><strong>Security review</strong></td><td>User A provably cannot reach User B's orders, files, or journal — demonstrated live, not asserted</td></tr>
-            <tr><td class="num">M5</td><td><strong>Library</strong></td><td>All 32 stories migrated, every old URL 301s, reader works on phone and desktop</td></tr>
-            <tr><td class="num">M6</td><td><strong>Launch</strong></td><td>DNS cut over, prior customers imported and emailed, monitoring live, rollback rehearsed</td></tr>
+            <tr><td class="num">M5</td><td><strong>Library</strong></td><td>Stories authored and published through the admin; reader works on phone and desktop</td></tr>
+            <tr><td class="num">M6</td><td><strong>Launch</strong></td><td>DNS cut over, prior customers granted access and emailed, monitoring live, rollback rehearsed</td></tr>
             <tr><td class="num">M7</td><td><strong>Handover</strong></td><td>Documentation complete; a second developer runs the project locally from the README alone</td></tr>
           </tbody>
         </table>
@@ -821,17 +819,17 @@
       <h3>Pipeline</h3>
       <p>Every pull request runs typecheck, lint, unit and integration tests, an RLS coverage check that fails the build if a new table has no policy, and a preview deployment. Merges to <code>main</code> deploy to staging automatically; production releases are tagged and manually promoted. Database migrations are forward-only, numbered, reviewed as code, and applied before the deployment that depends on them.</p>
 
-      <h3>Cutover from Base44</h3>
+      <h3>Cutover</h3>
+      <p>A clean start (D2) removes the import and redirect work. What remains:</p>
       <ol>
-        <li>Freeze content edits on Base44.</li>
-        <li>Export stories to MDX; import with slugs preserved exactly.</li>
-        <li>Import prior customers as paid orders with entitlements.</li>
-        <li>Verify all 32 stories and the full checkout chain on staging against the production database.</li>
-        <li>Publish the 301 map; test every legacy URL.</li>
-        <li>Cut DNS during the lowest-traffic window, with the Base44 deployment retained as an immediate rollback.</li>
-        <li>Email prior customers that their library is ready.</li>
+        <li>Author and publish the stories through the admin.</li>
+        <li>Create the products and upload every file each one delivers.</li>
+        <li>Run a real test purchase end to end against the production database in provider test mode.</li>
+        <li>Cut DNS during the lowest-traffic window, with the existing deployment retained as an immediate rollback.</li>
+        <li>Grant prior customers their books from <code>/admin/entitlements</code>, with the notify option on.</li>
         <li>Watch error rates and webhook success for 48 hours before declaring completion.</li>
       </ol>
+      <p>Keep the existing site live and selling until the moment DNS moves. Revenue should not go dark for a rebuild.</p>
 
       <h3>Backup and recovery</h3>
       <p>Daily automated Postgres backups with point-in-time recovery to seven days, plus a weekly off-platform export so recovery does not depend on a single vendor account remaining accessible. Storage buckets versioned. Target recovery point one hour, recovery time four hours. <strong>Restores are rehearsed quarterly</strong> — an untested backup is a belief, not a backup.</p>

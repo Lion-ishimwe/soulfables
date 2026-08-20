@@ -1,4 +1,5 @@
 import 'server-only';
+import { formatMoney } from './format';
 
 /**
  * Content access layer.
@@ -189,11 +190,4 @@ export async function getJourney(shelfSlug: string) {
   };
 }
 
-/** Money is stored in minor units everywhere; this is the only formatter. */
-export function formatMoney(minorUnits: number, currency: string): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: minorUnits % 100 === 0 ? 0 : 2,
-  }).format(minorUnits / 100);
-}
+export { formatMoney } from './format';
