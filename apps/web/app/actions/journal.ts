@@ -2,8 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { checkbox, field } from '@/lib/form';
 import { createClient } from '@/lib/supabase/server';
 import { requireViewer } from '@/lib/auth';
+import { isDemoMode } from '@/lib/demo/mode';
+import { demoAddEntry, demoDeleteEntry } from '@/lib/demo/queries';
 
 /**
  * Journal actions.
@@ -22,6 +25,20 @@ import { requireViewer } from '@/lib/auth';
 
 export type JournalResult = { error?: string; message?: string; id?: string };
 
+/**
+ * An opaque reference to a mood, story or prompt.
+ *
+ * Deliberately not `z.string().uuid()`. The id's *shape* is a storage
+ * detail — UUIDs in Postgres, readable slugs in demo mode — and baking
+ * one shape into validation made the composer reject every entry that
+ * had a mood attached. Whether the id resolves to anything is decided
+ * where it is used, which is the only place that can actually know.
+ */
+const ref = z.string().trim().max(64).optional().or(z.literal(''));
+
+const isUuid = (v: string | undefined) =>
+  Boolean(v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v));
+
 const entrySchema = z.object({
   body: z
     .string()
@@ -29,10 +46,10 @@ const entrySchema = z.object({
     .min(1, 'Write something first — even one line.')
     .max(20000, 'That entry is longer than the journal can hold.'),
   title: z.string().trim().max(200).optional().or(z.literal('')),
-  moodId: z.string().uuid().optional().or(z.literal('')),
-  storyId: z.string().uuid().optional().or(z.literal('')),
-  promptId: z.string().uuid().optional().or(z.literal('')),
-  aiOptIn: z.string().optional(),
+  moodId: ref,
+  storyId: ref,
+  promptId: ref,
+  aiOptIn: z.boolean().default(false),
 });
 
 export async function saveEntry(
@@ -42,30 +59,47 @@ export async function saveEntry(
   const viewer = await requireViewer('/journal');
 
   const parsed = entrySchema.safeParse({
-    body: formData.get('body'),
-    title: formData.get('title'),
-    moodId: formData.get('moodId'),
-    storyId: formData.get('storyId'),
-    promptId: formData.get('promptId'),
-    aiOptIn: formData.get('aiOptIn'),
+    body: field(formData, 'body'),
+    title: field(formData, 'title'),
+    moodId: field(formData, 'moodId'),
+    storyId: field(formData, 'storyId'),
+    promptId: field(formData, 'promptId'),
+    aiOptIn: checkbox(formData, 'aiOptIn'),
   });
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const d = parsed.data;
-  const id = (formData.get('id') as string) || null;
+  const id = field(formData, 'id') || null;
+
+  // Demo mode writes to the in-process store. Same validation, same
+  // return shape — the composer cannot tell the difference.
+  if (isDemoMode()) {
+    const newId = await demoAddEntry({
+      title: d.title || null,
+      body: d.body,
+      moodId: d.moodId || null,
+      storySlug: d.storyId ? d.storyId.replace(/^demo-/, '') : null,
+      aiOptIn: d.aiOptIn,
+    });
+    revalidatePath('/journal');
+    return { message: 'Kept.', id: newId };
+  }
+
   const supabase = await createClient();
 
   const row = {
     user_id: viewer.id,
     title: d.title || null,
     body: d.body,
-    mood_id: d.moodId || null,
-    story_id: d.storyId || null,
-    prompt_id: d.promptId || null,
+    // Columns are uuid; anything else is a demo id that has no meaning
+    // here, so it is dropped rather than sent to Postgres to be rejected.
+    mood_id: isUuid(d.moodId) ? d.moodId : null,
+    story_id: isUuid(d.storyId) ? d.storyId : null,
+    prompt_id: isUuid(d.promptId) ? d.promptId : null,
     // Explicit opt-in only. Absent checkbox means false, never "keep
     // whatever it was" — a reader unticking it must actually revoke.
-    ai_opt_in: d.aiOptIn === 'on',
+    ai_opt_in: d.aiOptIn,
   };
 
   if (id) {
@@ -96,8 +130,14 @@ export async function saveEntry(
 
 export async function deleteEntry(formData: FormData): Promise<void> {
   const viewer = await requireViewer('/journal');
-  const id = formData.get('id') as string;
+  const id = field(formData, 'id') ?? '';
   if (!id) return;
+
+  if (isDemoMode()) {
+    await demoDeleteEntry(id);
+    revalidatePath('/journal');
+    return;
+  }
 
   const supabase = await createClient();
   await supabase

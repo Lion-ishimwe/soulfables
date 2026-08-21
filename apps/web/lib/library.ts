@@ -1,5 +1,8 @@
 import 'server-only';
 import { createClient } from './supabase/server';
+import { isDemoMode } from './demo/mode';
+import { demoOwnedProducts, demoReading, demoSavedSlugs } from './demo/queries';
+import { getStories, getProducts } from './content';
 
 /**
  * A reader's own shelf.
@@ -32,7 +35,12 @@ export type ReadingRow = {
 };
 
 export async function getOwnedProducts(): Promise<OwnedProduct[]> {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
+  if (isDemoMode()) {
+    const products = await getProducts();
+    return demoOwnedProducts(
+      (slug) => products.find((p) => p.slug === slug) ?? null,
+    );
+  }
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -84,8 +92,14 @@ export async function getReading(): Promise<{
   inProgress: ReadingRow[];
   finished: ReadingRow[];
 }> {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return { inProgress: [], finished: [] };
+  if (isDemoMode()) {
+    const stories = await getStories();
+    return demoReading((slug) => {
+      const s = stories.find((x) => x.slug === slug);
+      return s
+        ? { title: s.title, subtitle: s.subtitle, readingMinutes: s.readingMinutes }
+        : null;
+    });
   }
   const supabase = await createClient();
 
@@ -118,7 +132,19 @@ export async function getReading(): Promise<{
 }
 
 export async function getSavedStories() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
+  if (isDemoMode()) {
+    const slugs = await demoSavedSlugs();
+    const stories = await getStories();
+    return slugs
+      .map((slug) => stories.find((s) => s.slug === slug))
+      .filter(Boolean)
+      .map((s) => ({
+        slug: s!.slug,
+        title: s!.title,
+        subtitle: s!.subtitle,
+        readingMinutes: s!.readingMinutes,
+      }));
+  }
   const supabase = await createClient();
 
   const { data } = await supabase

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { listStories, isConfigured } from '@/lib/admin-data';
-import { PageHeader, StatusPill, EmptyState, NotConnected } from '@/components/admin/ui';
+import { listStories, isReadOnly } from '@/lib/admin-data';
+import { PageHeader, StatusPill, EmptyState, ReadOnlyNotice } from '@/components/admin/ui';
 
 export const metadata: Metadata = { title: 'Stories' };
 export const dynamic = 'force-dynamic';
@@ -40,9 +40,9 @@ export default async function StoriesPage({
         </p>
       )}
 
-      {!isConfigured() ? (
-        <NotConnected />
-      ) : stories.length === 0 ? (
+      {isReadOnly() && <ReadOnlyNotice />}
+
+      {stories.length === 0 ? (
         <EmptyState
           title="No stories yet."
           body="The library begins with one. Write it, keep it as a draft for as long as you like, and publish when it is ready."

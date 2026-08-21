@@ -109,6 +109,26 @@ export function NotConnected() {
   );
 }
 
+/**
+ * Demo mode: the admin is fully browsable but nothing saves. Saying so
+ * up front is the whole point — an editor that silently discards an edit
+ * is worse than one that refuses.
+ */
+export function ReadOnlyNotice() {
+  return (
+    <div className="mb-8 border-l-2 border-gold bg-gold-dim px-6 py-4">
+      <p className="font-ui text-sm font-semibold text-ivory">
+        Browsable, but nothing saves
+      </p>
+      <p className="mt-1.5 max-w-2xl text-sm leading-normal text-grey">
+        This is the real admin against sample content. Every screen and
+        control is what ships; writing needs the database, which is the
+        next milestone.
+      </p>
+    </div>
+  );
+}
+
 export function Stat({
   label,
   value,

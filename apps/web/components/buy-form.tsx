@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { startCheckout, type CheckoutResult } from '@/app/actions/checkout';
-import { createClient } from '@/lib/supabase/client';
+
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -38,12 +38,14 @@ export function BuyForm({ slug, ctaLabel }: { slug: string; ctaLabel: string }) 
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setSignedIn(false);
-      return;
-    }
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setSignedIn(Boolean(data.user)));
+    let active = true;
+    fetch('/api/me', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((me: { signedIn: boolean }) => active && setSignedIn(me.signedIn))
+      .catch(() => active && setSignedIn(false));
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

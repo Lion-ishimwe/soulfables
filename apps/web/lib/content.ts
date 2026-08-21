@@ -1,5 +1,7 @@
 import 'server-only';
 import { formatMoney } from './format';
+import { isDemoMode } from './demo/mode';
+import { DEMO_BODIES } from './demo/stories';
 
 /**
  * Content access layer.
@@ -40,6 +42,8 @@ export type StoryCard = {
 };
 
 export type Product = {
+  /** Present only with a database behind it; see StoryCard.id. */
+  id?: string;
   slug: string;
   title: string;
   subtitle: string;
@@ -52,9 +56,8 @@ export type Product = {
   featured: boolean;
 };
 
-const isConfigured = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+/** Demo mode swaps the whole data source; see lib/demo/mode.ts. */
+const isConfigured = !isDemoMode();
 
 // ---------------------------------------------------------------------
 // Fallback content — mirrors database/seed/0001_house.sql exactly.
@@ -73,26 +76,26 @@ const SHELVES: Shelf[] = [
 ];
 
 const STORIES: StoryCard[] = [
-  { slug: 'the-house-after-you-left', title: 'The House After You Left', subtitle: 'A modern folktale about the rooms grief keeps lit', author: 'The Librarian', readingMinutes: 11, shelf: 'heartbreak', access: 'free' },
-  { slug: 'the-map-without-my-home', title: 'The Map Without My Home', subtitle: 'A map that still points to the place you left', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'change', access: 'free' },
-  { slug: 'the-name-i-left-behind', title: 'The Name I Left Behind', subtitle: 'Leaving a name behind to find who you are', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'change', access: 'free' },
-  { slug: 'the-voice-in-the-river', title: 'The Voice in the River', subtitle: 'Finding a new language for life by sitting still long enough to hear what was already there.', author: 'Apophia Kamwine', readingMinutes: 8, shelf: 'healing', access: 'free' },
-  { slug: 'the-seed-i-was-afraid-to-plant', title: 'The Seed I Was Afraid to Plant', subtitle: 'Growing glass fruit because you were afraid of bruising.', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'healing', access: 'free' },
-  { slug: 'the-light-that-outlasted', title: 'The Light That Outlasted', subtitle: 'Love that outlasts loss — the kind that stays after the one who carried it is gone.', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'grief', access: 'free' },
-  { slug: 'the-house-that-burned-without-fire', title: 'The House That Burned Without Fire', subtitle: 'Grief is not the fire — it is the smoke that lingers after.', author: 'Seren Adair', readingMinutes: 10, shelf: 'grief', access: 'free' },
-  { slug: 'the-garden-remembered-me', title: 'The Garden Remembered Me', subtitle: 'The garden held what was planted long after the gardener had gone', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'healing', access: 'free' },
-  { slug: 'the-last-voice-note', title: 'The Last Voice Note', subtitle: 'Some people leave. Their voices don’t.', author: 'Apophia Kamwine', readingMinutes: 6, shelf: 'grief', access: 'free' },
-  { slug: 'the-stranger-in-my-mirror', title: 'The Stranger in My Mirror', subtitle: 'You wake up and realise you have spent years becoming someone everyone else recognises.', author: 'Apophia Kamwine', readingMinutes: 6, shelf: 'change', access: 'free' },
-  { slug: 'letters-to-the-tide', title: 'Letters to the Tide', subtitle: 'Words cast to the waves, waiting for a tide that understands.', author: 'Caelum Orr', readingMinutes: 12, shelf: 'heartbreak', access: 'premium' },
-  { slug: 'the-sister-who-left-and-returned', title: 'The Sister Who Left and Returned', subtitle: 'Family is not the tie that binds — it is the river that keeps flowing.', author: 'Caelum Orr', readingMinutes: 11, shelf: 'healing', access: 'free' },
+  { id: 'demo-the-house-after-you-left', slug: 'the-house-after-you-left', title: 'The House After You Left', subtitle: 'A modern folktale about the rooms grief keeps lit', author: 'The Librarian', readingMinutes: 11, shelf: 'heartbreak', access: 'free' },
+  { id: 'demo-the-map-without-my-home', slug: 'the-map-without-my-home', title: 'The Map Without My Home', subtitle: 'A map that still points to the place you left', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'change', access: 'free' },
+  { id: 'demo-the-name-i-left-behind', slug: 'the-name-i-left-behind', title: 'The Name I Left Behind', subtitle: 'Leaving a name behind to find who you are', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'change', access: 'free' },
+  { id: 'demo-the-voice-in-the-river', slug: 'the-voice-in-the-river', title: 'The Voice in the River', subtitle: 'Finding a new language for life by sitting still long enough to hear what was already there.', author: 'Apophia Kamwine', readingMinutes: 8, shelf: 'healing', access: 'free' },
+  { id: 'demo-the-seed-i-was-afraid-to-plant', slug: 'the-seed-i-was-afraid-to-plant', title: 'The Seed I Was Afraid to Plant', subtitle: 'Growing glass fruit because you were afraid of bruising.', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'healing', access: 'free' },
+  { id: 'demo-the-light-that-outlasted', slug: 'the-light-that-outlasted', title: 'The Light That Outlasted', subtitle: 'Love that outlasts loss — the kind that stays after the one who carried it is gone.', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'grief', access: 'free' },
+  { id: 'demo-the-house-that-burned-without-fire', slug: 'the-house-that-burned-without-fire', title: 'The House That Burned Without Fire', subtitle: 'Grief is not the fire — it is the smoke that lingers after.', author: 'Seren Adair', readingMinutes: 10, shelf: 'grief', access: 'free' },
+  { id: 'demo-the-garden-remembered-me', slug: 'the-garden-remembered-me', title: 'The Garden Remembered Me', subtitle: 'The garden held what was planted long after the gardener had gone', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'healing', access: 'free' },
+  { id: 'demo-the-last-voice-note', slug: 'the-last-voice-note', title: 'The Last Voice Note', subtitle: 'Some people leave. Their voices don’t.', author: 'Apophia Kamwine', readingMinutes: 6, shelf: 'grief', access: 'free' },
+  { id: 'demo-the-stranger-in-my-mirror', slug: 'the-stranger-in-my-mirror', title: 'The Stranger in My Mirror', subtitle: 'You wake up and realise you have spent years becoming someone everyone else recognises.', author: 'Apophia Kamwine', readingMinutes: 6, shelf: 'change', access: 'free' },
+  { id: 'demo-letters-to-the-tide', slug: 'letters-to-the-tide', title: 'Letters to the Tide', subtitle: 'Words cast to the waves, waiting for a tide that understands.', author: 'Caelum Orr', readingMinutes: 12, shelf: 'heartbreak', access: 'premium' },
+  { id: 'demo-the-sister-who-left-and-returned', slug: 'the-sister-who-left-and-returned', title: 'The Sister Who Left and Returned', subtitle: 'Family is not the tie that binds — it is the river that keeps flowing.', author: 'Caelum Orr', readingMinutes: 11, shelf: 'healing', access: 'free' },
 ];
 
 const PRODUCTS: Product[] = [
-  { slug: 'the-version-of-me-you-broke', title: 'The Version Of Me You Broke', subtitle: 'A Soulfables Original by Apophia Kamwine', kind: 'ebook', eyebrow: 'Soulfables Original · New Release', pullQuote: 'You didn’t lose yourself forever. You were waiting to come home.', ctaLabel: 'Come home to yourself', priceLabel: '$7.99', formats: ['EPUB', 'PDF'], featured: true },
-  { slug: 'the-soulfables-library', title: 'The Soulfables Library', subtitle: 'Your Complete Sanctuary', kind: 'bundle', eyebrow: 'The Librarian’s Collection', pullQuote: 'Every story, every journal, every reflection — kept together in one library.', ctaLabel: 'Explore the complete library', priceLabel: '$45', formats: ['EPUB', 'PDF'], featured: false },
-  { slug: 'heartbreak-anthology', title: 'Heartbreak Anthology', subtitle: 'Stories for the Aftermath', kind: 'anthology', eyebrow: 'Your Signature Collection', pullQuote: 'The collection that introduced thousands of readers to Soulfables.', ctaLabel: 'Begin with heartbreak', priceLabel: '$16', formats: ['EPUB', 'PDF'], featured: false },
-  { slug: 'the-soul-journal', title: 'The Soul Journal', subtitle: 'A Companion for Quiet Reflection', kind: 'journal', eyebrow: 'The Everyday Companion', pullQuote: 'A quiet place to write after every story.', ctaLabel: 'Start writing', priceLabel: '$18', formats: ['PDF'], featured: false },
-  { slug: 'the-reflection-deck', title: 'The Reflection Deck', subtitle: 'Questions for the Quiet Moments', kind: 'deck', eyebrow: 'The Giftable Experience', pullQuote: '52 questions for the moments that ask something of you.', ctaLabel: 'Draw your first card', priceLabel: '$15', formats: ['PDF'], featured: false },
+  { id: 'demo-the-version-of-me-you-broke', slug: 'the-version-of-me-you-broke', title: 'The Version Of Me You Broke', subtitle: 'A Soulfables Original by Apophia Kamwine', kind: 'ebook', eyebrow: 'Soulfables Original · New Release', pullQuote: 'You didn’t lose yourself forever. You were waiting to come home.', ctaLabel: 'Come home to yourself', priceLabel: '$7.99', formats: ['EPUB', 'PDF'], featured: true },
+  { id: 'demo-the-soulfables-library', slug: 'the-soulfables-library', title: 'The Soulfables Library', subtitle: 'Your Complete Sanctuary', kind: 'bundle', eyebrow: 'The Librarian’s Collection', pullQuote: 'Every story, every journal, every reflection — kept together in one library.', ctaLabel: 'Explore the complete library', priceLabel: '$45', formats: ['EPUB', 'PDF'], featured: false },
+  { id: 'demo-heartbreak-anthology', slug: 'heartbreak-anthology', title: 'Heartbreak Anthology', subtitle: 'Stories for the Aftermath', kind: 'anthology', eyebrow: 'Your Signature Collection', pullQuote: 'The collection that introduced thousands of readers to Soulfables.', ctaLabel: 'Begin with heartbreak', priceLabel: '$16', formats: ['EPUB', 'PDF'], featured: false },
+  { id: 'demo-the-soul-journal', slug: 'the-soul-journal', title: 'The Soul Journal', subtitle: 'A Companion for Quiet Reflection', kind: 'journal', eyebrow: 'The Everyday Companion', pullQuote: 'A quiet place to write after every story.', ctaLabel: 'Start writing', priceLabel: '$18', formats: ['PDF'], featured: false },
+  { id: 'demo-the-reflection-deck', slug: 'the-reflection-deck', title: 'The Reflection Deck', subtitle: 'Questions for the Quiet Moments', kind: 'deck', eyebrow: 'The Giftable Experience', pullQuote: '52 questions for the moments that ask something of you.', ctaLabel: 'Draw your first card', priceLabel: '$15', formats: ['PDF'], featured: false },
 ];
 
 /** The journey graph, as seeded. Direction is from the shelf's point of view. */
@@ -288,21 +291,14 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     const card = STORIES.find((s) => s.slug === slug);
     if (!card) return null;
 
+    // The premium rule applies in demo mode too, so the paywall can be
+    // demonstrated rather than described.
     const locked = card.access === 'premium';
+
     return {
       ...card,
       locked,
-      body: locked
-        ? null
-        : `The house did not know you were gone for three days. That is how long it takes a house to notice — the way a body doesn't feel a missing limb at first, only the strange lightness where the weight used to be.
-
-:: The House Waits
-
-On the fourth morning the kettle boiled for one and the sound of it went on too long, and that was when the rooms understood.
-
-> Grief is not the fire. It is the smoke that lingers after.
-
-*This is placeholder prose, shown because no database is connected. Real story bodies are authored in the admin and stored as MDX.*`,
+      body: locked ? null : (DEMO_BODIES[slug] ?? null),
     };
   }
 

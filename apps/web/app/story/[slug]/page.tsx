@@ -131,7 +131,7 @@ export default async function StoryPage({
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             {story.id && (
-              <StoryActions storyId={story.id} initiallySaved={false} />
+              <StoryActions storyId={story.id} storySlug={story.slug} />
             )}
             <Link
               href="/journal"

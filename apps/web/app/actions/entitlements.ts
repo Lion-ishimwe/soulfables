@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { checkbox, field } from '@/lib/form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth';
 import { sendDeliveryEmail } from '@/lib/email';
@@ -29,7 +30,7 @@ const grantSchema = z.object({
   email: z.string().trim().toLowerCase().email('That does not look like an email address.'),
   productId: z.string().uuid('Choose a product.'),
   note: z.string().trim().max(500).optional().or(z.literal('')),
-  notify: z.string().optional(),
+  notify: z.boolean().default(false),
 });
 
 export async function grantEntitlement(
@@ -39,16 +40,16 @@ export async function grantEntitlement(
   const viewer = await requireStaff();
 
   const parsed = grantSchema.safeParse({
-    email: formData.get('email'),
-    productId: formData.get('productId'),
-    note: formData.get('note'),
-    notify: formData.get('notify'),
+    email: field(formData, 'email'),
+    productId: field(formData, 'productId'),
+    note: field(formData, 'note'),
+    notify: checkbox(formData, 'notify'),
   });
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { email, productId, note } = parsed.data;
-  const notify = parsed.data.notify === 'on';
+  const notify = parsed.data.notify;
   const db = createAdminClient();
 
   const { data: product } = await db
@@ -135,8 +136,8 @@ export async function grantEntitlement(
 
 export async function revokeEntitlement(formData: FormData): Promise<void> {
   const viewer = await requireStaff();
-  const id = formData.get('entitlementId') as string;
-  const reason = (formData.get('reason') as string) || 'revoked_by_staff';
+  const id = field(formData, 'entitlementId') ?? '';
+  const reason = field(formData, 'reason') || 'revoked_by_staff';
   if (!id) return;
 
   const db = createAdminClient();

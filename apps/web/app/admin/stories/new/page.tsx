@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { listAuthorOptions, listShelfOptions, isConfigured } from '@/lib/admin-data';
-import { PageHeader, NotConnected } from '@/components/admin/ui';
+import { listAuthorOptions, listShelfOptions, isReadOnly } from '@/lib/admin-data';
+import { PageHeader, ReadOnlyNotice } from '@/components/admin/ui';
 import { StoryForm } from '@/components/admin/story-form';
 
 export const metadata: Metadata = { title: 'New story' };
@@ -18,11 +18,8 @@ export default async function NewStoryPage() {
         title="New story"
         subtitle="Saves as a draft unless you set it to published."
       />
-      {!isConfigured() ? (
-        <NotConnected />
-      ) : (
-        <StoryForm draft={{ access: 'free', status: 'draft' }} authors={authors} shelves={shelves} />
-      )}
+      {isReadOnly() && <ReadOnlyNotice />}
+      <StoryForm draft={{ access: 'free', status: 'draft' }} authors={authors} shelves={shelves} />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { checkbox, field } from '@/lib/form';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth';
@@ -123,20 +124,20 @@ export async function saveStory(
 ): Promise<StoryActionResult> {
   const viewer = await requireStaff();
 
-  const id = (formData.get('id') as string) || null;
+  const id = field(formData, 'id') || null;
 
   const parsed = storySchema.safeParse({
-    title: formData.get('title'),
-    slug: formData.get('slug'),
-    subtitle: formData.get('subtitle'),
-    excerpt: formData.get('excerpt'),
-    bodyMdx: formData.get('bodyMdx'),
-    authorId: formData.get('authorId'),
-    shelfId: formData.get('shelfId'),
-    access: formData.get('access'),
-    status: formData.get('status'),
-    seoTitle: formData.get('seoTitle'),
-    seoDescription: formData.get('seoDescription'),
+    title: field(formData, 'title'),
+    slug: field(formData, 'slug'),
+    subtitle: field(formData, 'subtitle'),
+    excerpt: field(formData, 'excerpt'),
+    bodyMdx: field(formData, 'bodyMdx'),
+    authorId: field(formData, 'authorId'),
+    shelfId: field(formData, 'shelfId'),
+    access: field(formData, 'access'),
+    status: field(formData, 'status'),
+    seoTitle: field(formData, 'seoTitle'),
+    seoDescription: field(formData, 'seoDescription'),
   });
 
   if (!parsed.success) {
@@ -253,7 +254,7 @@ export async function saveStory(
 
 export async function deleteStory(formData: FormData): Promise<void> {
   const viewer = await requireStaff();
-  const id = formData.get('id') as string;
+  const id = field(formData, 'id') ?? '';
   if (!id) return;
 
   const supabase = await createClient();

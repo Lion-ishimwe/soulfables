@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getStory, listAuthorOptions, listShelfOptions, isConfigured } from '@/lib/admin-data';
-import { PageHeader, NotConnected } from '@/components/admin/ui';
+import { getStory, listAuthorOptions, listShelfOptions, isReadOnly } from '@/lib/admin-data';
+import { PageHeader, ReadOnlyNotice } from '@/components/admin/ui';
 import { StoryForm } from '@/components/admin/story-form';
 import { deleteStory } from '@/app/actions/stories';
 
@@ -15,15 +15,6 @@ export default async function EditStoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  if (!isConfigured()) {
-    return (
-      <>
-        <PageHeader title="Edit story" />
-        <NotConnected />
-      </>
-    );
-  }
 
   const [story, authors, shelves] = await Promise.all([
     getStory(id),
@@ -50,6 +41,8 @@ export default async function EditStoryPage({
           </Link>
         )}
       </div>
+
+      {isReadOnly() && <ReadOnlyNotice />}
 
       <StoryForm draft={story} authors={authors} shelves={shelves} />
 

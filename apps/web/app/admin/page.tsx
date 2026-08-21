@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { adminCounts, isConfigured, listStories } from '@/lib/admin-data';
-import { PageHeader, Stat, NotConnected, StatusPill } from '@/components/admin/ui';
+import { adminCounts, isReadOnly, listStories } from '@/lib/admin-data';
+import { PageHeader, Stat, ReadOnlyNotice, StatusPill } from '@/components/admin/ui';
 
 export const metadata: Metadata = { title: 'Overview' };
 export const dynamic = 'force-dynamic';
 
 export default async function AdminHome() {
-  const connected = isConfigured();
+  const readOnly = isReadOnly();
   const [counts, stories] = await Promise.all([adminCounts(), listStories()]);
   const recent = stories.slice(0, 6);
 
@@ -19,11 +19,7 @@ export default async function AdminHome() {
         action={{ href: '/admin/stories/new', label: 'New story' }}
       />
 
-      {!connected && (
-        <div className="mb-8">
-          <NotConnected />
-        </div>
-      )}
+      {readOnly && <ReadOnlyNotice />}
 
       <div className="mb-10 grid gap-px bg-rule sm:grid-cols-2 lg:grid-cols-3">
         <Stat label="Published" value={counts.published} hint="Live on the site" />
@@ -47,9 +43,7 @@ export default async function AdminHome() {
 
         {recent.length === 0 ? (
           <p className="border border-rule px-6 py-10 text-center text-sm text-grey-muted">
-            {connected
-              ? 'Nothing written yet. The first page is always the hardest.'
-              : 'Connect the database to see stories here.'}
+            Nothing written yet. The first page is always the hardest.
           </p>
         ) : (
           <ul className="divide-y divide-rule border border-rule">

@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/auth';
+import { isDemoMode } from '@/lib/demo/mode';
+import { demoToggleSaved, demoRecordProgress } from '@/lib/demo/queries';
 
 /**
  * Reading actions: keeping a story, marking a place, recording progress.
@@ -25,6 +27,16 @@ const uuid = z.string().uuid();
 export async function toggleSaved(formData: FormData): Promise<ToggleResult> {
   const viewer = await getViewer();
   if (!viewer) return { error: 'sign-in-required' };
+
+  // Demo ids are slugs prefixed with demo-, not UUIDs.
+  if (isDemoMode()) {
+    const slug = String(formData.get('storyId') ?? '').replace(/^demo-/, '');
+    if (!slug) return { error: 'unknown-story' };
+    const saved = await demoToggleSaved(slug);
+    revalidatePath('/account/library');
+    revalidatePath('/journal');
+    return { saved };
+  }
 
   const parsed = uuid.safeParse(formData.get('storyId'));
   if (!parsed.success) return { error: 'unknown-story' };
@@ -78,6 +90,16 @@ export async function recordProgress(input: {
 }): Promise<{ ok: boolean }> {
   const viewer = await getViewer();
   if (!viewer) return { ok: false };
+
+  if (isDemoMode()) {
+    const slug = input.storyId.replace(/^demo-/, '');
+    await demoRecordProgress(
+      slug,
+      Math.min(1, Math.max(0, input.percent)),
+      Boolean(input.completed),
+    );
+    return { ok: true };
+  }
 
   const parsed = progressSchema.safeParse(input);
   if (!parsed.success) return { ok: false };

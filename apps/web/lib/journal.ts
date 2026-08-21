@@ -1,5 +1,8 @@
 import 'server-only';
 import { createClient } from './supabase/server';
+import { isDemoMode } from './demo/mode';
+import { DEMO_MOODS, demoEntries, demoSearchEntries } from './demo/queries';
+import { getStories } from './content';
 
 /** Reads for the Reading Room. RLS scopes every one of these to its author. */
 
@@ -24,17 +27,7 @@ export type Entry = {
   storyTitle: string | null;
 };
 
-const configured = () => Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
-
-/** Fallback moods so the Reading Room renders before the database exists. */
-const FALLBACK_MOODS: Mood[] = [
-  { id: 'm1', slug: 'heartbroken', label: 'Heartbroken', emoji: '❤️', shelfSlug: 'heartbreak' },
-  { id: 'm2', slug: 'healing', label: 'Healing', emoji: '🌿', shelfSlug: 'healing' },
-  { id: 'm3', slug: 'lost', label: 'Lost', emoji: '🌙', shelfSlug: 'anxiety' },
-  { id: 'm4', slug: 'grieving', label: 'Grieving', emoji: '🕊️', shelfSlug: 'grief' },
-  { id: 'm5', slug: 'hopeful', label: 'Hopeful', emoji: '✨', shelfSlug: 'hope' },
-  { id: 'm6', slug: 'unsure', label: 'Unsure', emoji: '🪞', shelfSlug: null },
-];
+const configured = () => !isDemoMode();
 
 const FALLBACK_PROMPTS = [
   'What part of yourself are you making peace with?',
@@ -45,7 +38,7 @@ const FALLBACK_PROMPTS = [
 ];
 
 export async function getMoods(): Promise<Mood[]> {
-  if (!configured()) return FALLBACK_MOODS;
+  if (!configured()) return DEMO_MOODS;
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -106,8 +99,16 @@ export async function getTodaysPrompt(): Promise<Prompt | null> {
   return { id: pick.id, body: pick.body };
 }
 
+/** Titles for story-linked entries, resolved once per call. */
+async function storyTitleLookup() {
+  const stories = await getStories();
+  return (slug: string) => stories.find((s) => s.slug === slug)?.title ?? null;
+}
+
 export async function getEntries(limit = 30): Promise<Entry[]> {
-  if (!configured()) return [];
+  if (!configured()) {
+    return (await demoEntries(await storyTitleLookup())).slice(0, limit);
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -139,7 +140,10 @@ export async function getEntries(limit = 30): Promise<Entry[]> {
 
 /** Private full-text search over the reader's own entries. */
 export async function searchEntries(query: string): Promise<Entry[]> {
-  if (!configured() || !query.trim()) return [];
+  if (!query.trim()) return [];
+  if (!configured()) {
+    return demoSearchEntries(query, await storyTitleLookup());
+  }
 
   const supabase = await createClient();
   const { data } = await supabase

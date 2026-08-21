@@ -6,7 +6,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { checkbox, field } from '@/lib/form';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo/mode';
+import { DEMO_SIGNED_COOKIE } from '@/lib/demo/session';
 
 /**
  * Auth server actions.
@@ -66,13 +70,28 @@ export async function signIn(
   formData: FormData,
 ): Promise<ActionResult> {
   const parsed = signInSchema.safeParse({
-    email: formData.get('email'),
-    password: formData.get('password'),
-    next: formData.get('next'),
+    email: field(formData, 'email'),
+    password: field(formData, 'password'),
+    next: field(formData, 'next'),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
+  }
+
+  // Demo mode has no accounts. Any well-formed email opens the House, so
+  // an evaluator can see the signed-in surfaces. Unreachable in live
+  // mode: isDemoMode() requires the absence of Supabase credentials.
+  if (isDemoMode()) {
+    const store = await cookies();
+    store.set(DEMO_SIGNED_COOKIE, '1', {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24,
+    });
+    revalidatePath('/', 'layout');
+    redirect(safeNext(parsed.data.next));
   }
 
   const supabase = await createClient();
@@ -95,9 +114,9 @@ export async function signUp(
   formData: FormData,
 ): Promise<ActionResult> {
   const parsed = signUpSchema.safeParse({
-    email: formData.get('email'),
-    password: formData.get('password'),
-    displayName: formData.get('displayName'),
+    email: field(formData, 'email'),
+    password: field(formData, 'password'),
+    displayName: field(formData, 'displayName'),
   });
 
   if (!parsed.success) {
@@ -131,7 +150,7 @@ export async function requestPasswordReset(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const parsed = emailSchema.safeParse(formData.get('email'));
+  const parsed = emailSchema.safeParse(field(formData, 'email'));
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -156,7 +175,7 @@ export async function updatePassword(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const parsed = passwordSchema.safeParse(formData.get('password'));
+  const parsed = passwordSchema.safeParse(field(formData, 'password'));
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -172,6 +191,13 @@ export async function updatePassword(
 }
 
 export async function signOut(): Promise<void> {
+  if (isDemoMode()) {
+    const store = await cookies();
+    store.delete(DEMO_SIGNED_COOKIE);
+    revalidatePath('/', 'layout');
+    redirect('/');
+  }
+
   const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath('/', 'layout');

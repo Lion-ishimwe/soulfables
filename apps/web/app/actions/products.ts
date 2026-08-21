@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { field, file as fileField } from '@/lib/form';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth';
@@ -74,20 +75,20 @@ export async function saveProduct(
   formData: FormData,
 ): Promise<ProductActionResult> {
   const viewer = await requireStaff();
-  const id = (formData.get('id') as string) || null;
+  const id = field(formData, 'id') || null;
 
   const parsed = productSchema.safeParse({
-    title: formData.get('title'),
-    slug: formData.get('slug'),
-    subtitle: formData.get('subtitle'),
-    description: formData.get('description'),
-    kind: formData.get('kind'),
-    eyebrow: formData.get('eyebrow'),
-    pullQuote: formData.get('pullQuote'),
-    ctaLabel: formData.get('ctaLabel'),
-    status: formData.get('status'),
-    currency: formData.get('currency'),
-    price: formData.get('price'),
+    title: field(formData, 'title'),
+    slug: field(formData, 'slug'),
+    subtitle: field(formData, 'subtitle'),
+    description: field(formData, 'description'),
+    kind: field(formData, 'kind'),
+    eyebrow: field(formData, 'eyebrow'),
+    pullQuote: field(formData, 'pullQuote'),
+    ctaLabel: field(formData, 'ctaLabel'),
+    status: field(formData, 'status'),
+    currency: field(formData, 'currency'),
+    price: field(formData, 'price'),
   });
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -199,10 +200,10 @@ export async function uploadProductFile(
 ): Promise<ProductActionResult> {
   const viewer = await requireStaff();
 
-  const productId = formData.get('productId') as string;
-  const file = formData.get('file') as File | null;
+  const productId = field(formData, 'productId') ?? '';
+  const file = fileField(formData, 'file');
 
-  if (!productId || !file || file.size === 0) {
+  if (!productId || !file) {
     return { error: 'Choose a file to upload.' };
   }
 
@@ -299,8 +300,8 @@ export async function uploadProductFile(
 
 export async function deleteProductFile(formData: FormData): Promise<void> {
   const viewer = await requireStaff();
-  const fileId = formData.get('fileId') as string;
-  const productId = formData.get('productId') as string;
+  const fileId = field(formData, 'fileId') ?? '';
+  const productId = field(formData, 'productId') ?? '';
   if (!fileId) return;
 
   const db = createAdminClient();

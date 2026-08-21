@@ -1,5 +1,8 @@
 import 'server-only';
 import { createClient } from './supabase/server';
+import { isDemoMode } from './demo/mode';
+import { getStories, getProducts, getShelves } from './content';
+import { DEMO_BODIES } from './demo/stories';
 
 /**
  * Read helpers for the admin surface.
@@ -10,11 +13,16 @@ import { createClient } from './supabase/server';
  * four jobs listed in lib/supabase/admin.ts.
  */
 
-export const isConfigured = () =>
-  Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
+/**
+ * Whether writes are possible.
+ *
+ * Demo mode renders the admin with real content so it can be walked
+ * through, but nothing saves — the editor says so rather than silently
+ * discarding an edit.
+ */
+export const isConfigured = () => !isDemoMode();
+
+export const isReadOnly = () => isDemoMode();
 
 export type AdminStoryRow = {
   id: string;
@@ -29,6 +37,22 @@ export type AdminStoryRow = {
 };
 
 export async function listStories(): Promise<AdminStoryRow[]> {
+  if (isDemoMode()) {
+    const stories = await getStories();
+    return stories.map((s, i) => ({
+      id: s.id ?? `demo-${s.slug}`,
+      title: s.title,
+      slug: s.slug,
+      status: 'published',
+      access: s.access,
+      reading_minutes: s.readingMinutes,
+      // Staggered so the list looks like a real editorial history rather
+      // than twelve stories published in the same second.
+      published_at: new Date(Date.now() - (i + 1) * 5 * 86_400_000).toISOString(),
+      updated_at: new Date(Date.now() - (i + 1) * 4 * 86_400_000).toISOString(),
+      author: s.author,
+    }));
+  }
   if (!isConfigured()) return [];
   const supabase = await createClient();
 
@@ -59,6 +83,26 @@ export async function listStories(): Promise<AdminStoryRow[]> {
 }
 
 export async function getStory(id: string) {
+  if (isDemoMode()) {
+    const slug = id.replace(/^demo-/, '');
+    const stories = await getStories();
+    const s = stories.find((x) => x.slug === slug);
+    if (!s) return null;
+    return {
+      id,
+      title: s.title,
+      slug: s.slug,
+      subtitle: s.subtitle,
+      excerpt: null,
+      bodyMdx: DEMO_BODIES[slug] ?? null,
+      authorId: null,
+      shelfId: null,
+      access: s.access,
+      status: 'published',
+      seoTitle: null,
+      seoDescription: null,
+    };
+  }
   if (!isConfigured()) return null;
   const supabase = await createClient();
 
@@ -92,6 +136,13 @@ export async function getStory(id: string) {
 }
 
 export async function listAuthorOptions() {
+  if (isDemoMode()) {
+    const stories = await getStories();
+    return [...new Set(stories.map((s) => s.author))].map((name) => ({
+      value: `demo-author-${name.toLowerCase().replace(/\W+/g, '-')}`,
+      label: name,
+    }));
+  }
   if (!isConfigured()) return [];
   const supabase = await createClient();
   const { data } = await supabase
@@ -102,6 +153,10 @@ export async function listAuthorOptions() {
 }
 
 export async function listShelfOptions() {
+  if (isDemoMode()) {
+    const shelves = await getShelves();
+    return shelves.map((s) => ({ value: `demo-shelf-${s.slug}`, label: s.label }));
+  }
   if (!isConfigured()) return [];
   const supabase = await createClient();
   const { data } = await supabase
@@ -115,6 +170,17 @@ export async function listShelfOptions() {
 }
 
 export async function adminCounts() {
+  if (isDemoMode()) {
+    const [stories, products] = await Promise.all([getStories(), getProducts()]);
+    return {
+      stories: stories.length,
+      published: stories.length,
+      drafts: 0,
+      products: products.length,
+      orders: 3,
+      readers: 1,
+    };
+  }
   if (!isConfigured()) {
     return { stories: 0, published: 0, drafts: 0, products: 0, orders: 0, readers: 0 };
   }

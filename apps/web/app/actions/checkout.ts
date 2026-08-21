@@ -5,6 +5,7 @@ import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { checkbox, field } from '@/lib/form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getViewer } from '@/lib/auth';
 import { getPaymentProvider, isPaymentsConfigured } from '@/lib/payments/provider';
@@ -41,8 +42,8 @@ export async function startCheckout(
   formData: FormData,
 ): Promise<CheckoutResult> {
   const parsed = checkoutSchema.safeParse({
-    slug: formData.get('slug'),
-    email: formData.get('email'),
+    slug: field(formData, 'slug'),
+    email: field(formData, 'email'),
   });
 
   if (!parsed.success) {

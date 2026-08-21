@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { toggleSaved } from '@/app/actions/reading';
-import { recordProgress } from '@/app/actions/reading';
-import { createClient } from '@/lib/supabase/client';
+import { toggleSaved, recordProgress } from '@/app/actions/reading';
 
 /**
  * Keep, and remember where I was.
@@ -19,26 +17,36 @@ const PROGRESS_INTERVAL_MS = 10_000;
 
 export function StoryActions({
   storyId,
-  initiallySaved,
+  storySlug,
 }: {
   storyId: string;
-  initiallySaved: boolean;
+  storySlug: string;
 }) {
-  const [saved, setSaved] = useState(initiallySaved);
+  const [saved, setSaved] = useState(false);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [pending, startTransition] = useTransition();
 
   const lastSent = useRef(0);
   const lastPercent = useRef(0);
 
+  // Ask the server rather than inferring from configuration. It knows
+  // about both real sessions and demo ones, and it also tells us whether
+  // this story is already kept — which the page itself cannot, because
+  // it is statically generated.
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setSignedIn(false);
-      return;
-    }
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setSignedIn(Boolean(data.user)));
-  }, []);
+    let active = true;
+    fetch('/api/me', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((me: { signedIn: boolean; savedSlugs: string[] }) => {
+        if (!active) return;
+        setSignedIn(me.signedIn);
+        setSaved(me.savedSlugs.includes(storySlug));
+      })
+      .catch(() => active && setSignedIn(false));
+    return () => {
+      active = false;
+    };
+  }, [storySlug]);
 
   useEffect(() => {
     if (!signedIn) return;

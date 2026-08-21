@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+
 
 /**
  * The account corner of the header.
@@ -19,26 +19,19 @@ import { createClient } from '@/lib/supabase/client';
 export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
   const [state, setState] = useState<'loading' | 'in' | 'out'>('loading');
 
+  // One source of truth for "is anyone signed in", shared with the
+  // reader controls. Asking the server also covers demo sessions, which
+  // a Supabase client knows nothing about.
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setState('out');
-      return;
-    }
-
-    const supabase = createClient();
     let active = true;
-
-    supabase.auth.getUser().then(({ data }) => {
-      if (active) setState(data.user ? 'in' : 'out');
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (active) setState(session ? 'in' : 'out');
-    });
-
+    fetch('/api/me', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((me: { signedIn: boolean }) => {
+        if (active) setState(me.signedIn ? 'in' : 'out');
+      })
+      .catch(() => active && setState('out'));
     return () => {
       active = false;
-      sub.subscription.unsubscribe();
     };
   }, []);
 
