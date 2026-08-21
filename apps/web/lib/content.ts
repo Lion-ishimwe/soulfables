@@ -57,12 +57,16 @@ export type StoryCard = {
   access: 'free' | 'premium';
   /** Whether a narrated edition exists. */
   hasAudio?: boolean;
+  /** Uploaded artwork. Null means the drawn cover is used instead. */
+  coverImage?: string | null;
 };
 
 export type Product = {
   /** Present only with a database behind it; see StoryCard.id. */
   id?: string;
   slug: string;
+  /** Uploaded artwork. Null means the drawn cover is used instead. */
+  coverImage?: string | null;
   title: string;
   subtitle: string;
   kind: string;
@@ -162,7 +166,7 @@ export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select('id, slug, title, subtitle, reading_minutes, access, authors(name), story_shelves!inner(shelves!inner(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors(name), story_shelves!inner(shelves!inner(slug))')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
@@ -178,6 +182,7 @@ export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
     readingMinutes: (r.reading_minutes as number) ?? 0,
     shelf: shelfSlug ?? '',
     access: (r.access as 'free' | 'premium') ?? 'free',
+    coverImage: (r.cover_image as string) ?? null,
   }));
 }
 
@@ -187,7 +192,7 @@ export async function getProducts(): Promise<Product[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from('products')
-    .select('slug, title, subtitle, kind, eyebrow, pull_quote, cta_label, is_featured, product_prices(currency, unit_amount, is_default), product_files(format)')
+    .select('slug, title, subtitle, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, product_prices(currency, unit_amount, is_default), product_files(format)')
     .eq('status', 'published')
     .order('sort_order');
 
@@ -205,6 +210,7 @@ export async function getProducts(): Promise<Product[]> {
       priceLabel: price ? formatMoney(price.unit_amount, price.currency) : '',
       formats: ((r.product_files as { format: string }[]) ?? []).map((f) => f.format.toUpperCase()),
       featured: Boolean(r.is_featured),
+      coverImage: (r.cover_image as string) ?? null,
     };
   });
 }
@@ -351,7 +357,7 @@ export async function getStory(slug: string): Promise<FullStory | null> {
 
   const { data } = await supabase
     .from('stories')
-    .select('id, slug, title, subtitle, reading_minutes, access, body_mdx, authors(name), story_shelves(is_primary, shelves(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, body_mdx, cover_image, authors(name), story_shelves(is_primary, shelves(slug))')
     .eq('slug', slug)
     .eq('status', 'published')
     .maybeSingle();
@@ -394,6 +400,7 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     readingMinutes: (data.reading_minutes as number) ?? 0,
     shelf: primaryShelf?.slug ?? '',
     access: (data.access as 'free' | 'premium') ?? 'free',
+    coverImage: (data.cover_image as string) ?? null,
     locked,
     // The line that matters: withheld server-side, not hidden with CSS.
     body: locked ? null : ((data.body_mdx as string) ?? null),

@@ -6,6 +6,7 @@ import { StoryBody } from '@/lib/story-body';
 import { ReaderControls } from '@/components/reader-controls';
 import { ReaderToolkit } from '@/components/reader-toolkit';
 import { AudioPlayer } from '@/components/audio-player';
+import { Cover } from '@/components/cover-art';
 import { getListeningPosition } from '@/lib/library';
 
 /*
@@ -101,6 +102,16 @@ export default async function StoryPage({
 
       <article className="mx-auto max-w-content px-5 sm:px-8">
         <header className="pb-14 pt-20 text-center">
+          <div className="mx-auto mb-10 aspect-[2/3] w-40 overflow-hidden shadow-cover sm:w-48">
+            <Cover
+              src={story.coverImage}
+              title={story.title}
+              author={story.author}
+              shelf={story.shelf}
+              sizes="12rem"
+            />
+          </div>
+
           {shelf && (
             <Link
               href={`/shelf/${shelf.slug}`}

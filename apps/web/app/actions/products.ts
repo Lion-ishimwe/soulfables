@@ -36,6 +36,7 @@ const productSchema = z.object({
   eyebrow: z.string().trim().max(120).optional().or(z.literal('')),
   pullQuote: z.string().trim().max(500).optional().or(z.literal('')),
   ctaLabel: z.string().trim().max(60).optional().or(z.literal('')),
+  coverImage: z.string().trim().max(600).optional().or(z.literal('')),
   status: z.enum(['draft', 'in_review', 'published', 'archived']),
   currency: z.string().trim().length(3),
   // Entered in major units by a human, stored in minor units.
@@ -86,6 +87,7 @@ export async function saveProduct(
     eyebrow: field(formData, 'eyebrow'),
     pullQuote: field(formData, 'pullQuote'),
     ctaLabel: field(formData, 'ctaLabel'),
+    coverImage: field(formData, 'coverImage'),
     status: field(formData, 'status'),
     currency: field(formData, 'currency'),
     price: field(formData, 'price'),
@@ -105,6 +107,7 @@ export async function saveProduct(
     eyebrow: d.eyebrow || null,
     pull_quote: d.pullQuote || null,
     cta_label: d.ctaLabel || null,
+    cover_image: d.coverImage || null,
     status: d.status,
   };
 

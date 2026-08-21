@@ -11,6 +11,7 @@ import {
 } from '@/lib/library';
 import { removeBookmark, removePassage } from '@/app/actions/reading';
 import { signOut } from '@/app/actions/auth';
+import { Cover } from '@/components/cover-art';
 
 export const metadata: Metadata = {
   title: 'My Library',
@@ -106,7 +107,18 @@ export default async function MyLibraryPage({
         ) : (
           <ul className="grid gap-px bg-rule sm:grid-cols-2">
             {owned.map((p) => (
-              <li key={p.productId} className="bg-ink p-7">
+              <li key={p.productId} className="flex gap-6 bg-ink p-7">
+                <div className="aspect-[2/3] w-24 flex-none overflow-hidden shadow-cover">
+                  <Cover
+                    src={p.coverImage}
+                    title={p.title}
+                    author={p.subtitle}
+                    shelf="heartbreak"
+                    sizes="6rem"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
                 <h3 className="font-display text-2xl font-light text-ivory">
                   {p.title}
                 </h3>
@@ -143,6 +155,7 @@ export default async function MyLibraryPage({
                     Added to your library by Soulfables.
                   </p>
                 )}
+                </div>
               </li>
             ))}
           </ul>

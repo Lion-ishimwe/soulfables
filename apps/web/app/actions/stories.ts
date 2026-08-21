@@ -37,6 +37,7 @@ const storySchema = z.object({
   shelfId: z.string().uuid().optional().or(z.literal('')),
   access: z.enum(['free', 'premium']),
   status: z.enum(['draft', 'in_review', 'scheduled', 'published', 'archived']),
+  coverImage: z.string().trim().max(600).optional().or(z.literal('')),
   seoTitle: z.string().trim().max(200).optional().or(z.literal('')),
   seoDescription: z.string().trim().max(320).optional().or(z.literal('')),
 });
@@ -136,6 +137,7 @@ export async function saveStory(
     shelfId: field(formData, 'shelfId'),
     access: field(formData, 'access'),
     status: field(formData, 'status'),
+    coverImage: field(formData, 'coverImage'),
     seoTitle: field(formData, 'seoTitle'),
     seoDescription: field(formData, 'seoDescription'),
   });
@@ -161,6 +163,7 @@ export async function saveStory(
     status: d.status,
     word_count: words,
     reading_minutes: Math.max(1, Math.ceil(words / WORDS_PER_MINUTE)),
+    cover_image: d.coverImage || null,
     seo_title: d.seoTitle || null,
     seo_description: d.seoDescription || null,
     // The schema refuses a published row without a date, so set one at

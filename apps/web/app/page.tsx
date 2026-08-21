@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { getShelves } from '@/lib/content';
 import { Greeting } from '@/components/greeting';
+import { LibraryBackdrop } from '@/components/library-backdrop';
 import { Suggestions, SuggestionsSkeleton } from '@/components/suggestions';
 
 /*
@@ -27,8 +28,11 @@ export default async function HomePage() {
   return (
     <>
       <section className="relative overflow-hidden">
-        {/* The lamp. A single soft pool of gold behind the greeting — the
-            one atmospheric flourish on the page. */}
+        {/* The House, seen from inside. Drawn rather than photographed —
+            see components/library-backdrop.tsx. */}
+        <LibraryBackdrop />
+
+        {/* The lamp, sitting over the room. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute left-1/2 top-0 h-[520px] w-[820px] -translate-x-1/2 -translate-y-1/3 rounded-full opacity-40 blur-3xl"

@@ -1,46 +1,65 @@
 import Link from 'next/link';
 import type { StoryCard as StoryCardType } from '@/lib/content';
+import { Cover } from './cover-art';
 
 /**
  * The story card, as it appears in the library and on shelves.
  *
- * Reading time leads, deliberately: on the live site every card opens
- * with "11 min", because the question a reader is actually asking is
- * "do I have time for this right now?"
+ * The cover leads now, then reading time — because the question a reader
+ * is actually asking is "what is this, and do I have time for it right
+ * now?", in that order.
+ *
+ * Covers are 2:3, the proportion of a book rather than of a browser
+ * window. That is the whole point of the House.
  */
 export function StoryCard({ story }: { story: StoryCardType }) {
   return (
     <Link
       href={`/story/${story.slug}`}
-      className="group flex h-full flex-col bg-ink p-8 transition-colors duration-base ease-house hover:bg-ink-raised"
+      className="group flex h-full flex-col bg-ink transition-colors duration-base ease-house hover:bg-ink-raised"
     >
-      <p className="flex items-center gap-3 font-ui text-sm text-grey-muted">
-        <span>☕ {story.readingMinutes} min</span>
-        {story.hasAudio && (
-          <span title="Narrated" aria-label="Narrated">
-            ♪
-          </span>
-        )}
-        {story.access === 'premium' && (
-          <span className="text-gold" title="For Residents" aria-label="For Residents">
-            ✦
-          </span>
-        )}
-      </p>
+      <div className="relative aspect-[2/3] w-full overflow-hidden bg-ink-raised">
+        <Cover
+          src={story.coverImage}
+          title={story.title}
+          author={story.author}
+          shelf={story.shelf}
+          className="transition-transform duration-slow ease-house group-hover:scale-[1.03]"
+        />
 
-      <h3 className="mt-4 font-display text-2xl font-light leading-snug text-ivory transition-colors duration-base group-hover:text-gold">
-        {story.title}
-      </h3>
+        {/* Badges sit on the cover, where a bookshop puts its stickers. */}
+        <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+          {story.access === 'premium' && (
+            <span className="border border-gold/50 bg-ink/80 px-2 py-0.5 font-ui text-micro uppercase tracking-[0.12em] text-gold backdrop-blur-sm">
+              Residents
+            </span>
+          )}
+          {story.hasAudio && (
+            <span
+              className="border border-rule bg-ink/80 px-2 py-0.5 font-ui text-micro text-grey backdrop-blur-sm"
+              title="Narrated"
+            >
+              ♪ Narrated
+            </span>
+          )}
+        </div>
+      </div>
 
-      <p className="mt-3 flex-1 text-sm leading-normal text-grey-muted">
-        {story.subtitle}
-      </p>
+      <div className="flex flex-1 flex-col p-6">
+        <p className="font-ui text-xs text-grey-muted">
+          ☕ {story.readingMinutes} min
+        </p>
 
-      <p className="mt-6 font-ui text-xs text-grey-muted">{story.author}</p>
+        <h3 className="mt-2 font-display text-xl font-light leading-snug text-ivory transition-colors duration-base group-hover:text-gold">
+          {story.title}
+        </h3>
 
-      <span className="sf-eyebrow mt-4 text-gold/70 transition-colors duration-base group-hover:text-gold">
-        Read the story
-      </span>
+        <p className="mt-2 flex-1 text-sm leading-normal text-grey-muted">
+          {story.subtitle}
+        </p>
+
+        <p className="mt-5 font-ui text-xs text-grey-muted">{story.author}</p>
+      </div>
     </Link>
   );
 }

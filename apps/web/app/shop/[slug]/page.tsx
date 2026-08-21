@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getProducts } from '@/lib/content';
 import { isPaymentsConfigured } from '@/lib/payments/provider';
 import { BuyForm } from '@/components/buy-form';
+import { Cover } from '@/components/cover-art';
 
 /*
  * A product page.
@@ -89,6 +90,16 @@ export default async function ProductPage({
       </nav>
 
       <article className="mx-auto max-w-content px-5 pb-24 pt-12 text-center sm:px-8">
+        <div className="mx-auto mb-10 aspect-[2/3] w-52 overflow-hidden shadow-cover">
+          <Cover
+            src={product.coverImage}
+            title={product.title}
+            author={product.subtitle}
+            shelf="heartbreak"
+            sizes="13rem"
+          />
+        </div>
+
         <p className="sf-eyebrow text-gold">{product.eyebrow}</p>
         <h1 className="mt-6 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
           {product.title}
@@ -131,8 +142,18 @@ export default async function ProductPage({
               <li key={p.slug}>
                 <Link
                   href={`/shop/${p.slug}`}
-                  className="group flex h-full flex-col bg-ink p-8 transition-colors duration-base ease-house hover:bg-ink-raised"
+                  className="group flex h-full flex-col bg-ink transition-colors duration-base ease-house hover:bg-ink-raised"
                 >
+                  <div className="aspect-[2/3] w-full overflow-hidden bg-ink-raised">
+                    <Cover
+                      src={p.coverImage}
+                      title={p.title}
+                      author={p.subtitle}
+                      shelf="love"
+                      className="transition-transform duration-slow ease-house group-hover:scale-[1.03]"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col p-8">
                   <h2 className="font-display text-2xl font-light text-ivory transition-colors duration-base group-hover:text-gold">
                     {p.title}
                   </h2>
@@ -142,6 +163,7 @@ export default async function ProductPage({
                   <p className="mt-6 font-display text-xl text-ivory">
                     {p.priceLabel}
                   </p>
+                  </div>
                 </Link>
               </li>
             ))}
