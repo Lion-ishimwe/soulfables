@@ -10,6 +10,7 @@ import {
   formatBytes,
 } from '@/lib/library';
 import { removeBookmark, removePassage } from '@/app/actions/reading';
+import { signOut } from '@/app/actions/auth';
 
 export const metadata: Metadata = {
   title: 'My Library',
@@ -46,14 +47,34 @@ export default async function MyLibraryPage({
 
   return (
     <div className="mx-auto max-w-page px-5 py-20 sm:px-8">
-      <header className="mb-14">
-        <p className="text-gold" aria-hidden="true">
-          ✦
-        </p>
-        <p className="sf-eyebrow mt-5">Your shelf</p>
-        <h1 className="mt-4 font-display text-4xl font-light text-ivory sm:text-5xl">
-          {viewer.displayName ? `${viewer.displayName}'s library` : 'My Library'}
-        </h1>
+      <header className="mb-14 flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="text-gold" aria-hidden="true">
+            ✦
+          </p>
+          <p className="sf-eyebrow mt-5">Your shelf</p>
+          <h1 className="mt-4 font-display text-4xl font-light text-ivory sm:text-5xl">
+            {viewer.displayName ? `${viewer.displayName}'s library` : 'My Library'}
+          </h1>
+        </div>
+
+        {/* A way out, on the page people are actually standing on. */}
+        <div className="flex items-center gap-5">
+          <Link
+            href="/account/settings"
+            className="font-ui text-sm text-grey-muted transition-colors duration-base ease-house hover:text-ivory"
+          >
+            Account
+          </Link>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="font-ui text-sm text-grey-muted transition-colors duration-base ease-house hover:text-ivory"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       {already && (

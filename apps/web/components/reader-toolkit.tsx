@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import {
   toggleSaved,
@@ -49,9 +50,12 @@ export function ReaderToolkit({
   const [selection, setSelection] = useState<string | null>(null);
 
   const lastSent = useRef(0);
+  const pathname = usePathname();
 
   // The server knows about both real sessions and demo ones, and whether
-  // this story is already kept. The page is static, so it cannot.
+  // this story is already kept — the page is static, so it cannot.
+  // Keyed on the pathname too, so signing in mid-visit is picked up
+  // rather than leaving the controls convinced you are a stranger.
   useEffect(() => {
     let active = true;
     fetch('/api/me', { cache: 'no-store' })
@@ -65,7 +69,7 @@ export function ReaderToolkit({
     return () => {
       active = false;
     };
-  }, [storySlug]);
+  }, [storySlug, pathname]);
 
   const announce = useCallback((message: string) => {
     setFlash(message);

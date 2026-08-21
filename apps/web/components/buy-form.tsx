@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { startCheckout, type CheckoutResult } from '@/app/actions/checkout';
@@ -36,6 +37,7 @@ export function BuyForm({ slug, ctaLabel }: { slug: string; ctaLabel: string }) 
     {},
   );
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     let active = true;
@@ -46,7 +48,7 @@ export function BuyForm({ slug, ctaLabel }: { slug: string; ctaLabel: string }) 
     return () => {
       active = false;
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <form action={formAction} className="mt-8">
