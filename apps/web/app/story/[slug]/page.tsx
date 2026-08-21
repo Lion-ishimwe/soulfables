@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getStories, getShelf } from '@/lib/content';
+import { getStories, getStory, getShelf } from '@/lib/content';
+import { StoryBody } from '@/lib/story-body';
 import { ReaderControls } from '@/components/reader-controls';
+import { StoryActions } from '@/components/story-actions';
 
 /*
  * The reader.
@@ -62,12 +64,16 @@ export default async function StoryPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const stories = await getStories();
-  const story = stories.find((s) => s.slug === slug);
+  const story = await getStory(slug);
   if (!story) notFound();
 
-  const shelf = story.shelf ? await getShelf(story.shelf) : null;
-  const related = stories.filter((s) => s.slug !== slug && s.shelf === story.shelf).slice(0, 2);
+  const [shelf, stories] = await Promise.all([
+    story.shelf ? getShelf(story.shelf) : Promise.resolve(null),
+    getStories(),
+  ]);
+  const related = stories
+    .filter((s) => s.slug !== slug && s.shelf === story.shelf)
+    .slice(0, 2);
 
   // Structured data so a story is a first-class Article in search results.
   const jsonLd = {
@@ -111,32 +117,10 @@ export default async function StoryPage({
         <ReaderControls />
 
         <div className="mx-auto py-12">
-          {story.access === 'premium' ? (
+          {story.locked || !story.body ? (
             <Paywall title={story.title} />
           ) : (
-            <div className="sf-prose mx-auto">
-              <p>
-                The house did not know you were gone for three days. That is how
-                long it takes a house to notice — the way a body doesn’t feel a
-                missing limb at first, only the strange lightness where the weight
-                used to be.
-              </p>
-              <h2>The House Waits</h2>
-              <p>
-                On the fourth morning the kettle boiled for one and the sound of it
-                went on too long, and that was when the rooms understood.
-              </p>
-              <blockquote>
-                Grief is not the fire. It is the smoke that lingers after.
-              </blockquote>
-              <p>
-                <em>
-                  Story bodies are rendered from MDX stored in the database. This
-                  is placeholder prose so the reading experience can be judged
-                  before the content migration runs.
-                </em>
-              </p>
-            </div>
+            <StoryBody body={story.body} />
           )}
         </div>
 
@@ -146,6 +130,9 @@ export default async function StoryPage({
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
+            {story.id && (
+              <StoryActions storyId={story.id} initiallySaved={false} />
+            )}
             <Link
               href="/journal"
               className="border border-gold/40 px-8 py-3.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"

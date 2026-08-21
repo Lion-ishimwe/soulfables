@@ -24,6 +24,12 @@ export type Shelf = {
 };
 
 export type StoryCard = {
+  /**
+   * Present only when a database is behind this. The offline fallback has
+   * no ids, and the reader's save/progress controls are hidden without
+   * one — there is nothing real to write against.
+   */
+  id?: string;
   slug: string;
   title: string;
   subtitle: string;
@@ -134,7 +140,7 @@ export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select('slug, title, subtitle, reading_minutes, access, authors(name), story_shelves!inner(shelves!inner(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, authors(name), story_shelves!inner(shelves!inner(slug))')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
@@ -142,6 +148,7 @@ export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
 
   const { data } = await query;
   return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
     slug: r.slug as string,
     title: r.title as string,
     subtitle: (r.subtitle as string) ?? '',
@@ -191,3 +198,164 @@ export async function getJourney(shelfSlug: string) {
 }
 
 export { formatMoney } from './format';
+
+/**
+ * Search the library.
+ *
+ * Uses the generated tsvector on stories when a database is present, and
+ * falls back to a plain substring match otherwise so the search page is
+ * reviewable offline. `websearch` parsing means a reader can type
+ * "grief -house" or a quoted phrase and have it mean what they expect.
+ */
+export async function searchStories(query: string): Promise<StoryCard[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  if (!isConfigured) {
+    const needle = q.toLowerCase();
+    return STORIES.filter(
+      (s) =>
+        s.title.toLowerCase().includes(needle) ||
+        s.subtitle.toLowerCase().includes(needle) ||
+        s.author.toLowerCase().includes(needle),
+    );
+  }
+
+  const { createClient } = await import('./supabase/server');
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('stories')
+    // body_mdx is searched by the index but never selected — a premium
+    // body must not leak through a search result.
+    .select('id, slug, title, subtitle, reading_minutes, access, authors(name)')
+    .eq('status', 'published')
+    .textSearch('search_vector', q, { type: 'websearch', config: 'english' })
+    .limit(50);
+
+  if (error) {
+    console.error('[search]', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    subtitle: (r.subtitle as string) ?? '',
+    author: ((r.authors as { name?: string } | null)?.name) ?? 'Soulfables',
+    readingMinutes: (r.reading_minutes as number) ?? 0,
+    shelf: '',
+    access: (r.access as 'free' | 'premium') ?? 'free',
+  }));
+}
+
+/**
+ * Wander — the Librarian chooses.
+ *
+ * Deterministic per hour rather than random per request: a story picked
+ * fresh on every page load is a slot machine, and this is meant to feel
+ * like being handed something. It changes on the hour, so coming back
+ * later gives you a different one.
+ */
+export async function getWanderStory(): Promise<StoryCard | null> {
+  const stories = (await getStories()).filter((s) => s.access === 'free');
+  if (stories.length === 0) return null;
+
+  const hourIndex = Math.floor(Date.now() / 3_600_000);
+  return stories[hourIndex % stories.length];
+}
+
+export type FullStory = StoryCard & {
+  /**
+   * Null for a premium story the reader has no access to. The body is
+   * withheld HERE, on the server, so it never reaches the browser at all —
+   * there is no hidden text for a devtools inspector to reveal.
+   */
+  body: string | null;
+  locked: boolean;
+};
+
+/**
+ * One story, with its body — subject to the paywall.
+ *
+ * This is the single place the premium rule is applied. Every other read
+ * path (listings, search, shelves) omits body_mdx from its select, so a
+ * story body can only ever arrive through this function.
+ */
+export async function getStory(slug: string): Promise<FullStory | null> {
+  if (!isConfigured) {
+    const card = STORIES.find((s) => s.slug === slug);
+    if (!card) return null;
+
+    const locked = card.access === 'premium';
+    return {
+      ...card,
+      locked,
+      body: locked
+        ? null
+        : `The house did not know you were gone for three days. That is how long it takes a house to notice — the way a body doesn't feel a missing limb at first, only the strange lightness where the weight used to be.
+
+:: The House Waits
+
+On the fourth morning the kettle boiled for one and the sound of it went on too long, and that was when the rooms understood.
+
+> Grief is not the fire. It is the smoke that lingers after.
+
+*This is placeholder prose, shown because no database is connected. Real story bodies are authored in the admin and stored as MDX.*`,
+    };
+  }
+
+  const { createClient } = await import('./supabase/server');
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('stories')
+    .select('id, slug, title, subtitle, reading_minutes, access, body_mdx, authors(name), story_shelves(is_primary, shelves(slug))')
+    .eq('slug', slug)
+    .eq('status', 'published')
+    .maybeSingle();
+
+  if (!data) return null;
+
+  // PostgREST types an embedded relation as an array even where the FK
+  // makes it single-valued, so normalise rather than fight the type.
+  const shelves = (data.story_shelves ?? []) as unknown as {
+    is_primary: boolean;
+    shelves: { slug: string } | { slug: string }[] | null;
+  }[];
+  const primaryRow = shelves.find((s) => s.is_primary) ?? shelves[0];
+  const primaryShelf = Array.isArray(primaryRow?.shelves)
+    ? primaryRow.shelves[0]
+    : primaryRow?.shelves;
+
+  let locked = false;
+  if (data.access === 'premium') {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      locked = true;
+    } else {
+      const { data: hasAccess } = await supabase.rpc('has_premium_access', {
+        p_user: user.id,
+      });
+      locked = !hasAccess;
+    }
+  }
+
+  return {
+    id: data.id as string,
+    slug: data.slug as string,
+    title: data.title as string,
+    subtitle: (data.subtitle as string) ?? '',
+    author: ((data.authors as { name?: string } | null)?.name) ?? 'Soulfables',
+    readingMinutes: (data.reading_minutes as number) ?? 0,
+    shelf: primaryShelf?.slug ?? '',
+    access: (data.access as 'free' | 'premium') ?? 'free',
+    locked,
+    // The line that matters: withheld server-side, not hidden with CSS.
+    body: locked ? null : ((data.body_mdx as string) ?? null),
+  };
+}
