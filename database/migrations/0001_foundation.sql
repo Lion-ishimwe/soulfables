@@ -7,7 +7,17 @@
 create extension if not exists "pgcrypto";      -- gen_random_uuid()
 create extension if not exists "pg_trgm";       -- fuzzy search on titles
 create extension if not exists "unaccent";      -- accent-insensitive search
-create extension if not exists "vector";        -- pgvector, for the Intelligence layer
+-- pgvector powers the Intelligence layer (brief §14). It is genuinely
+-- optional: the embedding column and its index are created only if the
+-- extension is available, so the schema applies cleanly on a Postgres
+-- without it and the feature switches on later without a migration.
+do $ext$
+begin
+  create extension if not exists "vector";
+exception when others then
+  raise notice 'pgvector unavailable — embeddings will be skipped';
+end
+$ext$;
 
 -- ---------------------------------------------------------------------
 -- Enums
@@ -54,41 +64,10 @@ begin
 end;
 $$;
 
--- Role lookup used by nearly every RLS policy.
--- SECURITY DEFINER + a locked search_path so policies can call it without
--- granting readers direct select on user_roles.
-create or replace function auth_role()
-returns app_role
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(
-    (select role from user_roles where user_id = auth.uid()),
-    'reader'::app_role
-  );
-$$;
-
-create or replace function is_staff()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select auth_role() in ('editor', 'admin', 'owner');
-$$;
-
-create or replace function is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select auth_role() in ('admin', 'owner');
-$$;
+-- NOTE: auth_role(), is_staff() and is_admin() are defined in 0002,
+-- not here. Postgres validates SQL function bodies at creation, and those
+-- three read user_roles — which does not exist until 0002. Defining them
+-- here would make this migration unapplicable to a clean database.
 
 -- Slugify: used by seed scripts and admin helpers so slugs stay predictable.
 create or replace function slugify(input text)

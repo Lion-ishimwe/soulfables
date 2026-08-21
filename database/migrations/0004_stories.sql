@@ -57,9 +57,6 @@ create table stories (
   og_image        text,
   canonical_url   text,
 
-  -- Intelligence layer. Populated asynchronously; nullable forever.
-  embedding       vector(1536),
-
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
 
@@ -173,7 +170,27 @@ create index stories_series_idx        on stories (series_id, episode_number);
 create index story_shelves_shelf_idx   on story_shelves (shelf_id, sort_order);
 create index story_sections_story_idx  on story_sections (story_id, position);
 
--- Vector index. ivfflat needs data to train on, so REINDEX this after the
--- first meaningful embedding backfill.
-create index stories_embedding_idx on stories
-  using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+-- ---------------------------------------------------------------------
+-- Embeddings (Phase 6)
+--
+-- Added only where pgvector exists. Keeping this conditional means the
+-- schema applies on any Postgres — CI, a local harness, a managed
+-- instance without the extension — and the Intelligence layer is enabled
+-- by installing pgvector and re-running this block, not by a migration
+-- that rewrites the stories table.
+--
+-- ivfflat needs data to train on, so REINDEX after the first meaningful
+-- backfill.
+-- ---------------------------------------------------------------------
+do $emb$
+begin
+  if exists (select 1 from pg_extension where extname = 'vector') then
+    alter table stories add column if not exists embedding vector(1536);
+
+    create index if not exists stories_embedding_idx on stories
+      using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+  else
+    raise notice 'pgvector not installed — stories.embedding not created';
+  end if;
+end
+$emb$;

@@ -82,7 +82,7 @@ where slug = 'heartbreak';
 -- the UI does not change.
 -- ---------------------------------------------------------------------
 insert into shelf_journeys (shelf_id, related_shelf_id, direction, sort_order)
-select s.id, r.id, d.direction, d.ord
+select s.id, r.id, d.direction::journey_direction, d.ord
 from (values
   ('heartbreak', 'grief',       'arrives_from', 0),
   ('heartbreak', 'love',        'arrives_from', 1),

@@ -35,8 +35,24 @@ jobs:
           # is not connected rather than crashing the build.
           NEXT_PUBLIC_SITE_URL: https://soulfables.co
 
+  schema:
+    name: Schema verification (PGlite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Real Postgres in-process. Applies every migration to a clean
+      # database, runs the seed twice for idempotence, checks RLS
+      # coverage, and exercises the entitlement functions — bundle
+      # fan-out, refund revocation, guest claim, webhook idempotency.
+      - run: npm run db:test
+
   database:
-    name: Migrations and RLS coverage
+    name: Migrations on managed Postgres
     runs-on: ubuntu-latest
 
     services:

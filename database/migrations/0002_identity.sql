@@ -32,6 +32,42 @@ create table user_roles (
   granted_at timestamptz not null default now()
 );
 
+-- Role lookup used by nearly every RLS policy.
+-- SECURITY DEFINER + a locked search_path so policies can call it without
+-- granting readers direct select on user_roles.
+create or replace function auth_role()
+returns app_role
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select role from user_roles where user_id = auth.uid()),
+    'reader'::app_role
+  );
+$$;
+
+create or replace function is_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth_role() in ('editor', 'admin', 'owner');
+$$;
+
+create or replace function is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth_role() in ('admin', 'owner');
+$$;
+
 -- Reader-facing preferences. Mirrored into the mobile app via the same API.
 create table user_settings (
   user_id           uuid primary key references auth.users(id) on delete cascade,
