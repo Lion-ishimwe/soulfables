@@ -66,17 +66,35 @@ export async function getRecommendations(limit = 4): Promise<Recommendation[]> {
   const shelfOf = (slug: string) =>
     stories.find((s) => s.slug === slug)?.shelf ?? '';
 
-  // Where finished stories send a reader next.
+  /*
+   * Where finished stories send a reader next.
+   *
+   * This used to await getJourney() inside the loop, once per finished
+   * story — and getJourney re-reads every shelf each time. On a reader
+   * with a real history that is a serial chain of round trips for
+   * information that barely changes. Now: distinct shelves only, fetched
+   * in parallel, once each.
+   */
+  const finishedShelves = [
+    ...new Set([...finishedSlugs].map(shelfOf).filter(Boolean)),
+  ];
+
+  const journeys = await Promise.all(
+    finishedShelves.map(async (shelf) => ({
+      shelf,
+      journey: await getJourney(shelf),
+    })),
+  );
+
   const onwardShelves = new Map<string, string>();
-  for (const slug of finishedSlugs) {
-    const shelf = shelfOf(slug);
-    if (!shelf) continue;
-    const journey = await getJourney(shelf);
+  for (const { shelf, journey } of journeys) {
+    // A story on that shelf, to name in the reason.
+    const source =
+      [...finishedSlugs].find((slug) => shelfOf(slug) === shelf) ?? '';
+    const title = stories.find((s) => s.slug === source)?.title ?? 'a story';
+
     for (const next of journey.continuesTo) {
-      if (!onwardShelves.has(next.slug)) {
-        const title = stories.find((s) => s.slug === slug)?.title ?? 'a story';
-        onwardShelves.set(next.slug, title);
-      }
+      if (!onwardShelves.has(next.slug)) onwardShelves.set(next.slug, title);
     }
   }
 

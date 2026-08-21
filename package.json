@@ -19,6 +19,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:reset": "node scripts/db-reset.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
-    "db:test": "node database/test/run-migrations.mjs"
+    "db:test": "node database/test/run-migrations.mjs",
+    "demo": "npm run build --workspace=@soulfables/web && npm run start --workspace=@soulfables/web"
   }
 }

@@ -72,7 +72,10 @@ export default async function StoryPage({
   const [shelf, stories, resumeAt] = await Promise.all([
     story.shelf ? getShelf(story.shelf) : Promise.resolve(null),
     getStories(),
-    getListeningPosition(story.slug),
+    // Most stories have no narration; do not read a session to find that out.
+    story.audio && !story.locked
+      ? getListeningPosition(story.slug)
+      : Promise.resolve(0),
   ]);
   const related = stories
     .filter((s) => s.slug !== slug && s.shelf === story.shelf)

@@ -319,8 +319,13 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     // The premium rule applies in demo mode too, so the paywall can be
     // demonstrated rather than described — and becoming a Resident
     // actually unlocks it.
-    const { hasPremiumAccess } = await import('./membership');
-    const locked = card.access === 'premium' && !(await hasPremiumAccess());
+    //
+    // Only premium stories pay for the membership lookup. Most of the
+    // library is free, and a free story should not cost a session read
+    // to decide it is free.
+    const locked =
+      card.access === 'premium' &&
+      !(await (await import('./membership')).hasPremiumAccess());
 
     const body = locked ? null : (DEMO_BODIES[slug] ?? null);
 

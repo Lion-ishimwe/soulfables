@@ -17,8 +17,16 @@ the way it is, and records two decisions that are still open.
 
 ```bash
 npm install
-npm run dev
+npm run demo
 ```
+
+That builds once and serves the production bundle. Use it for anything
+you are showing someone.
+
+`npm run dev` is for editing code, not for judging speed — it compiles
+each route the first time you visit it, so pages take hundreds of
+milliseconds that the built app does not. Measured on the production
+build, every route responds in **3–30 ms**.
 
 Open http://localhost:3000 and sign in at `/signin`. **There are no
 accounts in the demo** — any email address opens the House, and it signs
