@@ -194,3 +194,74 @@ export async function demoOwnedProducts(
     })
     .filter(Boolean) as OwnedProduct[];
 }
+
+// ---------------------------------------------------------------------
+// Bookmarks, passages, listening, membership
+// ---------------------------------------------------------------------
+
+export async function demoBookmarks(slug?: string) {
+  const s = await session();
+  const rows = slug
+    ? s.bookmarks.filter((b) => b.storySlug === slug)
+    : s.bookmarks;
+  return rows
+    .slice()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function demoAddBookmark(input: {
+  storySlug: string;
+  sectionSlug: string | null;
+  sectionTitle: string | null;
+  note: string | null;
+}) {
+  const s = await session();
+  const id = `demo-bm-${Date.now()}`;
+  s.bookmarks.unshift({ id, ...input, createdAt: new Date().toISOString() });
+  return id;
+}
+
+export async function demoDeleteBookmark(id: string) {
+  const s = await session();
+  const i = s.bookmarks.findIndex((b) => b.id === id);
+  if (i >= 0) s.bookmarks.splice(i, 1);
+}
+
+export async function demoPassages(slug?: string) {
+  const s = await session();
+  const rows = slug ? s.passages.filter((p) => p.storySlug === slug) : s.passages;
+  return rows.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function demoAddPassage(storySlug: string, quote: string) {
+  const s = await session();
+  const id = `demo-pass-${Date.now()}`;
+  s.passages.unshift({ id, storySlug, quote, createdAt: new Date().toISOString() });
+  return id;
+}
+
+export async function demoDeletePassage(id: string) {
+  const s = await session();
+  const i = s.passages.findIndex((p) => p.id === id);
+  if (i >= 0) s.passages.splice(i, 1);
+}
+
+export async function demoListeningPosition(slug: string): Promise<number> {
+  const s = await session();
+  return s.listening.get(slug) ?? 0;
+}
+
+export async function demoRecordListening(slug: string, seconds: number) {
+  const s = await session();
+  s.listening.set(slug, Math.max(0, seconds));
+}
+
+export async function demoPlan(): Promise<'free' | 'resident'> {
+  const s = await session();
+  return s.plan;
+}
+
+export async function demoSetPlan(plan: 'free' | 'resident') {
+  const s = await session();
+  s.plan = plan;
+}

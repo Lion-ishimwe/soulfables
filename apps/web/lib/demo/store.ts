@@ -38,11 +38,32 @@ export type DemoProgress = {
   completedAt: string | null;
 };
 
+export type DemoBookmark = {
+  id: string;
+  storySlug: string;
+  sectionSlug: string | null;
+  sectionTitle: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
+export type DemoPassage = {
+  id: string;
+  storySlug: string;
+  quote: string;
+  createdAt: string;
+};
+
 export type DemoSession = {
   savedStories: Set<string>;
   progress: Map<string, DemoProgress>;
   entries: DemoEntry[];
   ownedProducts: Set<string>;
+  bookmarks: DemoBookmark[];
+  passages: DemoPassage[];
+  /** Seconds into the narration, per story. Kept apart from reading. */
+  listening: Map<string, number>;
+  plan: 'free' | 'resident';
 };
 
 /**
@@ -147,6 +168,33 @@ function seed(): DemoSession {
     // The demo reader owns the flagship ebook, so My Library has
     // something in it and the download control is visible.
     ownedProducts: new Set(['the-version-of-me-you-broke']),
+
+    bookmarks: [
+      {
+        id: 'demo-bm-1',
+        storySlug: 'the-house-after-you-left',
+        sectionSlug: 'the-lamp-by-the-door',
+        sectionTitle: 'The Lamp by the Door',
+        note: 'Come back to this bit.',
+        createdAt: daysAgo(2),
+      },
+    ],
+
+    passages: [
+      {
+        id: 'demo-pass-1',
+        storySlug: 'the-house-after-you-left',
+        quote:
+          'Grief is not the fire. It is the smoke that lingers after, in the curtains, in the coats, in every room that has to learn a new arithmetic.',
+        createdAt: daysAgo(2),
+      },
+    ],
+
+    listening: new Map([['the-voice-in-the-river', 42]]),
+
+    // Free by default, so the paywall and the upgrade path are both
+    // demonstrable. Switchable from the membership page.
+    plan: 'free',
   };
 }
 

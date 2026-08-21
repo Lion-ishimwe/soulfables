@@ -13,37 +13,66 @@ the way it is, and records two decisions that are still open.
 
 ---
 
-## Status
-
-Phase 1 (Foundation) is in progress. Phases 2 and 3 are blocked on
-decisions D1 and D2 in the architecture document.
-
-| Area | State |
-|---|---|
-| Database schema, RLS, storage buckets | Written, applied in CI |
-| Design system | Tokens measured from the live site |
-| Public site — home, library, shelves, reader, shop | Rendering |
-| Authentication | Sign in, join, reset, callback, guest-order claim |
-| Admin — story authoring | Working end to end |
-| Admin — shelves, products, orders, users | Scaffolded, not built |
-| Checkout and delivery | **Blocked on D1** (payment provider) |
-| Content migration from Base44 | **Blocked on D2** (what carries over) |
-
----
-
-## Quick start
+## Try it
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in, or leave blank to work offline
 npm run dev
 ```
 
-The site runs at `http://localhost:3000` **without a database**. Public
-pages fall back to the content in `apps/web/lib/content.ts`, which mirrors
-`database/seed/0001_house.sql` exactly, so design and layout work needs no
-Supabase project. The admin surface says plainly that it is not connected
-rather than showing an empty table that looks like real data.
+Open http://localhost:3000 and sign in at `/signin`. **There are no
+accounts in the demo** — any email address opens the House, and it signs
+you in as an **owner**, so `/admin` is fully browsable. No password is
+checked and nothing is stored.
+
+Everything runs without a database. What is real and what is standing in
+is listed at `/about-this-demo`, and a banner says so on every page.
+
+| Capability | Where | State |
+|---|---|---|
+| Discover | `/`, `/library`, `/shelf/…`, `/search`, `/wander` | Working |
+| Read | `/story/…` | Working |
+| Listen | narrated stories | Player real, track is a placeholder tone |
+| Save · bookmark · highlight | in the reader | Working |
+| Journal | `/journal` | Working |
+| Personal library | `/account/library` | Working |
+| Recommendations | `/` | Working, each with its reason |
+| AI companion | `/companion` | Real safety layer, scripted replies |
+| Subscriptions | `/membership` | Switch tiers to lock/unlock the paywall |
+| Community | `/residents` | Deliberately thin — concept undecided |
+| Purchase | `/shop` | **Not connected** — the last milestone |
+| Admin | `/admin` | Browsable; writing needs the database |
+
+## Status
+
+Phase 1 (Foundation) and the demo of the full ecosystem are done.
+Payments are deliberately last.
+
+| Area | State |
+|---|---|
+| Database schema, RLS, storage buckets | Written, verified against real Postgres (`npm run db:test`) |
+| Design system | Tokens measured from the live site |
+| Public site | All surfaces rendering |
+| Authentication | Sign in, join, reset, callback, guest-order claim |
+| Admin | Every section built; writes need the database |
+| Checkout and webhook | Written and typed; never run against a real provider |
+| Digital delivery | Written; needs private storage to exercise |
+
+Decisions D1 (Stripe, pending country confirmation) and D2 (clean start,
+admin grants access by hand) are settled — see the architecture document.
+
+---
+
+## Two modes
+
+The app decides for itself. With Supabase credentials it reads and writes
+Postgres, RLS applies, and auth is real. Without them it runs on sample
+content and an in-process store that resets when the server restarts.
+
+Same pages, same components, same server actions in both — there is no
+demo fork to keep in sync, and nothing to unpick when the database
+arrives. `NEXT_PUBLIC_DEMO_MODE=true` forces demo mode even where
+credentials exist, which is what a public showcase should set.
 
 To run against a real database, see
 [`documentation/local-development.md`](documentation/local-development.md).
@@ -62,9 +91,10 @@ packages/
 services/
   ai/               Companion and embeddings (Phase 6)
 database/
-  migrations/       12 numbered SQL files, forward-only
+  migrations/       13 numbered SQL files, forward-only
   seed/             The House as it stands today
   checks/           RLS coverage check, run in CI
+  test/             Applies the whole schema to real Postgres in-process
 documentation/
 ```
 
@@ -105,6 +135,7 @@ entries, never what any of them says.
 | `npm run dev` | Start the web app |
 | `npm run build` | Production build |
 | `npm run typecheck` | Typecheck every workspace |
+| `npm run db:test` | Apply every migration to a real Postgres and check RLS |
 
 CI runs typecheck and build, applies all migrations to a clean Postgres,
 applies the seed twice to prove it is idempotent, and fails if any table

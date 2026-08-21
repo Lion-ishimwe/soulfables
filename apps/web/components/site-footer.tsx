@@ -21,7 +21,7 @@ const COLUMNS = [
       { href: '/journal', label: 'Reading Journal' },
       { href: '/letter', label: 'Weekly Letter' },
       { href: '/shop/the-reflection-deck', label: 'Reflection Deck' },
-      { href: '/voices', label: 'Reader Voices' },
+      { href: '/companion', label: 'The Librarian' },
     ],
   },
   {
@@ -30,13 +30,14 @@ const COLUMNS = [
       { href: '/shop', label: 'Bookshop' },
       { href: '/account/library', label: 'My Library' },
       { href: '/account/orders', label: 'Orders' },
+      { href: '/membership', label: 'Residency' },
     ],
   },
   {
     heading: 'The House',
     links: [
-      { href: '/the-librarian', label: 'The Librarian' },
       { href: '/about', label: 'About the House' },
+      { href: '/account/settings', label: 'Account' },
       { href: '/foundation', label: 'Foundation' },
       { href: '/constitution', label: 'Constitution' },
     ],

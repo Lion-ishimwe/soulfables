@@ -367,3 +367,17 @@ Then he walked home, and did not write another one, and it was three months befo
 
 The envelopes are still in the desk. There are ninety-one left. He is not going to use them, and he is not going to throw them away, and both of those things are fine.`,
 };
+
+/**
+ * Stories with narration in the demo.
+ *
+ * Only some, on purpose: the library needs to show both an audio badge
+ * and its absence, and a platform where everything happens to be
+ * narrated tells you nothing about how it handles the ones that are not.
+ */
+export const DEMO_NARRATED = new Set([
+  'the-house-after-you-left',
+  'the-voice-in-the-river',
+  'the-last-voice-note',
+  'letters-to-the-tide',
+]);

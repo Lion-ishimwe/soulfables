@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getShelves } from '@/lib/content';
+import { getRecommendations } from '@/lib/recommendations';
 import { Greeting } from '@/components/greeting';
 
 /*
@@ -11,10 +12,14 @@ import { Greeting } from '@/components/greeting';
  * primary navigation is a row of feelings, not a genre menu.
  */
 
-export const revalidate = 300;
+// Recommendations are per-reader, so the front door renders on demand.
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const shelves = await getShelves();
+  const [shelves, recommendations] = await Promise.all([
+    getShelves(),
+    getRecommendations(3),
+  ]);
   const entry = shelves.slice(0, 6);
 
   return (
@@ -89,6 +94,36 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {recommendations.length > 0 && (
+        <section className="mx-auto max-w-page px-5 pb-24 sm:px-8">
+          <p className="sf-eyebrow mb-8 text-center">The Librarian suggests</p>
+          <ul className="grid gap-px bg-rule sm:grid-cols-3">
+            {recommendations.map(({ story, reason }) => (
+              <li key={story.slug}>
+                <Link
+                  href={`/story/${story.slug}`}
+                  className="group flex h-full flex-col bg-ink p-8 transition-colors duration-base ease-house hover:bg-ink-raised"
+                >
+                  <p className="font-ui text-xs text-grey-muted">
+                    ☕ {story.readingMinutes} min
+                  </p>
+                  <h3 className="mt-3 font-display text-2xl font-light text-ivory transition-colors duration-base group-hover:text-gold">
+                    {story.title}
+                  </h3>
+                  <p className="mt-2 flex-1 text-sm leading-normal text-grey-muted">
+                    {story.subtitle}
+                  </p>
+                  {/* Every suggestion says why it was made. */}
+                  <p className="mt-5 border-t border-rule pt-4 font-ui text-xs italic text-gold/80">
+                    {reason}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="px-5 pb-16 text-center sm:px-8">
         <p className="font-display text-3xl italic text-grey-muted sm:text-4xl">

@@ -14,10 +14,15 @@ export function StoryCard({ story }: { story: StoryCardType }) {
       href={`/story/${story.slug}`}
       className="group flex h-full flex-col bg-ink p-8 transition-colors duration-base ease-house hover:bg-ink-raised"
     >
-      <p className="font-ui text-sm text-grey-muted">
-        ☕ {story.readingMinutes} min
+      <p className="flex items-center gap-3 font-ui text-sm text-grey-muted">
+        <span>☕ {story.readingMinutes} min</span>
+        {story.hasAudio && (
+          <span title="Narrated" aria-label="Narrated">
+            ♪
+          </span>
+        )}
         {story.access === 'premium' && (
-          <span className="ml-3 text-gold" title="For Residents">
+          <span className="text-gold" title="For Residents" aria-label="For Residents">
             ✦
           </span>
         )}

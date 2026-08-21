@@ -1,7 +1,14 @@
 import 'server-only';
 import { createClient } from './supabase/server';
 import { isDemoMode } from './demo/mode';
-import { demoOwnedProducts, demoReading, demoSavedSlugs } from './demo/queries';
+import {
+  demoOwnedProducts,
+  demoReading,
+  demoSavedSlugs,
+  demoListeningPosition,
+  demoBookmarks,
+  demoPassages,
+} from './demo/queries';
 import { getStories, getProducts } from './content';
 
 /**
@@ -167,3 +174,99 @@ export async function getSavedStories() {
 }
 
 export { formatBytes } from './format';
+
+/** Where the reader left off in the narration, in seconds. */
+export async function getListeningPosition(slug: string): Promise<number> {
+  if (isDemoMode()) return demoListeningPosition(slug);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('reading_progress')
+    .select('audio_position_seconds, stories!inner(slug)')
+    .eq('stories.slug', slug)
+    .maybeSingle();
+
+  return Number(data?.audio_position_seconds ?? 0);
+}
+
+export type BookmarkRow = {
+  id: string;
+  storySlug: string;
+  storyTitle: string | null;
+  sectionTitle: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
+export async function getBookmarks(): Promise<BookmarkRow[]> {
+  if (isDemoMode()) {
+    const stories = await getStories();
+    const rows = await demoBookmarks();
+    return rows.map((b) => ({
+      id: b.id,
+      storySlug: b.storySlug,
+      storyTitle: stories.find((s) => s.slug === b.storySlug)?.title ?? null,
+      sectionTitle: b.sectionTitle,
+      note: b.note,
+      createdAt: b.createdAt,
+    }));
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('bookmarks')
+    .select('id, note, created_at, stories(slug, title), story_sections(title)')
+    .order('created_at', { ascending: false });
+
+  return (data ?? []).map((b: Record<string, unknown>) => {
+    const story = b.stories as { slug?: string; title?: string } | null;
+    const section = b.story_sections as { title?: string } | null;
+    return {
+      id: b.id as string,
+      storySlug: story?.slug ?? '',
+      storyTitle: story?.title ?? null,
+      sectionTitle: section?.title ?? null,
+      note: (b.note as string) ?? null,
+      createdAt: b.created_at as string,
+    };
+  });
+}
+
+export type PassageRow = {
+  id: string;
+  storySlug: string;
+  storyTitle: string | null;
+  quote: string;
+  createdAt: string;
+};
+
+export async function getPassages(): Promise<PassageRow[]> {
+  if (isDemoMode()) {
+    const stories = await getStories();
+    const rows = await demoPassages();
+    return rows.map((p) => ({
+      id: p.id,
+      storySlug: p.storySlug,
+      storyTitle: stories.find((s) => s.slug === p.storySlug)?.title ?? null,
+      quote: p.quote,
+      createdAt: p.createdAt,
+    }));
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('saved_passages')
+    .select('id, quote, created_at, stories(slug, title)')
+    .order('created_at', { ascending: false });
+
+  return (data ?? []).map((p: Record<string, unknown>) => {
+    const story = p.stories as { slug?: string; title?: string } | null;
+    return {
+      id: p.id as string,
+      storySlug: story?.slug ?? '',
+      storyTitle: story?.title ?? null,
+      quote: p.quote as string,
+      createdAt: p.created_at as string,
+    };
+  });
+}

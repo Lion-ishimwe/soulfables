@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation';
 import { getStories, getStory, getShelf } from '@/lib/content';
 import { StoryBody } from '@/lib/story-body';
 import { ReaderControls } from '@/components/reader-controls';
-import { StoryActions } from '@/components/story-actions';
+import { ReaderToolkit } from '@/components/reader-toolkit';
+import { AudioPlayer } from '@/components/audio-player';
+import { getListeningPosition } from '@/lib/library';
 
 /*
  * The reader.
@@ -67,9 +69,10 @@ export default async function StoryPage({
   const story = await getStory(slug);
   if (!story) notFound();
 
-  const [shelf, stories] = await Promise.all([
+  const [shelf, stories, resumeAt] = await Promise.all([
     story.shelf ? getShelf(story.shelf) : Promise.resolve(null),
     getStories(),
+    getListeningPosition(story.slug),
   ]);
   const related = stories
     .filter((s) => s.slug !== slug && s.shelf === story.shelf)
@@ -116,6 +119,18 @@ export default async function StoryPage({
 
         <ReaderControls />
 
+        {story.audio && !story.locked && (
+          <div className="pt-8">
+            <AudioPlayer
+              storyId={story.id ?? `demo-${story.slug}`}
+              src={story.audio.src}
+              narrator={story.audio.narrator}
+              isPlaceholder={story.audio.isPlaceholder}
+              resumeAt={resumeAt}
+            />
+          </div>
+        )}
+
         <div className="mx-auto py-12">
           {story.locked || !story.body ? (
             <Paywall title={story.title} />
@@ -129,10 +144,17 @@ export default async function StoryPage({
             Every soul has a story.
           </p>
 
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
-            {story.id && (
-              <StoryActions storyId={story.id} storySlug={story.slug} />
+          <div className="mt-10">
+            {story.id && !story.locked && (
+              <ReaderToolkit
+                storyId={story.id}
+                storySlug={story.slug}
+                sections={story.sections}
+              />
             )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Link
               href="/journal"
               className="border border-gold/40 px-8 py-3.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"

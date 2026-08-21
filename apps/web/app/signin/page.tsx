@@ -18,7 +18,7 @@ export default async function SignInPage({
       <AuthShell
         eyebrow="THE DOOR"
         title="Come in."
-        intro="This is a demonstration, so there are no accounts. Any email address opens the House — nothing is checked and nothing is stored."
+        intro="This is a demonstration, so there are no accounts. Any email address opens the House, with full owner access to the admin — nothing is checked and nothing is stored."
       >
         <ActionForm action={signIn} hiddenFields={next ? { next } : undefined}>
           <Field
@@ -39,6 +39,17 @@ export default async function SignInPage({
           />
           <SubmitButton label="Enter the demo" pendingLabel="Opening…" />
         </ActionForm>
+
+        <div className="mt-8 border border-rule p-5">
+          <p className="sf-eyebrow mb-2">Admin access</p>
+          <p className="text-sm leading-normal text-grey-muted">
+            The demo signs you in as an <span className="text-gold">owner</span>,
+            so <code className="text-gold">/admin</code> is open: stories,
+            products, orders, readers, analytics and the audit log. In a live
+            build a new account is always a plain reader, and a role is granted
+            deliberately.
+          </p>
+        </div>
       </AuthShell>
     );
   }

@@ -13,6 +13,7 @@ const NAV = [
   { href: '/library', label: 'Library' },
   { href: '/wander', label: 'Wander' },
   { href: '/journal', label: 'Reading Journal' },
+  { href: '/companion', label: 'Librarian' },
   { href: '/shop', label: 'Bookshop' },
   { href: '/residents', label: 'Residents' },
 ] as const;

@@ -26,6 +26,7 @@ const GROUPS = [
       { href: '/admin/products', label: 'Products' },
       { href: '/admin/orders', label: 'Orders' },
       { href: '/admin/entitlements', label: 'Entitlements' },
+      { href: '/admin/subscriptions', label: 'Residency' },
     ],
   },
   {
@@ -38,7 +39,8 @@ const GROUPS = [
   {
     heading: 'Administration',
     items: [
-      { href: '/admin/users', label: 'Users' },
+      { href: '/admin/users', label: 'Readers' },
+      { href: '/admin/analytics', label: 'Analytics' },
       { href: '/admin/audit', label: 'Audit log' },
     ],
     adminOnly: true,

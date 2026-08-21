@@ -5,7 +5,15 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
-import { demoToggleSaved, demoRecordProgress } from '@/lib/demo/queries';
+import {
+  demoToggleSaved,
+  demoRecordProgress,
+  demoRecordListening,
+  demoAddBookmark,
+  demoDeleteBookmark,
+  demoAddPassage,
+  demoDeletePassage,
+} from '@/lib/demo/queries';
 
 /**
  * Reading actions: keeping a story, marking a place, recording progress.
@@ -187,4 +195,135 @@ export async function addBookmark(input: {
 
   revalidatePath('/account/library');
   return { ok: !error };
+}
+
+/**
+ * Where someone has got to in the narration.
+ *
+ * Kept apart from reading progress on purpose: listening in the car and
+ * reading at night are two journeys through the same story, and finishing
+ * one should not move the other.
+ */
+export async function recordListening(input: {
+  storyId: string;
+  seconds: number;
+}): Promise<{ ok: boolean }> {
+  const viewer = await getViewer();
+  if (!viewer) return { ok: false };
+
+  const slug = input.storyId.replace(/^demo-/, '');
+
+  if (isDemoMode()) {
+    await demoRecordListening(slug, input.seconds);
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('reading_progress').upsert(
+    {
+      user_id: viewer.id,
+      story_id: input.storyId,
+      audio_position_seconds: Math.max(0, input.seconds),
+      last_read_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,story_id' },
+  );
+
+  return { ok: !error };
+}
+
+export async function createBookmark(input: {
+  storyId: string;
+  storySlug: string;
+  sectionSlug: string | null;
+  sectionTitle: string | null;
+  note: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const viewer = await getViewer();
+  if (!viewer) return { ok: false, error: 'sign-in-required' };
+
+  if (isDemoMode()) {
+    await demoAddBookmark({
+      storySlug: input.storySlug,
+      sectionSlug: input.sectionSlug,
+      sectionTitle: input.sectionTitle,
+      note: input.note?.trim() || null,
+    });
+    revalidatePath('/account/library');
+    revalidatePath('/journal');
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('bookmarks').insert({
+    user_id: viewer.id,
+    story_id: input.storyId,
+    note: input.note?.trim() || null,
+  });
+
+  revalidatePath('/account/library');
+  return { ok: !error, error: error?.message };
+}
+
+export async function removeBookmark(formData: FormData): Promise<void> {
+  const viewer = await getViewer();
+  if (!viewer) return;
+  const id = String(formData.get('id') ?? '');
+  if (!id) return;
+
+  if (isDemoMode()) {
+    await demoDeleteBookmark(id);
+  } else {
+    const supabase = await createClient();
+    await supabase.from('bookmarks').delete().eq('id', id).eq('user_id', viewer.id);
+  }
+
+  revalidatePath('/account/library');
+  revalidatePath('/journal');
+}
+
+export async function keepPassage(input: {
+  storyId: string;
+  storySlug: string;
+  quote: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const viewer = await getViewer();
+  if (!viewer) return { ok: false, error: 'sign-in-required' };
+
+  const quote = input.quote.trim();
+  if (quote.length < 2 || quote.length > 2000) {
+    return { ok: false, error: 'invalid' };
+  }
+
+  if (isDemoMode()) {
+    await demoAddPassage(input.storySlug, quote);
+    revalidatePath('/account/library');
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('saved_passages').insert({
+    user_id: viewer.id,
+    story_id: input.storyId,
+    quote,
+  });
+
+  revalidatePath('/account/library');
+  return { ok: !error, error: error?.message };
+}
+
+export async function removePassage(formData: FormData): Promise<void> {
+  const viewer = await getViewer();
+  if (!viewer) return;
+  const id = String(formData.get('id') ?? '');
+  if (!id) return;
+
+  if (isDemoMode()) {
+    await demoDeletePassage(id);
+  } else {
+    const supabase = await createClient();
+    await supabase.from('saved_passages').delete().eq('id', id).eq('user_id', viewer.id);
+  }
+
+  revalidatePath('/account/library');
 }

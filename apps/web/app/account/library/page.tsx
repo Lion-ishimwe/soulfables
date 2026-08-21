@@ -5,8 +5,11 @@ import {
   getOwnedProducts,
   getReading,
   getSavedStories,
+  getBookmarks,
+  getPassages,
   formatBytes,
 } from '@/lib/library';
+import { removeBookmark, removePassage } from '@/app/actions/reading';
 
 export const metadata: Metadata = {
   title: 'My Library',
@@ -33,10 +36,12 @@ export default async function MyLibraryPage({
     requireViewer('/account/library'),
   ]);
 
-  const [owned, reading, saved] = await Promise.all([
+  const [owned, reading, saved, bookmarks, passages] = await Promise.all([
     getOwnedProducts(),
     getReading(),
     getSavedStories(),
+    getBookmarks(),
+    getPassages(),
   ]);
 
   return (
@@ -175,6 +180,76 @@ export default async function MyLibraryPage({
                   <p className="font-display text-xl text-ivory">{s!.title}</p>
                   <p className="mt-2 text-sm text-grey-muted">{s!.subtitle}</p>
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Bookmarks */}
+      {bookmarks.length > 0 && (
+        <section className="mb-16">
+          <h2 className="sf-eyebrow mb-6">Bookmarks</h2>
+          <ul className="divide-y divide-rule border border-rule">
+            {bookmarks.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-start justify-between gap-4 px-6 py-4">
+                <div className="min-w-0">
+                  <Link
+                    href={`/story/${b.storySlug}`}
+                    className="font-display text-xl text-ivory transition-colors hover:text-gold"
+                  >
+                    {b.storyTitle ?? b.storySlug}
+                  </Link>
+                  <p className="mt-1 text-xs text-grey-muted">
+                    {b.sectionTitle ?? 'The story as a whole'}
+                    {b.note && <span className="text-grey"> &mdash; {b.note}</span>}
+                  </p>
+                </div>
+                <form action={removeBookmark}>
+                  <input type="hidden" name="id" value={b.id} />
+                  <button
+                    type="submit"
+                    className="font-ui text-xs text-grey-muted transition-colors hover:text-state-danger"
+                  >
+                    Remove
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Kept passages */}
+      {passages.length > 0 && (
+        <section className="mb-16">
+          <h2 className="sf-eyebrow mb-2">Saved passages</h2>
+          <p className="mb-6 text-sm text-grey-muted">
+            Some sentences ask to be remembered.
+          </p>
+          <ul className="space-y-px bg-rule">
+            {passages.map((p) => (
+              <li key={p.id} className="bg-ink px-7 py-6">
+                <blockquote className="border-l border-gold pl-5 font-display text-xl font-light italic leading-snug text-ivory">
+                  {p.quote}
+                </blockquote>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <Link
+                    href={`/story/${p.storySlug}`}
+                    className="font-ui text-xs text-gold transition-colors hover:text-gold-soft"
+                  >
+                    {p.storyTitle ?? p.storySlug} &rarr;
+                  </Link>
+                  <form action={removePassage}>
+                    <input type="hidden" name="id" value={p.id} />
+                    <button
+                      type="submit"
+                      className="font-ui text-xs text-grey-muted transition-colors hover:text-state-danger"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>

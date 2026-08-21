@@ -1,7 +1,23 @@
 import 'server-only';
 import { formatMoney } from './format';
 import { isDemoMode } from './demo/mode';
-import { DEMO_BODIES } from './demo/stories';
+import { DEMO_BODIES, DEMO_NARRATED } from './demo/stories';
+
+/** Section markers, shared by the reader, bookmarks and audio cues. */
+function sectionsFrom(body: string) {
+  return [...body.matchAll(/^::\s*(.+)$/gm)].map((m) => {
+    const title = m[1].trim();
+    return {
+      title,
+      slug:
+        title
+          .toLowerCase()
+          .normalize('NFKD')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'section',
+    };
+  });
+}
 
 /**
  * Content access layer.
@@ -39,6 +55,8 @@ export type StoryCard = {
   readingMinutes: number;
   shelf: string;
   access: 'free' | 'premium';
+  /** Whether a narrated edition exists. */
+  hasAudio?: boolean;
 };
 
 export type Product = {
@@ -78,16 +96,16 @@ const SHELVES: Shelf[] = [
 const STORIES: StoryCard[] = [
   { id: 'demo-the-house-after-you-left', slug: 'the-house-after-you-left', title: 'The House After You Left', subtitle: 'A modern folktale about the rooms grief keeps lit', author: 'The Librarian', readingMinutes: 11, shelf: 'heartbreak', access: 'free' },
   { id: 'demo-the-map-without-my-home', slug: 'the-map-without-my-home', title: 'The Map Without My Home', subtitle: 'A map that still points to the place you left', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'change', access: 'free' },
-  { id: 'demo-the-name-i-left-behind', slug: 'the-name-i-left-behind', title: 'The Name I Left Behind', subtitle: 'Leaving a name behind to find who you are', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'change', access: 'free' },
-  { id: 'demo-the-voice-in-the-river', slug: 'the-voice-in-the-river', title: 'The Voice in the River', subtitle: 'Finding a new language for life by sitting still long enough to hear what was already there.', author: 'Apophia Kamwine', readingMinutes: 8, shelf: 'healing', access: 'free' },
+  { id: 'demo-the-name-i-left-behind', slug: 'the-name-i-left-behind', title: 'The Name I Left Behind', subtitle: 'Leaving a name behind to find who you are', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'forgiveness', access: 'free' },
+  { id: 'demo-the-voice-in-the-river', slug: 'the-voice-in-the-river', title: 'The Voice in the River', subtitle: 'Finding a new language for life by sitting still long enough to hear what was already there.', author: 'Apophia Kamwine', readingMinutes: 8, shelf: 'anxiety', access: 'free' },
   { id: 'demo-the-seed-i-was-afraid-to-plant', slug: 'the-seed-i-was-afraid-to-plant', title: 'The Seed I Was Afraid to Plant', subtitle: 'Growing glass fruit because you were afraid of bruising.', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'healing', access: 'free' },
-  { id: 'demo-the-light-that-outlasted', slug: 'the-light-that-outlasted', title: 'The Light That Outlasted', subtitle: 'Love that outlasts loss — the kind that stays after the one who carried it is gone.', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'grief', access: 'free' },
+  { id: 'demo-the-light-that-outlasted', slug: 'the-light-that-outlasted', title: 'The Light That Outlasted', subtitle: 'Love that outlasts loss — the kind that stays after the one who carried it is gone.', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'love', access: 'free' },
   { id: 'demo-the-house-that-burned-without-fire', slug: 'the-house-that-burned-without-fire', title: 'The House That Burned Without Fire', subtitle: 'Grief is not the fire — it is the smoke that lingers after.', author: 'Seren Adair', readingMinutes: 10, shelf: 'grief', access: 'free' },
   { id: 'demo-the-garden-remembered-me', slug: 'the-garden-remembered-me', title: 'The Garden Remembered Me', subtitle: 'The garden held what was planted long after the gardener had gone', author: 'Apophia Kamwine', readingMinutes: 7, shelf: 'healing', access: 'free' },
   { id: 'demo-the-last-voice-note', slug: 'the-last-voice-note', title: 'The Last Voice Note', subtitle: 'Some people leave. Their voices don’t.', author: 'Apophia Kamwine', readingMinutes: 6, shelf: 'grief', access: 'free' },
-  { id: 'demo-the-stranger-in-my-mirror', slug: 'the-stranger-in-my-mirror', title: 'The Stranger in My Mirror', subtitle: 'You wake up and realise you have spent years becoming someone everyone else recognises.', author: 'Apophia Kamwine', readingMinutes: 6, shelf: 'change', access: 'free' },
+  { id: 'demo-the-stranger-in-my-mirror', slug: 'the-stranger-in-my-mirror', title: 'The Stranger in My Mirror', subtitle: 'You wake up and realise you have spent years becoming someone everyone else recognises.', author: 'Apophia Kamwine', readingMinutes: 6, shelf: 'loneliness', access: 'free' },
   { id: 'demo-letters-to-the-tide', slug: 'letters-to-the-tide', title: 'Letters to the Tide', subtitle: 'Words cast to the waves, waiting for a tide that understands.', author: 'Caelum Orr', readingMinutes: 12, shelf: 'heartbreak', access: 'premium' },
-  { id: 'demo-the-sister-who-left-and-returned', slug: 'the-sister-who-left-and-returned', title: 'The Sister Who Left and Returned', subtitle: 'Family is not the tie that binds — it is the river that keeps flowing.', author: 'Caelum Orr', readingMinutes: 11, shelf: 'healing', access: 'free' },
+  { id: 'demo-the-sister-who-left-and-returned', slug: 'the-sister-who-left-and-returned', title: 'The Sister Who Left and Returned', subtitle: 'Family is not the tie that binds — it is the river that keeps flowing.', author: 'Caelum Orr', readingMinutes: 11, shelf: 'hope', access: 'free' },
 ];
 
 const PRODUCTS: Product[] = [
@@ -135,7 +153,8 @@ export async function getShelf(slug: string): Promise<Shelf | null> {
 
 export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
   if (!isConfigured) {
-    return shelfSlug ? STORIES.filter((s) => s.shelf === shelfSlug) : STORIES;
+    const all = STORIES.map((s) => ({ ...s, hasAudio: DEMO_NARRATED.has(s.slug) }));
+    return shelfSlug ? all.filter((s) => s.shelf === shelfSlug) : all;
   }
   const { createClient } = await import('./supabase/server');
   const supabase = await createClient();
@@ -269,7 +288,13 @@ export async function getWanderStory(): Promise<StoryCard | null> {
   return stories[hourIndex % stories.length];
 }
 
+export type StorySection = { slug: string; title: string };
+
 export type FullStory = StoryCard & {
+  /** Parsed from the body, for bookmarks and audio cue points. */
+  sections: StorySection[];
+  /** Narration, when it exists. */
+  audio: { src: string; narrator: string | null; isPlaceholder: boolean } | null;
   /**
    * Null for a premium story the reader has no access to. The body is
    * withheld HERE, on the server, so it never reaches the browser at all —
@@ -292,13 +317,27 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     if (!card) return null;
 
     // The premium rule applies in demo mode too, so the paywall can be
-    // demonstrated rather than described.
-    const locked = card.access === 'premium';
+    // demonstrated rather than described — and becoming a Resident
+    // actually unlocks it.
+    const { hasPremiumAccess } = await import('./membership');
+    const locked = card.access === 'premium' && !(await hasPremiumAccess());
+
+    const body = locked ? null : (DEMO_BODIES[slug] ?? null);
 
     return {
       ...card,
       locked,
-      body: locked ? null : (DEMO_BODIES[slug] ?? null),
+      body,
+      sections: body ? sectionsFrom(body) : [],
+      // Narration exists for a handful of stories in the demo, so both
+      // states — has audio, has none — are visible.
+      audio: DEMO_NARRATED.has(slug)
+        ? {
+            src: '/audio/narration-placeholder.wav',
+            narrator: 'Apophia Kamwine',
+            isPlaceholder: true,
+          }
+        : null,
     };
   }
 
@@ -353,5 +392,7 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     locked,
     // The line that matters: withheld server-side, not hidden with CSS.
     body: locked ? null : ((data.body_mdx as string) ?? null),
+    sections: locked ? [] : sectionsFrom((data.body_mdx as string) ?? ''),
+    audio: null,
   };
 }
