@@ -4,6 +4,7 @@ import { getShelves } from '@/lib/content';
 import { Greeting } from '@/components/greeting';
 import { LibraryBackdrop } from '@/components/library-backdrop';
 import { Suggestions, SuggestionsSkeleton } from '@/components/suggestions';
+import { FeaturedHero } from '@/components/featured-hero';
 
 /*
  * The front door.
@@ -100,6 +101,12 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Whatever the House has placed on the front door. Renders
+          nothing when no slot is set. */}
+      <Suspense fallback={null}>
+        <FeaturedHero />
+      </Suspense>
 
       <Suspense fallback={<SuggestionsSkeleton />}>
         <Suggestions limit={3} />

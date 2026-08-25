@@ -9,6 +9,9 @@ import { deleteFeatured } from '@/app/actions/editorial';
 export const metadata: Metadata = { title: 'Featured' };
 export const dynamic = 'force-dynamic';
 
+/** Placements that show exactly one thing; a new placement replaces. */
+const SINGULAR = new Set(['home_hero', 'shop_hero']);
+
 const PLACEMENT_LABEL: Record<string, string> = {
   home_hero: 'Front door — hero',
   librarian_pick: 'Front door — the Librarian suggests',
@@ -95,11 +98,13 @@ export default async function FeaturedPage({
               <section key={placement}>
                 <div className="mb-3 flex items-baseline justify-between gap-4">
                   <h2 className="sf-eyebrow">{PLACEMENT_LABEL[placement]}</h2>
-                  {inSlot.length === 0 && (
-                    <span className="font-ui text-xs text-grey-muted">
-                      Falls back to the page default
-                    </span>
-                  )}
+                  <span className="font-ui text-xs text-grey-muted">
+                    {inSlot.length === 0
+                      ? 'Falls back to the page default'
+                      : SINGULAR.has(placement)
+                        ? 'Shows one — placing another replaces it'
+                        : `Shows ${inSlot.length}`}
+                  </span>
                 </div>
 
                 {inSlot.length > 0 && (

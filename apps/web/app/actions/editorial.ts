@@ -326,6 +326,15 @@ export async function deleteAuthor(formData: FormData): Promise<void> {
 // Featured
 // =====================================================================
 
+/**
+ * Placements that show exactly one thing.
+ *
+ * Placing a second item in one of these used to queue silently behind the
+ * first, so an editor would place something, see the admin list grow, and
+ * find the front door unchanged. These replace instead.
+ */
+const SINGULAR: ReadonlySet<string> = new Set(['home_hero', 'shop_hero']);
+
 const featuredSchema = z.object({
   id: z.string().trim().max(80).optional().or(z.literal('')),
   placement: z.enum(['home_hero', 'librarian_pick', 'shop_hero', 'shelf_spotlight']),
@@ -359,6 +368,17 @@ export async function saveFeatured(
   const id = d.id || `feat-${Date.now()}`;
 
   if (isDemoMode()) {
+    if (SINGULAR.has(d.placement)) {
+      const { demoListFeatured, demoDeleteFeatured: drop } = await import(
+        '@/lib/demo/editorial'
+      );
+      for (const existing of demoListFeatured()) {
+        if (existing.placement === d.placement && existing.id !== id) {
+          drop(existing.id);
+        }
+      }
+    }
+
     demoSaveFeatured({
       id,
       placement: d.placement,
@@ -401,6 +421,16 @@ export async function saveFeatured(
       // An inactive slot is one whose window has already closed.
       ends_at: d.active === 'on' ? null : new Date().toISOString(),
     };
+
+    if (SINGULAR.has(d.placement)) {
+      // Close any other slot in this placement rather than leaving it to
+      // compete on sort order.
+      await supabase
+        .from('featured_slots')
+        .delete()
+        .eq('placement', d.placement)
+        .neq('id', d.id || '00000000-0000-0000-0000-000000000000');
+    }
 
     const { error } = d.id
       ? await supabase.from('featured_slots').update(row).eq('id', d.id)

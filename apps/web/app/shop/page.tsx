@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getProducts } from '@/lib/content';
 import { Cover } from '@/components/cover-art';
+import { getFeaturedOne } from '@/lib/featured';
 
 export const metadata: Metadata = {
   title: 'The Bookshop',
@@ -13,9 +14,20 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function ShopPage() {
-  const products = await getProducts();
-  const hero = products.find((p) => p.featured);
-  const rest = products.filter((p) => !p.featured);
+  const [products, placed] = await Promise.all([
+    getProducts(),
+    getFeaturedOne('shop_hero'),
+  ]);
+
+  // A deliberate placement beats the is_featured flag; the flag is the
+  // fallback when nothing has been placed.
+  const hero =
+    (placed && products.find((p) => p.slug === placed.slug)) ??
+    products.find((p) => p.featured);
+
+  const rest = products.filter((p) => p.slug !== hero?.slug);
+  const heroEyebrow = placed?.headline ?? hero?.eyebrow;
+  const heroQuote = placed?.blurb ?? hero?.pullQuote;
 
   return (
     <>
@@ -44,13 +56,13 @@ export default async function ShopPage() {
             </div>
 
             <div className="text-center lg:text-left">
-            <p className="sf-eyebrow text-gold">{hero.eyebrow}</p>
+            <p className="sf-eyebrow text-gold">{heroEyebrow}</p>
             <h2 className="mt-6 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
               {hero.title}
             </h2>
             <p className="mt-4 font-ui text-sm text-grey-muted">{hero.subtitle}</p>
             <blockquote className="mt-8 max-w-measure font-display text-2xl font-light italic leading-snug text-grey lg:mx-0">
-              “{hero.pullQuote}”
+              “{heroQuote}”
             </blockquote>
 
             <Link

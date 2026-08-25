@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getShelf, getShelves, getStories, getJourney } from '@/lib/content';
 import { StoryCard } from '@/components/story-card';
+import { getFeatured } from '@/lib/featured';
 
 /*
  * A shelf page.
@@ -59,10 +60,16 @@ export default async function ShelfPage({
   const shelf = await getShelf(slug);
   if (!shelf) notFound();
 
-  const [stories, journey] = await Promise.all([
+  const [stories, journey, spotlights] = await Promise.all([
     getStories(slug),
     getJourney(slug),
+    getFeatured('shelf_spotlight'),
   ]);
+
+  // Only a spotlight placed on THIS shelf, or on a story that lives here.
+  const spotlight = spotlights.find(
+    (s) => s.slug === slug || s.shelf === slug,
+  );
 
   const [entry, ...rest] = stories;
 
@@ -120,6 +127,24 @@ export default async function ShelfPage({
             </footer>
           </div>
         </aside>
+      )}
+
+      {/* A spotlight placed by the House, if there is one for this shelf. */}
+      {spotlight && spotlight.slug !== entry?.slug && (
+        <section className="mx-auto max-w-page px-5 pb-20 sm:px-8">
+          <p className="sf-eyebrow mb-6">{spotlight.headline ?? 'Spotlight'}</p>
+          <Link
+            href={spotlight.href}
+            className="group block border border-gold/25 bg-gold-dim p-8 transition-all duration-base ease-house hover:border-gold/40 sm:p-10"
+          >
+            <h2 className="font-display text-3xl font-light text-ivory transition-colors duration-base group-hover:text-gold">
+              {spotlight.title}
+            </h2>
+            <p className="mt-3 max-w-measure font-display text-xl italic leading-snug text-grey">
+              {spotlight.blurb ?? spotlight.subtitle}
+            </p>
+          </Link>
+        </section>
       )}
 
       {/* Begin here */}

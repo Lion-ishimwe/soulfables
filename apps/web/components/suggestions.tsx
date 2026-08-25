@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getRecommendations } from '@/lib/recommendations';
+import { getFeatured } from '@/lib/featured';
 
 /**
  * The Librarian's suggestions.
@@ -11,17 +12,52 @@ import { getRecommendations } from '@/lib/recommendations';
  * underneath it.
  */
 export async function Suggestions({ limit = 3 }: { limit?: number }) {
-  const recommendations = await getRecommendations(limit);
-  if (recommendations.length === 0) return null;
+  /*
+   * Anything the House has deliberately placed comes first and keeps its
+   * own headline; recommendations fill whatever is left. An editor's
+   * choice should not be outranked by a scoring function.
+   */
+  const placed = await getFeatured('librarian_pick');
+
+  const picks = placed.map((item) => ({
+    slug: item.slug,
+    title: item.title,
+    subtitle: item.blurb ?? item.subtitle,
+    readingMinutes: item.readingMinutes ?? 0,
+    hasAudio: item.hasAudio,
+    href: item.href,
+    reason: item.headline ?? 'Chosen by the House',
+  }));
+
+  const remaining = Math.max(0, limit - picks.length);
+  const recommendations = remaining > 0 ? await getRecommendations(remaining) : [];
+
+  const items = [
+    ...picks,
+    ...recommendations
+      // Never show the same story twice.
+      .filter((r) => !picks.some((p) => p.slug === r.story.slug))
+      .map(({ story, reason }) => ({
+        slug: story.slug,
+        title: story.title,
+        subtitle: story.subtitle,
+        readingMinutes: story.readingMinutes,
+        hasAudio: story.hasAudio,
+        href: `/story/${story.slug}` as const,
+        reason,
+      })),
+  ].slice(0, limit);
+
+  if (items.length === 0) return null;
 
   return (
     <section className="mx-auto max-w-page px-5 pb-24 sm:px-8">
       <p className="sf-eyebrow mb-8 text-center">The Librarian suggests</p>
       <ul className="grid gap-px bg-rule sm:grid-cols-3">
-        {recommendations.map(({ story, reason }) => (
+        {items.map((story) => (
           <li key={story.slug}>
             <Link
-              href={`/story/${story.slug}`}
+              href={story.href}
               className="group flex h-full flex-col bg-ink p-8 transition-colors duration-base ease-house hover:bg-ink-raised"
             >
               <p className="flex items-center gap-3 font-ui text-xs text-grey-muted">
@@ -36,7 +72,7 @@ export async function Suggestions({ limit = 3 }: { limit?: number }) {
               </p>
               {/* Every suggestion says why it was made. */}
               <p className="mt-5 border-t border-rule pt-4 font-ui text-xs italic text-gold/80">
-                {reason}
+                {story.reason}
               </p>
             </Link>
           </li>
