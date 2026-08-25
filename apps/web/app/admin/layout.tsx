@@ -42,6 +42,12 @@ export default async function AdminLayout({
 
           <div className="flex items-center gap-5">
             <Link
+              href="/studio"
+              className="font-ui text-xs text-grey-muted transition-colors hover:text-ivory"
+            >
+              Writing Room
+            </Link>
+            <Link
               href="/"
               className="font-ui text-xs text-grey-muted transition-colors hover:text-ivory"
             >

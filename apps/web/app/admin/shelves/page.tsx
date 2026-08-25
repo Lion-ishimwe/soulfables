@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { listAdminShelves } from '@/lib/admin-data';
 import { PageHeader, StatusPill, EmptyState } from '@/components/admin/ui';
+import { KebabMenu } from '@/components/admin/kebab-menu';
+import { deleteShelf } from '@/app/actions/editorial';
 
 export const metadata: Metadata = { title: 'Shelves' };
 export const dynamic = 'force-dynamic';
@@ -61,6 +63,7 @@ export default async function ShelvesPage({
                 <th className="sf-eyebrow px-5 py-3 text-right">Stories</th>
                 <th className="sf-eyebrow px-5 py-3 text-left">Journey</th>
                 <th className="sf-eyebrow px-5 py-3 text-right">Order</th>
+                <th className="sf-eyebrow px-5 py-3 text-right"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule">
@@ -123,6 +126,27 @@ export default async function ShelvesPage({
 
                     <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
                       {s.sortOrder}
+                    </td>
+
+                    <td className="px-5 py-3.5">
+                      <KebabMenu
+                        label={s.label}
+                        items={[
+                          { kind: 'link', label: 'Edit shelf', href: `/admin/shelves/${s.slug}` as never },
+                          { kind: 'link', label: 'View on site', href: `/shelf/${s.slug}` as never },
+                          {
+                            kind: 'action',
+                            label: 'Delete shelf',
+                            action: deleteShelf,
+                            fields: { slug: s.slug },
+                            danger: true,
+                            confirm:
+                              s.storyCount > 0
+                                ? `Delete “${s.label}”? ${s.storyCount} stories sit here and would lose their shelf.`
+                                : `Delete “${s.label}”?`,
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 );

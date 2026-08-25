@@ -1,5 +1,7 @@
 'use server';
 
+import type { Route } from 'next';
+
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -8,6 +10,7 @@ import { checkbox, field } from '@/lib/form';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth';
+import { isDemoMode } from '@/lib/demo/mode';
 
 /**
  * Story authoring actions — the M1 critical path.
@@ -38,6 +41,7 @@ const storySchema = z.object({
   access: z.enum(['free', 'premium']),
   status: z.enum(['draft', 'in_review', 'scheduled', 'published', 'archived']),
   coverImage: z.string().trim().max(600).optional().or(z.literal('')),
+  releaseMode: z.enum(['full', 'serial']).catch('full'),
   seoTitle: z.string().trim().max(200).optional().or(z.literal('')),
   seoDescription: z.string().trim().max(320).optional().or(z.literal('')),
 });
@@ -137,6 +141,7 @@ export async function saveStory(
     shelfId: field(formData, 'shelfId'),
     access: field(formData, 'access'),
     status: field(formData, 'status'),
+    releaseMode: field(formData, 'releaseMode'),
     coverImage: field(formData, 'coverImage'),
     seoTitle: field(formData, 'seoTitle'),
     seoDescription: field(formData, 'seoDescription'),
@@ -149,6 +154,53 @@ export async function saveStory(
   const d = parsed.data;
   const body = d.bodyMdx ?? '';
   const words = countWords(body);
+
+  // Demo mode writes to the editorial store, so the admin editor is not
+  // a dead form when there is no database behind it.
+  if (isDemoMode()) {
+    const { demoGetStory, demoSaveStory } = await import('@/lib/demo/editorial');
+
+    const existing = id ? demoGetStory(id) : null;
+    const words = countWords(body);
+
+    const result = demoSaveStory(id, {
+      slug: d.slug,
+      title: d.title,
+      subtitle: d.subtitle || '',
+      excerpt: d.excerpt || '',
+      bodyMdx: body,
+      authorSlug: d.authorId || null,
+      assignedAuthorSlug: existing?.assignedAuthorSlug ?? (d.authorId || null),
+      shelfSlug: d.shelfId || existing?.shelfSlug || 'heartbreak',
+      access: d.access,
+      status:
+        d.status === 'published'
+          ? 'published'
+          : d.status === 'in_review'
+            ? 'in_review'
+            : d.status === 'archived'
+              ? 'archived'
+              : 'draft',
+      releaseMode: d.releaseMode,
+      chapters: existing?.chapters ?? [],
+      coverImage: d.coverImage || null,
+      readingMinutes: Math.max(1, Math.ceil(words / WORDS_PER_MINUTE)),
+      publishedAt:
+        d.status === 'published'
+          ? (existing?.publishedAt ?? new Date().toISOString())
+          : null,
+      submittedAt: existing?.submittedAt ?? null,
+      submittedBy: existing?.submittedBy ?? null,
+      approvedAt: existing?.approvedAt ?? null,
+      revisionNote: existing?.revisionNote ?? null,
+      hasAudio: existing?.hasAudio ?? false,
+    });
+
+    if (result.error) return { error: result.error };
+
+    revalidatePath('/', 'layout');
+    redirect(`/admin/stories?saved=${encodeURIComponent(d.title)}` as Route);
+  }
 
   const supabase = await createClient();
 

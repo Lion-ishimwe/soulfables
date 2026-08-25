@@ -316,3 +316,83 @@ export async function listAdminFeatured(): Promise<FeaturedSlot[]> {
     active: !f.ends_at || new Date(f.ends_at as string) > new Date(),
   }));
 }
+
+// ---------------------------------------------------------------------
+// Editorial workflow
+// ---------------------------------------------------------------------
+
+import type { EditorialStory, AuthorAccount, Notification } from './demo/editorial';
+
+/** Ensures the demo story seed has run before anything reads it. */
+async function ensureStories() {
+  await getStories();
+}
+
+export type WorkStory = EditorialStory & {
+  authorName: string | null;
+  assignedName: string | null;
+  shelfLabel: string | null;
+};
+
+async function decorate(rows: EditorialStory[]): Promise<WorkStory[]> {
+  const { demoListAuthors, demoListShelves } = await import('./demo/editorial');
+  const authors = demoListAuthors();
+  const shelves = demoListShelves();
+
+  const name = (slug: string | null) =>
+    slug ? (authors.find((a) => a.slug === slug)?.name ?? null) : null;
+
+  return rows.map((r) => ({
+    ...r,
+    authorName: name(r.authorSlug),
+    assignedName: name(r.assignedAuthorSlug),
+    shelfLabel: shelves.find((s) => s.slug === r.shelfSlug)?.label ?? null,
+  }));
+}
+
+/** Every story, whatever its state — the admin list. */
+export async function listWorkStories(): Promise<WorkStory[]> {
+  await ensureStories();
+  const { demoListStories } = await import('./demo/editorial');
+  return decorate(demoListStories());
+}
+
+/** Waiting for the House to read them. */
+export async function listSubmissions(): Promise<WorkStory[]> {
+  return (await listWorkStories())
+    .filter((s) => s.status === 'in_review')
+    .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
+}
+
+export async function getWorkStory(slug: string): Promise<WorkStory | null> {
+  return (await listWorkStories()).find((s) => s.slug === slug) ?? null;
+}
+
+/** What one author is carrying. */
+export async function listStoriesForAuthor(
+  authorSlug: string,
+): Promise<WorkStory[]> {
+  return (await listWorkStories()).filter(
+    (s) => s.assignedAuthorSlug === authorSlug || s.authorSlug === authorSlug,
+  );
+}
+
+export async function listAuthorAccounts(): Promise<AuthorAccount[]> {
+  const { demoListAccounts } = await import('./demo/editorial');
+  return demoListAccounts();
+}
+
+export async function accountForEmail(
+  email: string | null,
+): Promise<AuthorAccount | null> {
+  if (!email) return null;
+  const { demoAccountFor } = await import('./demo/editorial');
+  return demoAccountFor(email);
+}
+
+export async function notificationsFor(
+  authorSlug: string,
+): Promise<Notification[]> {
+  const { demoNotifications } = await import('./demo/editorial');
+  return demoNotifications(authorSlug);
+}

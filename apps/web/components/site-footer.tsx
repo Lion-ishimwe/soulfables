@@ -37,7 +37,7 @@ const COLUMNS = [
     heading: 'The House',
     links: [
       { href: '/about', label: 'About the House' },
-      { href: '/account/settings', label: 'Account' },
+      { href: '/support', label: 'Support' },
       { href: '/foundation', label: 'Foundation' },
       { href: '/constitution', label: 'Constitution' },
     ],

@@ -45,6 +45,59 @@ export type EditorialAuthor = {
   sortOrder: number;
 };
 
+
+export type EditorialChapter = {
+  id: string;
+  number: number;
+  title: string;
+  bodyMdx: string;
+  status: 'draft' | 'published';
+  publishedAt: string | null;
+};
+
+export type EditorialStory = {
+  slug: string;
+  title: string;
+  subtitle: string;
+  excerpt: string;
+  bodyMdx: string;
+  authorSlug: string | null;
+  /** Who is writing it now — may differ from the byline. */
+  assignedAuthorSlug: string | null;
+  shelfSlug: string;
+  access: 'free' | 'premium';
+  status: 'draft' | 'in_review' | 'published' | 'archived';
+  releaseMode: 'full' | 'serial';
+  chapters: EditorialChapter[];
+  coverImage: string | null;
+  readingMinutes: number;
+  publishedAt: string | null;
+  submittedAt: string | null;
+  submittedBy: string | null;
+  approvedAt: string | null;
+  revisionNote: string | null;
+  hasAudio: boolean;
+};
+
+/** An author who can sign in and write. */
+export type AuthorAccount = {
+  email: string;
+  authorSlug: string;
+  invitedAt: string;
+};
+
+export type Notification = {
+  id: string;
+  /** Author slug, since the demo has no real user ids. */
+  forAuthor: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  href: string | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
 export type FeaturedSlot = {
   id: string;
   placement: 'home_hero' | 'librarian_pick' | 'shop_hero' | 'shelf_spotlight';
@@ -60,6 +113,9 @@ type Editorial = {
   shelves: EditorialShelf[];
   authors: EditorialAuthor[];
   featured: FeaturedSlot[];
+  stories: EditorialStory[];
+  accounts: AuthorAccount[];
+  notifications: Notification[];
 };
 
 function seed(): Editorial {
@@ -160,6 +216,16 @@ function seed(): Editorial {
         sortOrder: 3,
       },
     ],
+
+    stories: [],
+    accounts: [
+      {
+        email: 'seren@soulfables.co',
+        authorSlug: 'seren-adair',
+        invitedAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+      },
+    ],
+    notifications: [],
 
     featured: [
       {
@@ -288,4 +354,132 @@ export function demoSaveFeatured(slot: FeaturedSlot): void {
 export function demoDeleteFeatured(id: string): void {
   const s = store();
   s.featured = s.featured.filter((f) => f.id !== id);
+}
+
+// ---------------------------------------------------------------------
+// Stories
+//
+// Seeded lazily from the demo constants the first time they are asked
+// for, so the published library exists without duplicating it here, and
+// anything written or edited afterwards lives in this store.
+// ---------------------------------------------------------------------
+
+let storiesSeeded = false;
+
+export function demoSeedStories(
+  seedFrom: () => Omit<EditorialStory, 'chapters'>[],
+): void {
+  const s = store();
+  if (storiesSeeded || s.stories.length > 0) return;
+  s.stories = seedFrom().map((st) => ({ ...st, chapters: [] }));
+  storiesSeeded = true;
+}
+
+export function demoListStories(): EditorialStory[] {
+  return [...store().stories];
+}
+
+export function demoGetStory(slug: string): EditorialStory | null {
+  return store().stories.find((s) => s.slug === slug) ?? null;
+}
+
+export function demoSaveStory(
+  original: string | null,
+  next: EditorialStory,
+): { error?: string } {
+  const s = store();
+  if (s.stories.some((x) => x.slug === next.slug && x.slug !== original)) {
+    return { error: 'Another story already uses that web address.' };
+  }
+
+  const i = original ? s.stories.findIndex((x) => x.slug === original) : -1;
+  if (i >= 0) s.stories[i] = next;
+  else s.stories.unshift(next);
+
+  return {};
+}
+
+export function demoDeleteStory(slug: string): void {
+  const s = store();
+  s.stories = s.stories.filter((x) => x.slug !== slug);
+}
+
+/** Chapters, for a serialised story. */
+export function demoSaveChapter(
+  storySlug: string,
+  chapter: EditorialChapter,
+): void {
+  const story = demoGetStory(storySlug);
+  if (!story) return;
+  const i = story.chapters.findIndex((c) => c.id === chapter.id);
+  if (i >= 0) story.chapters[i] = chapter;
+  else story.chapters.push(chapter);
+  story.chapters.sort((a, b) => a.number - b.number);
+}
+
+export function demoDeleteChapter(storySlug: string, id: string): void {
+  const story = demoGetStory(storySlug);
+  if (!story) return;
+  story.chapters = story.chapters.filter((c) => c.id !== id);
+}
+
+// ---------------------------------------------------------------------
+// Author accounts
+// ---------------------------------------------------------------------
+
+export function demoListAccounts(): AuthorAccount[] {
+  return [...store().accounts];
+}
+
+export function demoAccountFor(email: string): AuthorAccount | null {
+  const needle = email.trim().toLowerCase();
+  return store().accounts.find((a) => a.email.toLowerCase() === needle) ?? null;
+}
+
+export function demoCreateAccount(
+  account: AuthorAccount,
+): { error?: string } {
+  const s = store();
+  if (demoAccountFor(account.email)) {
+    return { error: 'That address already has an author account.' };
+  }
+  if (s.accounts.some((a) => a.authorSlug === account.authorSlug)) {
+    return { error: 'That author already has an account.' };
+  }
+  s.accounts.push(account);
+  return {};
+}
+
+export function demoRevokeAccount(email: string): void {
+  const s = store();
+  const needle = email.trim().toLowerCase();
+  s.accounts = s.accounts.filter((a) => a.email.toLowerCase() !== needle);
+}
+
+// ---------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------
+
+export function demoNotify(
+  n: Omit<Notification, 'id' | 'createdAt' | 'readAt'>,
+): void {
+  store().notifications.unshift({
+    ...n,
+    id: `note-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    readAt: null,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export function demoNotifications(authorSlug: string): Notification[] {
+  return store()
+    .notifications.filter((n) => n.forAuthor === authorSlug)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function demoMarkNotificationsRead(authorSlug: string): void {
+  const now = new Date().toISOString();
+  for (const n of store().notifications) {
+    if (n.forAuthor === authorSlug && !n.readAt) n.readAt = now;
+  }
 }

@@ -23,6 +23,7 @@ export type StoryDraft = {
   status?: string;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  releaseMode?: string;
 };
 
 const WORDS_PER_MINUTE = 220;
@@ -235,6 +236,17 @@ export function StoryForm({
               <option value="archived" className="bg-ink">Archived</option>
             </select>
           </div>
+
+          <Select
+            label="Release"
+            name="releaseMode"
+            defaultValue={draft.releaseMode ?? 'full'}
+            options={[
+              { value: 'full', label: 'One whole story' },
+              { value: 'serial', label: 'In chapters' },
+            ]}
+            hint="A serial releases an episode at a time. Chapters are edited in the studio."
+          />
 
           <Select
             label="Access"

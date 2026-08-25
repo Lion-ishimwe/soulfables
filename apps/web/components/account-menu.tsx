@@ -21,6 +21,7 @@ import { signOut } from '@/app/actions/auth';
  */
 
 const ITEMS = [
+  { href: '/studio', label: 'Writing Room' },
   { href: '/account/library', label: 'My Library' },
   { href: '/journal', label: 'Reading Journal' },
   { href: '/account/orders', label: 'Orders' },

@@ -5,6 +5,7 @@ import { getStories, getProducts } from '@/lib/content';
 import { PageHeader, EmptyState } from '@/components/admin/ui';
 import { FeaturedForm, type Catalogue } from '@/components/admin/featured-form';
 import { deleteFeatured } from '@/app/actions/editorial';
+import { KebabMenu } from '@/components/admin/kebab-menu';
 
 export const metadata: Metadata = { title: 'Featured' };
 export const dynamic = 'force-dynamic';
@@ -135,15 +136,20 @@ export default async function FeaturedPage({
                           )}
                         </div>
 
-                        <form action={deleteFeatured}>
-                          <input type="hidden" name="id" value={s.id} />
-                          <button
-                            type="submit"
-                            className="font-ui text-xs text-grey-muted transition-colors hover:text-state-danger"
-                          >
-                            Remove
-                          </button>
-                        </form>
+                        <KebabMenu
+                          label={titleOf(s.entityType, s.entitySlug)}
+                          items={[
+                            {
+                              kind: 'action',
+                              label: 'Remove placement',
+                              action: deleteFeatured,
+                              fields: { id: s.id },
+                              danger: true,
+                              confirm:
+                                'Remove this placement? The slot falls back to whatever the page chooses on its own.',
+                            },
+                          ]}
+                        />
                       </li>
                     ))}
                   </ul>

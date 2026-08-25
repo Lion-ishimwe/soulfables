@@ -1,7 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { listAdminAuthors } from '@/lib/admin-data';
+import { listAdminAuthors, listAuthorAccounts } from '@/lib/admin-data';
 import { PageHeader, EmptyState } from '@/components/admin/ui';
+import { KebabMenu } from '@/components/admin/kebab-menu';
+import { AuthorAccountForm } from '@/components/admin/author-account-form';
+import { deleteAuthor } from '@/app/actions/editorial';
+import { revokeAuthorAccount } from '@/app/actions/workflow';
+import { formatDate } from '@/lib/format';
 
 export const metadata: Metadata = { title: 'Authors' };
 export const dynamic = 'force-dynamic';
@@ -19,10 +24,19 @@ export default async function AuthorsPage({
 }: {
   searchParams: Promise<{ saved?: string; deleted?: string }>;
 }) {
-  const [{ saved, deleted }, authors] = await Promise.all([
+  const [{ saved, deleted }, authors, accounts] = await Promise.all([
     searchParams,
     listAdminAuthors(),
+    listAuthorAccounts(),
   ]);
+
+  const accountFor = (slug: string) =>
+    accounts.find((a) => a.authorSlug === slug) ?? null;
+
+  // Only real people, and only those without an account already.
+  const invitable = authors
+    .filter((a) => !a.isPersona && !accountFor(a.slug))
+    .map((a) => ({ slug: a.slug, name: a.name }));
 
   return (
     <>
@@ -43,6 +57,10 @@ export default async function AuthorsPage({
         </p>
       )}
 
+      <div className="mb-10">
+        <AuthorAccountForm authors={invitable} />
+      </div>
+
       {authors.length === 0 ? (
         <EmptyState
           title="Nobody yet."
@@ -58,7 +76,9 @@ export default async function AuthorsPage({
                 <th className="sf-eyebrow px-5 py-3 text-left">Kind</th>
                 <th className="sf-eyebrow px-5 py-3 text-left">Biography</th>
                 <th className="sf-eyebrow px-5 py-3 text-right">Stories</th>
+                <th className="sf-eyebrow px-5 py-3 text-left">Account</th>
                 <th className="sf-eyebrow px-5 py-3 text-right">Order</th>
+                <th className="sf-eyebrow px-5 py-3 text-right"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule">
@@ -91,8 +111,54 @@ export default async function AuthorsPage({
                   <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
                     {a.storyCount}
                   </td>
+                  <td className="px-5 py-3.5">
+                    {a.isPersona ? (
+                      <span className="text-xs text-grey-muted">—</span>
+                    ) : accountFor(a.slug) ? (
+                      <span className="font-ui text-xs text-grey-muted">
+                        {accountFor(a.slug)!.email}
+                        <span className="mt-0.5 block">
+                          since {formatDate(accountFor(a.slug)!.invitedAt)}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="font-ui text-xs text-grey-muted">
+                        No account
+                      </span>
+                    )}
+                  </td>
+
                   <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
                     {a.sortOrder}
+                  </td>
+
+                  <td className="px-5 py-3.5">
+                    <KebabMenu
+                      label={a.name}
+                      items={[
+                        { kind: 'link', label: 'Edit author', href: `/admin/authors/${a.slug}` as never },
+                        ...(accountFor(a.slug)
+                          ? [
+                              {
+                                kind: 'action' as const,
+                                label: 'Revoke account',
+                                action: revokeAuthorAccount,
+                                fields: { email: accountFor(a.slug)!.email },
+                                danger: true,
+                                confirm: `Revoke ${a.name}'s account? They keep their byline and their published work, but can no longer sign in.`,
+                              },
+                            ]
+                          : []),
+                        {
+                          kind: 'action' as const,
+                          label: 'Remove author',
+                          action: deleteAuthor,
+                          fields: { slug: a.slug },
+                          danger: true,
+                          confirm: `Remove ${a.name}? Their ${a.storyCount} stories stay published and simply lose the byline.`,
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}

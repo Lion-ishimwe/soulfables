@@ -14,6 +14,7 @@ const GROUPS = [
   {
     heading: 'Content',
     items: [
+      { href: '/admin/submissions', label: 'Submissions' },
       { href: '/admin/stories', label: 'Stories' },
       { href: '/admin/shelves', label: 'Shelves' },
       { href: '/admin/authors', label: 'Authors' },

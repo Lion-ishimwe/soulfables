@@ -134,6 +134,55 @@ const JOURNEYS: Record<string, { from: string[]; to: string[] }> = {
 // Public API
 // ---------------------------------------------------------------------
 
+
+/**
+ * Stories in demo mode live in the editorial store, not in the constant
+ * below — otherwise nothing written or approved in the admin would ever
+ * appear, and the whole submission workflow would be theatre. The
+ * constant is the seed; the store is the truth.
+ */
+async function demoStories() {
+  const ed = await import('./demo/editorial');
+
+  ed.demoSeedStories(() =>
+    STORIES.map((st) => ({
+      slug: st.slug,
+      title: st.title,
+      subtitle: st.subtitle,
+      excerpt: '',
+      bodyMdx: DEMO_BODIES[st.slug] ?? '',
+      authorSlug:
+        st.author
+          .toLowerCase()
+          .normalize('NFKD')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || null,
+      assignedAuthorSlug: null,
+      shelfSlug: st.shelf,
+      access: st.access,
+      status: 'published' as const,
+      releaseMode: 'full' as const,
+      coverImage: null,
+      readingMinutes: st.readingMinutes,
+      publishedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
+      submittedAt: null,
+      submittedBy: null,
+      approvedAt: null,
+      revisionNote: null,
+      hasAudio: DEMO_NARRATED.has(st.slug),
+    })),
+  );
+
+  return ed.demoListStories();
+}
+
+/** Author name for a slug, so cards keep their byline. */
+async function demoAuthorName(slug: string | null): Promise<string> {
+  if (!slug) return 'Soulfables';
+  const { demoListAuthors } = await import('./demo/editorial');
+  return demoListAuthors().find((a) => a.slug === slug)?.name ?? 'Soulfables';
+}
+
 export async function getShelves(): Promise<Shelf[]> {
   if (!isConfigured) {
     // Read the editorial store, not the constant — otherwise renaming a
@@ -172,7 +221,23 @@ export async function getShelf(slug: string): Promise<Shelf | null> {
 
 export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
   if (!isConfigured) {
-    const all = STORIES.map((s) => ({ ...s, hasAudio: DEMO_NARRATED.has(s.slug) }));
+    const rows = (await demoStories()).filter((s) => s.status === 'published');
+
+    const all: StoryCard[] = await Promise.all(
+      rows.map(async (s) => ({
+        id: `demo-${s.slug}`,
+        slug: s.slug,
+        title: s.title,
+        subtitle: s.subtitle,
+        author: await demoAuthorName(s.authorSlug),
+        readingMinutes: s.readingMinutes,
+        shelf: s.shelfSlug,
+        access: s.access,
+        hasAudio: s.hasAudio,
+        coverImage: s.coverImage,
+      })),
+    );
+
     return shelfSlug ? all.filter((s) => s.shelf === shelfSlug) : all;
   }
   const { createClient } = await import('./supabase/server');
@@ -341,8 +406,21 @@ export type FullStory = StoryCard & {
  */
 export async function getStory(slug: string): Promise<FullStory | null> {
   if (!isConfigured) {
-    const card = STORIES.find((s) => s.slug === slug);
-    if (!card) return null;
+    const row = (await demoStories()).find((s) => s.slug === slug);
+    if (!row || row.status !== 'published') return null;
+
+    const card: StoryCard = {
+      id: `demo-${row.slug}`,
+      slug: row.slug,
+      title: row.title,
+      subtitle: row.subtitle,
+      author: await demoAuthorName(row.authorSlug),
+      readingMinutes: row.readingMinutes,
+      shelf: row.shelfSlug,
+      access: row.access,
+      hasAudio: row.hasAudio,
+      coverImage: row.coverImage,
+    };
 
     // The premium rule applies in demo mode too, so the paywall can be
     // demonstrated rather than described — and becoming a Resident
@@ -355,7 +433,21 @@ export async function getStory(slug: string): Promise<FullStory | null> {
       card.access === 'premium' &&
       !(await (await import('./membership')).hasPremiumAccess());
 
-    const body = locked ? null : (DEMO_BODIES[slug] ?? null);
+    /*
+     * A serialised story reads as its published chapters joined together,
+     * in order. Unpublished chapters are left out here rather than hidden
+     * in the page — an episode that has not been released has not been
+     * written as far as a reader is concerned.
+     */
+    const body = locked
+      ? null
+      : row.releaseMode === 'serial'
+        ? row.chapters
+            .filter((c) => c.status === 'published')
+            .sort((a, b) => a.number - b.number)
+            .map((c) => `:: ${c.title}\n\n${c.bodyMdx}`)
+            .join('\n\n') || null
+        : row.bodyMdx || null;
 
     return {
       ...card,
@@ -364,7 +456,7 @@ export async function getStory(slug: string): Promise<FullStory | null> {
       sections: body ? sectionsFrom(body) : [],
       // Narration exists for a handful of stories in the demo, so both
       // states — has audio, has none — are visible.
-      audio: DEMO_NARRATED.has(slug)
+      audio: row.hasAudio
         ? {
             src: '/audio/narration-placeholder.wav',
             narrator: 'Apophia Kamwine',
