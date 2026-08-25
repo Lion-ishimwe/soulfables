@@ -204,3 +204,115 @@ export async function adminCounts() {
 
   return { stories, published, drafts, products, orders, readers };
 }
+
+// ---------------------------------------------------------------------
+// Shelves, authors and featured slots
+// ---------------------------------------------------------------------
+
+import type {
+  EditorialShelf,
+  EditorialAuthor,
+  FeaturedSlot,
+} from './demo/editorial';
+
+export type AdminShelfRow = EditorialShelf & { storyCount: number };
+
+export async function listAdminShelves(): Promise<AdminShelfRow[]> {
+  const stories = await getStories();
+  const count = (slug: string) =>
+    stories.filter((st) => st.shelf === slug).length;
+
+  if (isDemoMode()) {
+    const { demoListShelves } = await import('./demo/editorial');
+    return demoListShelves().map((sh) => ({ ...sh, storyCount: count(sh.slug) }));
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('shelves')
+    .select('slug, label, title, emoji, tagline, librarian_note, accent_color, sort_order, status, shelf_journeys(direction, shelves!shelf_journeys_related_shelf_id_fkey(slug))')
+    .order('sort_order');
+
+  return (data ?? []).map((r: Record<string, unknown>) => {
+    const edges = (r.shelf_journeys as { direction: string; shelves: { slug: string } | null }[]) ?? [];
+    return {
+      slug: r.slug as string,
+      label: r.label as string,
+      title: r.title as string,
+      emoji: (r.emoji as string) ?? '',
+      tagline: (r.tagline as string) ?? '',
+      librarianNote: (r.librarian_note as string) ?? null,
+      entryStorySlug: null,
+      accentColor: (r.accent_color as string) ?? null,
+      sortOrder: (r.sort_order as number) ?? 0,
+      status: (r.status as string) === 'published' ? 'published' : 'draft',
+      arrivesFrom: edges.filter((e) => e.direction === 'arrives_from').map((e) => e.shelves?.slug ?? '').filter(Boolean),
+      continuesTo: edges.filter((e) => e.direction === 'continues_to').map((e) => e.shelves?.slug ?? '').filter(Boolean),
+      storyCount: count(r.slug as string),
+    };
+  });
+}
+
+export async function getAdminShelf(slug: string): Promise<AdminShelfRow | null> {
+  const all = await listAdminShelves();
+  return all.find((s) => s.slug === slug) ?? null;
+}
+
+export async function listAdminAuthors(): Promise<
+  (EditorialAuthor & { storyCount: number })[]
+> {
+  const stories = await getStories();
+  const count = (name: string) => stories.filter((st) => st.author === name).length;
+
+  if (isDemoMode()) {
+    const { demoListAuthors } = await import('./demo/editorial');
+    return demoListAuthors().map((a) => ({ ...a, storyCount: count(a.name) }));
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('authors')
+    .select('slug, name, bio, avatar_url, is_persona, sort_order')
+    .order('sort_order');
+
+  return (data ?? []).map((a: Record<string, unknown>) => ({
+    slug: a.slug as string,
+    name: a.name as string,
+    bio: (a.bio as string) ?? null,
+    avatarUrl: (a.avatar_url as string) ?? null,
+    isPersona: Boolean(a.is_persona),
+    sortOrder: (a.sort_order as number) ?? 0,
+    storyCount: count(a.name as string),
+  }));
+}
+
+export async function getAdminAuthor(slug: string) {
+  const all = await listAdminAuthors();
+  return all.find((a) => a.slug === slug) ?? null;
+}
+
+export async function listAdminFeatured(): Promise<FeaturedSlot[]> {
+  if (isDemoMode()) {
+    const { demoListFeatured } = await import('./demo/editorial');
+    return demoListFeatured();
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('featured_slots')
+    .select('id, placement, entity_type, entity_id, headline, blurb, sort_order, ends_at')
+    .order('placement')
+    .order('sort_order');
+
+  return (data ?? []).map((f: Record<string, unknown>) => ({
+    id: f.id as string,
+    placement: f.placement as FeaturedSlot['placement'],
+    entityType: f.entity_type as FeaturedSlot['entityType'],
+    // The slug is resolved for display by the page; the row stores an id.
+    entitySlug: (f.entity_id as string) ?? '',
+    headline: (f.headline as string) ?? null,
+    blurb: (f.blurb as string) ?? null,
+    sortOrder: (f.sort_order as number) ?? 0,
+    active: !f.ends_at || new Date(f.ends_at as string) > new Date(),
+  }));
+}

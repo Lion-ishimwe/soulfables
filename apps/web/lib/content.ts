@@ -135,7 +135,22 @@ const JOURNEYS: Record<string, { from: string[]; to: string[] }> = {
 // ---------------------------------------------------------------------
 
 export async function getShelves(): Promise<Shelf[]> {
-  if (!isConfigured) return SHELVES;
+  if (!isConfigured) {
+    // Read the editorial store, not the constant — otherwise renaming a
+    // shelf in the admin would change nothing a reader can see, which
+    // would make the admin a decoration.
+    const { demoListShelves } = await import('./demo/editorial');
+    return demoListShelves()
+      .filter((s) => s.status === 'published')
+      .map((s) => ({
+        slug: s.slug,
+        label: s.label,
+        title: s.title,
+        emoji: s.emoji,
+        tagline: s.tagline,
+        librarianNote: s.librarianNote ?? undefined,
+      }));
+  }
   const { createClient } = await import('./supabase/server');
   const supabase = await createClient();
   const { data } = await supabase
@@ -216,7 +231,14 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function getJourney(shelfSlug: string) {
-  const j = JOURNEYS[shelfSlug] ?? { from: [], to: [] };
+  let j = JOURNEYS[shelfSlug] ?? { from: [], to: [] };
+
+  if (!isConfigured) {
+    const { demoGetShelf } = await import('./demo/editorial');
+    const shelf = demoGetShelf(shelfSlug);
+    if (shelf) j = { from: shelf.arrivesFrom, to: shelf.continuesTo };
+  }
+
   const shelves = await getShelves();
   const lookup = (slug: string) => shelves.find((s) => s.slug === slug);
   return {
