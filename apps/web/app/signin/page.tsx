@@ -43,11 +43,14 @@ export default async function SignInPage({
         <div className="mt-8 border border-rule p-5">
           <p className="sf-eyebrow mb-2">Admin access</p>
           <p className="text-sm leading-normal text-grey-muted">
-            The demo signs you in as an <span className="text-gold">owner</span>,
-            so <code className="text-gold">/admin</code> is open: stories,
-            products, orders, readers, analytics and the audit log. In a live
-            build a new account is always a plain reader, and a role is granted
-            deliberately.
+            The demo signs you in as an <span className="text-gold">owner</span>
+            and takes you straight to the admin — stories, products, orders,
+            readers, analytics and the audit log. It stays one click away under
+            your name in the header.
+          </p>
+          <p className="mt-3 text-sm leading-normal text-grey-muted">
+            In a live build a new account is always a plain reader, and a role
+            is granted deliberately.
           </p>
         </div>
       </AuthShell>

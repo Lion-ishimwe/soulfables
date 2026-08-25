@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { checkbox, field } from '@/lib/form';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { getViewer, isStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 import { DEMO_SIGNED_COOKIE } from '@/lib/demo/session';
 
@@ -47,14 +48,31 @@ const signUpSchema = z.object({
 export type ActionResult = { error?: string; message?: string };
 
 /**
- * Only ever redirect to a path on this site. The cast is safe precisely
- * because of the checks above it: an open redirect would let a phishing
- * link bounce a freshly-authenticated reader off to another domain.
+ * Where to send someone once they are through the door.
+ *
+ * An explicit `next` always wins — it is how "sign in to keep this story"
+ * returns you to the story you were reading. Only the default is
+ * role-aware: staff go to the admin, because that is what they came for,
+ * and readers go to their shelf.
+ *
+ * The cast is safe precisely because of the checks here. An open redirect
+ * would let a phishing link bounce a freshly-authenticated reader off to
+ * another domain, which is why anything not starting with a single slash
+ * is discarded rather than trusted.
  */
-function safeNext(next: unknown): Route {
-  if (typeof next !== 'string') return '/account/library' as Route;
-  if (!next.startsWith('/') || next.startsWith('//')) return '/account/library' as Route;
-  return next as Route;
+async function landingFor(next: unknown): Promise<Route> {
+  if (
+    typeof next === 'string' &&
+    next.startsWith('/') &&
+    !next.startsWith('//')
+  ) {
+    return next as Route;
+  }
+
+  const viewer = await getViewer();
+  return (viewer && isStaff(viewer.role)
+    ? '/admin'
+    : '/account/library') as Route;
 }
 
 async function siteOrigin(): Promise<string> {
@@ -91,7 +109,7 @@ export async function signIn(
       maxAge: 60 * 60 * 24,
     });
     revalidatePath('/', 'layout');
-    redirect(safeNext(parsed.data.next));
+    redirect(await landingFor(parsed.data.next));
   }
 
   const supabase = await createClient();
@@ -106,7 +124,7 @@ export async function signIn(
   }
 
   revalidatePath('/', 'layout');
-  redirect(safeNext(parsed.data.next));
+  redirect(await landingFor(parsed.data.next));
 }
 
 export async function signUp(

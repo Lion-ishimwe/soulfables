@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getViewer } from '@/lib/auth';
+import { getViewer, isStaff } from '@/lib/auth';
 import { getSavedStories } from '@/lib/library';
 
 /**
@@ -26,7 +26,7 @@ export async function GET() {
 
   if (!viewer) {
     return NextResponse.json(
-      { signedIn: false, savedSlugs: [] },
+      { signedIn: false, isStaff: false, savedSlugs: [] },
       { headers: { 'Cache-Control': 'no-store, private' } },
     );
   }
@@ -37,6 +37,8 @@ export async function GET() {
     {
       signedIn: true,
       displayName: viewer.displayName,
+      role: viewer.role,
+      isStaff: isStaff(viewer.role),
       isDemo: Boolean(viewer.isDemo),
       savedSlugs: saved.map((s) => s!.slug),
     },
