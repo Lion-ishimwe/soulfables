@@ -28,10 +28,17 @@ each route the first time you visit it, so pages take hundreds of
 milliseconds that the built app does not. Measured on the production
 build, every route responds in **3–30 ms**.
 
-Open http://localhost:3000 and sign in at `/signin`. **There are no
-accounts in the demo** — any email address opens the House, and it signs
-you in as an **owner**, so `/admin` is fully browsable. No password is
-checked and nothing is stored.
+Open http://localhost:3000 and sign in at `/signin`. There are no
+passwords — pick one of three people and the House changes around you:
+
+| | Who | What they get |
+|---|---|---|
+| **Apophia** | Owner | The whole admin: submissions, stories, shelves, products, orders, readers, analytics. Plus a writing room. |
+| **Seren Adair** | Author | A studio, the story template, and the ability to submit — but **not** to publish. No admin at all. |
+| **Amara** | Reader | The library, a private journal, saved stories and her own shelf. No studio, no admin. |
+
+Any other address comes in as a reader, which is what a real new account
+is — roles are granted deliberately, never assumed.
 
 Everything runs without a database. What is real and what is standing in
 is listed at `/about-this-demo`, and a banner says so on every page.

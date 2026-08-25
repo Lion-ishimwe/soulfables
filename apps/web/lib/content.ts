@@ -157,7 +157,14 @@ async function demoStories() {
           .normalize('NFKD')
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '') || null,
-      assignedAuthorSlug: null,
+      // Assigned to whoever wrote it, so an author signing in finds
+      // their own published work rather than an empty desk.
+      assignedAuthorSlug:
+        st.author
+          .toLowerCase()
+          .normalize('NFKD')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || null,
       shelfSlug: st.shelf,
       access: st.access,
       status: 'published' as const,

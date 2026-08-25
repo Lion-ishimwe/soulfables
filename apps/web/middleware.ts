@@ -19,7 +19,7 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
  *    because the queries behind it would return no rows.
  */
 
-const PRIVATE_PREFIXES = ['/account', '/journal'] as const;
+const PRIVATE_PREFIXES = ['/account', '/journal', '/studio'] as const;
 const STAFF_PREFIXES = ['/admin'] as const;
 
 const DEMO_ID_COOKIE = 'sf-demo-id';

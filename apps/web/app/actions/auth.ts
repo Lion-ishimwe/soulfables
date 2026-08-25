@@ -70,9 +70,13 @@ async function landingFor(next: unknown): Promise<Route> {
   }
 
   const viewer = await getViewer();
-  return (viewer && isStaff(viewer.role)
-    ? '/admin'
-    : '/account/library') as Route;
+  if (!viewer) return '/account/library' as Route;
+
+  // Each role lands where its work is. An author sent to a reading
+  // library has to go looking for the one room that is theirs.
+  if (isStaff(viewer.role)) return '/admin' as Route;
+  if (viewer.role === 'author') return '/studio' as Route;
+  return '/account/library' as Route;
 }
 
 async function siteOrigin(): Promise<string> {
@@ -102,6 +106,17 @@ export async function signIn(
   // mode: isDemoMode() requires the absence of Supabase credentials.
   if (isDemoMode()) {
     const store = await cookies();
+
+    // Remember WHICH of the three you came in as. Without this every
+    // demo visitor is the same person and the roles are invisible.
+    const { personaFor, DEMO_PERSONA_COOKIE } = await import('@/lib/demo/session');
+    store.set(DEMO_PERSONA_COOKIE, personaFor(parsed.data.email).email, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24,
+    });
+
     store.set(DEMO_SIGNED_COOKIE, '1', {
       httpOnly: true,
       sameSite: 'lax',
@@ -209,6 +224,15 @@ export async function updatePassword(
 }
 
 export async function signOut(): Promise<void> {
+  if (isDemoMode()) {
+    const store = await cookies();
+    const { DEMO_PERSONA_COOKIE } = await import('@/lib/demo/session');
+    store.delete(DEMO_SIGNED_COOKIE);
+    store.delete(DEMO_PERSONA_COOKIE);
+    revalidatePath('/', 'layout');
+    redirect('/');
+  }
+
   if (isDemoMode()) {
     const store = await cookies();
     store.delete(DEMO_SIGNED_COOKIE);

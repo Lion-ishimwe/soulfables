@@ -2,9 +2,9 @@ import 'server-only';
 import { redirect } from 'next/navigation';
 import { createClient } from './supabase/server';
 import { isDemoMode } from './demo/mode';
-import { isDemoSignedIn, DEMO_VIEWER } from './demo/session';
+import { currentDemoPersona } from './demo/session';
 
-export type AppRole = 'reader' | 'editor' | 'admin' | 'owner';
+export type AppRole = 'reader' | 'author' | 'editor' | 'admin' | 'owner';
 
 export type Viewer = {
   id: string;
@@ -30,8 +30,9 @@ export type Viewer = {
  */
 export async function getViewer(): Promise<Viewer | null> {
   if (isDemoMode()) {
-    if (!(await isDemoSignedIn())) return null;
-    return { ...DEMO_VIEWER, isDemo: true };
+    const persona = await currentDemoPersona();
+    if (!persona) return null;
+    return { ...persona, isDemo: true };
   }
 
   const supabase = await createClient();
@@ -78,6 +79,11 @@ export async function requireStaff(): Promise<Viewer> {
   return viewer;
 }
 
+/**
+ * Staff can publish. An author deliberately cannot — they write and
+ * submit, and the House decides. That division is the entire reason the
+ * review step exists, so `author` is absent from this list on purpose.
+ */
 export function isStaff(role: AppRole): boolean {
   return role === 'editor' || role === 'admin' || role === 'owner';
 }

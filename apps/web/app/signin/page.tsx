@@ -1,7 +1,15 @@
 import type { Metadata } from 'next';
 import { signIn } from '@/app/actions/auth';
-import { AuthShell, Field, SubmitButton, ActionForm, AuthLink } from '@/components/auth-shell';
 import { isDemoMode } from '@/lib/demo/mode';
+import { DEMO_PERSONAS } from '@/lib/demo/session';
+import {
+  AuthShell,
+  Field,
+  SubmitButton,
+  ActionForm,
+  AuthLink,
+} from '@/components/auth-shell';
+import { PersonaPicker } from '@/components/persona-picker';
 
 export const metadata: Metadata = { title: 'Sign In' };
 
@@ -13,71 +21,69 @@ export default async function SignInPage({
   const { next } = await searchParams;
   const demo = isDemoMode();
 
-  if (demo) {
-    return (
-      <AuthShell
-        eyebrow="THE DOOR"
-        title="Come in."
-        intro="This is a demonstration, so there are no accounts. Any email address opens the House, with full owner access to the admin — nothing is checked and nothing is stored."
-      >
+  return (
+    <AuthShell
+      eyebrow="THE DOOR"
+      title="Come in."
+      intro={
+        demo
+          ? 'A demonstration, so there are no passwords. Choose who to come in as — the House looks different depending on which door you use.'
+          : 'Your shelf, your progress and your reflections are where you left them.'
+      }
+      footer={
+        demo ? null : (
+          <>
+            <p>
+              No account yet? <AuthLink href="/signup">Join the House</AuthLink>
+            </p>
+            <p className="mt-2">
+              <AuthLink href="/reset-password">Forgotten your password?</AuthLink>
+            </p>
+          </>
+        )
+      }
+    >
+      {demo ? (
+        <>
+          <PersonaPicker personas={DEMO_PERSONAS} next={next} />
+
+          <details className="mt-8 border-t border-rule pt-6">
+            <summary className="cursor-pointer font-ui text-xs uppercase tracking-[0.18em] text-grey-muted transition-colors hover:text-ivory">
+              Or use your own address
+            </summary>
+            <div className="pt-5">
+              <p className="mb-5 text-sm leading-normal text-grey-muted">
+                Any address works and nothing is stored. An address that is
+                not one of the three above comes in as a reader — the same as
+                a real new account, which is never staff.
+              </p>
+              <ActionForm action={signIn} hiddenFields={next ? { next } : undefined}>
+                <Field label="Email" name="email" type="email" autoComplete="email" />
+                <Field
+                  label="Password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required={false}
+                  hint="Not checked."
+                />
+                <SubmitButton label="Enter the demo" pendingLabel="Opening…" />
+              </ActionForm>
+            </div>
+          </details>
+        </>
+      ) : (
         <ActionForm action={signIn} hiddenFields={next ? { next } : undefined}>
-          <Field
-            label="Email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            defaultValue="reader@soulfables.demo"
-            hint="Anything valid works."
-          />
+          <Field label="Email" name="email" type="email" autoComplete="email" />
           <Field
             label="Password"
             name="password"
             type="password"
             autoComplete="current-password"
-            defaultValue="demo"
-            hint="Not checked in the demo."
           />
-          <SubmitButton label="Enter the demo" pendingLabel="Opening…" />
+          <SubmitButton label="Sign in" pendingLabel="Opening…" />
         </ActionForm>
-
-        <div className="mt-8 border border-rule p-5">
-          <p className="sf-eyebrow mb-2">Admin access</p>
-          <p className="text-sm leading-normal text-grey-muted">
-            The demo signs you in as an <span className="text-gold">owner</span>
-            and takes you straight to the admin — stories, products, orders,
-            readers, analytics and the audit log. It stays one click away under
-            your name in the header.
-          </p>
-          <p className="mt-3 text-sm leading-normal text-grey-muted">
-            In a live build a new account is always a plain reader, and a role
-            is granted deliberately.
-          </p>
-        </div>
-      </AuthShell>
-    );
-  }
-
-  return (
-    <AuthShell
-      eyebrow="THE DOOR"
-      title="Come in."
-      intro="Your shelf, your progress and your reflections are where you left them."
-      footer={
-        <>
-          <p>
-            No account yet? <AuthLink href="/signup">Join the House</AuthLink>
-          </p>
-          <p className="mt-2">
-            <AuthLink href="/reset-password">Forgotten your password?</AuthLink>
-          </p>
-        </>
-      }
-    >
-      <ActionForm action={signIn} hiddenFields={next ? { next } : undefined}>
-        <Field label="Email" name="email" type="email" autoComplete="email" />
-        <Field label="Password" name="password" type="password" autoComplete="current-password" />
-        <SubmitButton label="Sign in" pendingLabel="Opening…" />
-      </ActionForm>
+      )}
     </AuthShell>
   );
 }

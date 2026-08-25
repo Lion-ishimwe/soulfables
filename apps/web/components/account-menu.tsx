@@ -21,7 +21,6 @@ import { signOut } from '@/app/actions/auth';
  */
 
 const ITEMS = [
-  { href: '/studio', label: 'Writing Room' },
   { href: '/account/library', label: 'My Library' },
   { href: '/journal', label: 'Reading Journal' },
   { href: '/account/orders', label: 'Orders' },
@@ -31,7 +30,7 @@ const ITEMS = [
 type State =
   | { status: 'loading' }
   | { status: 'out' }
-  | { status: 'in'; name: string; isStaff: boolean };
+  | { status: 'in'; name: string; isStaff: boolean; isAuthor: boolean };
 
 export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
   const [state, setState] = useState<State>({ status: 'loading' });
@@ -52,7 +51,12 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
     let active = true;
     fetch('/api/me', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((me: { signedIn: boolean; displayName?: string; isStaff?: boolean }) => {
+      .then((me: {
+        signedIn: boolean;
+        displayName?: string;
+        isStaff?: boolean;
+        role?: string;
+      }) => {
         if (!active) return;
         setState(
           me.signedIn
@@ -60,6 +64,7 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
                 status: 'in',
                 name: me.displayName || 'Your shelf',
                 isStaff: Boolean(me.isStaff),
+                isAuthor: me.role === 'author',
               }
             : { status: 'out' },
         );
@@ -108,6 +113,14 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
 
     return (
       <>
+        {(state.isStaff || state.isAuthor) && (
+          <Link
+            href="/studio"
+            className="block border-b border-rule py-4 font-display text-2xl text-gold"
+          >
+            Writing Room
+          </Link>
+        )}
         {state.isStaff && (
           <Link
             href="/admin"
@@ -183,6 +196,20 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
           role="menu"
           className="absolute right-0 top-full z-50 mt-3 w-52 border border-rule bg-ink shadow-lift"
         >
+          {(state.isStaff || state.isAuthor) && (
+            <Link
+              role="menuitem"
+              href="/studio"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between border-b border-rule px-4 py-2.5 font-ui text-sm text-gold transition-colors hover:bg-ink-raised"
+            >
+              Writing Room
+              <span className="font-ui text-micro uppercase tracking-[0.12em] text-grey-muted">
+                {state.isStaff ? 'Staff' : 'Author'}
+              </span>
+            </Link>
+          )}
+
           {state.isStaff && (
             <Link
               role="menuitem"
