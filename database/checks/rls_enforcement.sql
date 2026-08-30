@@ -48,6 +48,20 @@ grant select, insert, update, delete on all tables in schema public
   to anon, authenticated;
 grant usage, select on all sequences in schema public to anon, authenticated;
 
+/*
+ * Re-apply the column revoke from 0015.
+ *
+ * A blanket `grant select on all tables` silently undoes a column-level
+ * revoke — it grants every column, including the one deliberately taken
+ * away. That is not a quirk of this test: run that same grant against
+ * the live project and the premium bodies are readable again, with
+ * nothing to indicate anything changed.
+ *
+ * Restated here so the test exercises the state the migration leaves
+ * behind, and so the hazard is written down where somebody will read it.
+ */
+select grant_story_columns();
+
 -- --------------------------------------------------------------------
 -- The checks. Each raises rather than returning a row, so a failure
 -- stops the script instead of scrolling past.
@@ -156,6 +170,31 @@ select assert(
   (select count(*) from product_files) = 0,
   'an anonymous visitor sees no paid files'
 );
+
+-- === Paid prose ========================================================
+-- The hole 0015 closed: a premium body served to whoever asked.
+select assert(
+  (select story_body('letters-to-the-tide')) is null,
+  'an anonymous visitor cannot read a PREMIUM story body'
+);
+select assert(
+  (select story_body('the-house-after-you-left')) is not null,
+  'an anonymous visitor CAN read a free story body'
+);
+
+-- And not by the back door either. Selecting the column directly must be
+-- refused outright rather than returning null, or a future query that
+-- forgets the function would leak again.
+do $$
+begin
+  begin
+    perform body_mdx from stories limit 1;
+    raise exception 'FAILED: body_mdx is still selectable directly';
+  exception
+    when insufficient_privilege then
+      raise notice '  ok   selecting stories.body_mdx directly is refused';
+  end;
+end $$;
 
 reset role;
 

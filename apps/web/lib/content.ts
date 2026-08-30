@@ -207,8 +207,8 @@ export async function getShelves(): Promise<Shelf[]> {
         librarianNote: s.librarianNote ?? undefined,
       }));
   }
-  const { createClient } = await import('./supabase/server');
-  const supabase = await createClient();
+  const { createPublicClient } = await import('./supabase/server');
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from('shelves')
     .select('slug, label, title, emoji, tagline, librarian_note')
@@ -247,13 +247,23 @@ export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
 
     return shelfSlug ? all.filter((s) => s.shelf === shelfSlug) : all;
   }
-  const { createClient } = await import('./supabase/server');
-  const supabase = await createClient();
+  const { createPublicClient } = await import('./supabase/server');
+  /*
+   * The join is pinned to a named constraint on purpose.
+   *
+   * stories has two foreign keys to authors — author_id, whose name goes on
+   * the story, and assigned_author_id, whoever is writing it right now.
+   * PostgREST cannot choose between them and refuses the whole query with
+   * "more than one relationship was found", so every one of these reads
+   * returns nothing until it is told which. Demo mode never hit it: there
+   * was no PostgREST to be ambiguous with.
+   */
+  const supabase = createPublicClient();
   let query = supabase
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors(name), story_shelves!inner(shelves!inner(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors!stories_author_id_fkey(name), story_shelves!inner(shelves!inner(slug))')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
@@ -275,8 +285,8 @@ export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
 
 export async function getProducts(): Promise<Product[]> {
   if (!isConfigured) return PRODUCTS;
-  const { createClient } = await import('./supabase/server');
-  const supabase = await createClient();
+  const { createPublicClient } = await import('./supabase/server');
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from('products')
     .select('slug, title, subtitle, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, product_prices(currency, unit_amount, is_default), product_files(format)')
@@ -343,14 +353,14 @@ export async function searchStories(query: string): Promise<StoryCard[]> {
     );
   }
 
-  const { createClient } = await import('./supabase/server');
-  const supabase = await createClient();
+  const { createPublicClient } = await import('./supabase/server');
+  const supabase = createPublicClient();
 
   const { data, error } = await supabase
     .from('stories')
     // body_mdx is searched by the index but never selected — a premium
     // body must not leak through a search result.
-    .select('id, slug, title, subtitle, reading_minutes, access, authors(name)')
+    .select('id, slug, title, subtitle, reading_minutes, access, authors!stories_author_id_fkey(name)')
     .eq('status', 'published')
     .textSearch('search_vector', q, { type: 'websearch', config: 'english' })
     .limit(50);
@@ -478,7 +488,7 @@ export async function getStory(slug: string): Promise<FullStory | null> {
 
   const { data } = await supabase
     .from('stories')
-    .select('id, slug, title, subtitle, reading_minutes, access, body_mdx, cover_image, authors(name), story_shelves(is_primary, shelves(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors!stories_author_id_fkey(name), story_shelves(is_primary, shelves(slug))')
     .eq('slug', slug)
     .eq('status', 'published')
     .maybeSingle();
@@ -512,6 +522,24 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     }
   }
 
+  /*
+   * The body comes from story_body(), never from a column.
+   *
+   * stories.body_mdx is not selectable by anon or authenticated — see
+   * migration 0015. The function decides whether this caller may have
+   * the prose, using the same session this client carries, so the
+   * paywall is enforced by the database rather than by the `locked`
+   * flag below. That flag now only decides what the page renders; if it
+   * were wrong, the function would still return nothing.
+   */
+  let body: string | null = null;
+  if (!locked) {
+    const { data: prose } = await supabase.rpc('story_body', {
+      p_slug: data.slug as string,
+    });
+    body = (prose as string | null) ?? null;
+  }
+
   return {
     id: data.id as string,
     slug: data.slug as string,
@@ -523,9 +551,10 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     access: (data.access as 'free' | 'premium') ?? 'free',
     coverImage: (data.cover_image as string) ?? null,
     locked,
-    // The line that matters: withheld server-side, not hidden with CSS.
-    body: locked ? null : ((data.body_mdx as string) ?? null),
-    sections: locked ? [] : sectionsFrom((data.body_mdx as string) ?? ''),
+    // Withheld server-side, not hidden with CSS — and now withheld by
+    // the database too, not only by this line.
+    body,
+    sections: body ? sectionsFrom(body) : [],
     audio: null,
   };
 }

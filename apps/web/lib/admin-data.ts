@@ -56,10 +56,20 @@ export async function listStories(): Promise<AdminStoryRow[]> {
   if (!isConfigured()) return [];
   const supabase = await createClient();
 
+  /*
+   * The join is pinned to a named constraint on purpose.
+   *
+   * stories has two foreign keys to authors — author_id, whose name goes on
+   * the story, and assigned_author_id, whoever is writing it right now.
+   * PostgREST cannot choose between them and refuses the whole query with
+   * "more than one relationship was found", so every one of these reads
+   * returns nothing until it is told which. Demo mode never hit it: there
+   * was no PostgREST to be ambiguous with.
+   */
   const { data, error } = await supabase
     .from('stories')
     .select(
-      'id, title, slug, status, access, reading_minutes, published_at, updated_at, authors(name)',
+      'id, title, slug, status, access, reading_minutes, published_at, updated_at, authors!stories_author_id_fkey(name)',
     )
     .order('updated_at', { ascending: false })
     .limit(200);
@@ -109,12 +119,16 @@ export async function getStory(id: string) {
   const { data } = await supabase
     .from('stories')
     .select(
-      'id, title, slug, subtitle, excerpt, body_mdx, author_id, access, status, seo_title, seo_description, story_shelves(shelf_id, is_primary)',
+      'id, title, slug, subtitle, excerpt, author_id, access, status, seo_title, seo_description, story_shelves(shelf_id, is_primary)',
     )
     .eq('id', id)
     .single();
 
   if (!data) return null;
+
+  const { data: bodyMdx } = await supabase.rpc('story_body', {
+    p_slug: data.slug as string,
+  });
 
   const shelves = (data.story_shelves as { shelf_id: string; is_primary: boolean }[]) ?? [];
   const primary = shelves.find((s) => s.is_primary) ?? shelves[0];
@@ -125,7 +139,9 @@ export async function getStory(id: string) {
     slug: data.slug as string,
     subtitle: data.subtitle as string | null,
     excerpt: data.excerpt as string | null,
-    bodyMdx: data.body_mdx as string | null,
+    // Staff read the prose the same way readers do — through the
+    // function. is_staff() inside it is what makes this return anything.
+    bodyMdx: bodyMdx ?? null,
     authorId: data.author_id as string | null,
     shelfId: primary?.shelf_id ?? null,
     access: (data.access as 'free' | 'premium') ?? 'free',
