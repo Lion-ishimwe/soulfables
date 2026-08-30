@@ -5,6 +5,7 @@ import { requireStaff } from '@/lib/auth';
 import { unreadNotifications } from '@/lib/admin-dashboard';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { SidebarToggle } from '@/components/admin/sidebar-toggle';
+import { MobileTabs } from '@/components/admin/mobile-tabs';
 import { Icon } from '@/components/admin/dashboard';
 import { signOut } from '@/app/actions/auth';
 
@@ -35,8 +36,10 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const viewer = await requireStaff();
-  const unread = await unreadNotifications();
+  // Both at once. The badge does not depend on the answer to "are you
+  // staff" — the page is behind middleware either way — and waiting for
+  // one before asking the other cost a round trip on every admin page.
+  const [viewer, unread] = await Promise.all([requireStaff(), unreadNotifications()]);
 
   const name = viewer.displayName ?? viewer.email ?? 'Staff';
   const initial = name.trim().charAt(0).toUpperCase();
@@ -93,10 +96,10 @@ export default async function AdminLayout({
       {/* ---- Main column --------------------------------------------- */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 border-b border-rule bg-ink/95 backdrop-blur">
-          <div className="flex h-16 items-center gap-4 px-5 sm:px-8">
+          <div className="flex h-14 items-center gap-3 px-4 sm:h-16 sm:gap-4 sm:px-8">
             <SidebarToggle />
 
-            <Link href={'/admin' as Route} className="font-display text-base text-ivory lg:hidden">
+            <Link href={'/admin' as Route} className="font-display text-lg text-ivory lg:hidden">
               Soulfables
               <span className="ml-2 font-ui text-micro uppercase tracking-[0.18em] text-gold">
                 Admin
@@ -158,14 +161,21 @@ export default async function AdminLayout({
           </div>
         </header>
 
-        {/* Section list for narrow screens, where the sidebar is hidden. */}
-        <div className="border-b border-rule px-5 lg:hidden">
-          <AdminNav role={viewer.role} />
+        {/*
+          pb-24 on small screens keeps the last card clear of the bottom
+          bar, which floats above the page rather than in the flow.
+        */}
+        {/*
+          A div, not a <main>. The root layout already provides the
+          document's main landmark, and nesting a second one inside it is
+          invalid and leaves a screen reader with two "main" regions to
+          choose between.
+        */}
+        <div className="min-w-0 flex-1 px-4 pb-24 pt-6 sm:px-8 sm:py-8 lg:pb-8">
+          {children}
         </div>
 
-        <main className="min-w-0 flex-1 px-5 py-8 sm:px-8">{children}</main>
-
-        <footer className="border-t border-rule px-5 py-5 sm:px-8">
+        <footer className="hidden border-t border-rule px-5 py-5 sm:px-8 lg:block">
           <div className="flex flex-wrap items-center justify-between gap-4 font-ui text-xs text-grey-muted">
             <p>© {new Date().getFullYear()} Soulfables. All rights reserved.</p>
             <nav className="flex flex-wrap items-center gap-5">
@@ -182,6 +192,8 @@ export default async function AdminLayout({
           </div>
         </footer>
       </div>
+
+      <MobileTabs role={viewer.role} />
     </div>
   );
 }

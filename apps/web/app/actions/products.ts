@@ -2,7 +2,7 @@
 
 import type { Route } from 'next';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createHash } from 'node:crypto';
@@ -181,7 +181,10 @@ export async function saveProduct(
   );
 
   revalidatePath('/shop');
+
+  revalidateTag('content');
   revalidatePath(`/shop/${d.slug}`);
+  revalidateTag('content');
 
   redirect(`/admin/products/${productId}?saved=1` as Route);
 }
@@ -296,6 +299,8 @@ export async function uploadProductFile(
 
   revalidatePath(`/admin/products/${productId}`);
 
+  revalidateTag('content');
+
   return {
     message: `${format.toUpperCase()} uploaded as version ${version}. Everyone who owns this product can download it now.`,
   };
@@ -321,5 +326,7 @@ export async function deleteProductFile(formData: FormData): Promise<void> {
   }
 
   revalidatePath(`/admin/products/${productId}`);
+
+  revalidateTag('content');
   redirect(`/admin/products/${productId}?deleted=1` as Route);
 }

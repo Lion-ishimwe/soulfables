@@ -2,7 +2,7 @@
 
 import type { Route } from 'next';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { z } from 'zod';
@@ -199,6 +199,8 @@ export async function saveStory(
     if (result.error) return { error: result.error };
 
     revalidatePath('/', 'layout');
+
+    revalidateTag('content');
     redirect(`/admin/stories?saved=${encodeURIComponent(d.title)}` as Route);
   }
 
@@ -301,8 +303,11 @@ export async function saveStory(
 
   // Refresh the public pages this story appears on.
   revalidatePath('/library');
+  revalidateTag('content');
   revalidatePath(`/story/${d.slug}`);
+  revalidateTag('content');
   revalidatePath('/');
+  revalidateTag('content');
 
   redirect(`/admin/stories?saved=${encodeURIComponent(d.title)}`);
 }
@@ -323,6 +328,8 @@ export async function deleteStory(formData: FormData): Promise<void> {
   await audit(viewer.id, viewer.email, 'story.delete', id, before, null);
 
   revalidatePath('/library');
+
+  revalidateTag('content');
   revalidatePath('/admin/stories');
   redirect('/admin/stories?deleted=1');
 }

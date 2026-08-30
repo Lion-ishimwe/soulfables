@@ -1,7 +1,7 @@
 'use server';
 
 import type { Route } from 'next';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { z } from 'zod';
@@ -202,7 +202,10 @@ export async function saveShelf(
   });
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
   revalidatePath(`/shelf/${d.slug}`);
+  revalidateTag('content');
   if (original && original !== d.slug) revalidatePath(`/shelf/${original}`);
 
   redirect(`/admin/shelves?saved=${encodeURIComponent(d.label)}` as Route);
@@ -223,6 +226,8 @@ export async function deleteShelf(formData: FormData): Promise<void> {
   await audit('shelf.delete', 'shelf', slug, null);
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
   redirect('/admin/shelves?deleted=1' as Route);
 }
 
@@ -300,6 +305,8 @@ export async function saveAuthor(
   });
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
   redirect(`/admin/authors?saved=${encodeURIComponent(d.name)}` as Route);
 }
 
@@ -319,6 +326,8 @@ export async function deleteAuthor(formData: FormData): Promise<void> {
   await audit('author.delete', 'author', slug, null);
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
   redirect('/admin/authors?deleted=1' as Route);
 }
 
@@ -445,6 +454,8 @@ export async function saveFeatured(
   });
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
   redirect('/admin/featured?saved=1' as Route);
 }
 
@@ -463,5 +474,7 @@ export async function deleteFeatured(formData: FormData): Promise<void> {
   await audit('featured.delete', 'featured_slot', id, null);
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
   redirect('/admin/featured?deleted=1' as Route);
 }

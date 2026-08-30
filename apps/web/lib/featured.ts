@@ -1,8 +1,9 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import type { Route } from 'next';
 import { getStories, getShelves, getProducts } from './content';
 import { isDemoMode } from './demo/mode';
-import { createClient } from './supabase/server';
+import { createPublicClient } from './supabase/server';
 import type { FeaturedSlot } from './demo/editorial';
 
 /**
@@ -50,7 +51,15 @@ async function rawSlots(): Promise<FeaturedSlot[]> {
     return demoListFeatured();
   }
 
-  const supabase = await createClient();
+  /*
+   * The anonymous client, not the reader's own.
+   *
+   * Featured placements are the same for everybody, so this is cached —
+   * and a cached function may not read cookies, which the session client
+   * does. Next says so at build time rather than at request time, which
+   * is the right moment to be told.
+   */
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from('featured_slots')
     .select('id, placement, entity_type, entity_id, headline, blurb, sort_order, starts_at, ends_at')
@@ -77,7 +86,7 @@ async function rawSlots(): Promise<FeaturedSlot[]> {
     }));
 }
 
-export async function getFeatured(
+async function fetchFeatured(
   placement: Placement,
 ): Promise<FeaturedItem[]> {
   const slots = (await rawSlots())
@@ -159,8 +168,28 @@ export async function getFeatured(
 }
 
 /** Convenience for the placements that only ever show one thing. */
-export async function getFeaturedOne(
+async function fetchFeaturedOne(
   placement: Placement,
 ): Promise<FeaturedItem | null> {
   return (await getFeatured(placement))[0] ?? null;
 }
+
+
+/*
+ * Cached like the rest of the content layer.
+ *
+ * Featured placements are an editorial decision, the same for everyone,
+ * and they appear on the shelf and shop pages — which were paying a
+ * 300ms round trip to Frankfurt for them on every request. Busted by
+ * revalidateTag('content') when a placement changes, so an editor still
+ * sees their change immediately.
+ */
+export const getFeatured = unstable_cache(fetchFeatured, ['featured'], {
+  revalidate: 60,
+  tags: ['content'],
+});
+
+export const getFeaturedOne = unstable_cache(fetchFeaturedOne, ['featured-one'], {
+  revalidate: 60,
+  tags: ['content'],
+});

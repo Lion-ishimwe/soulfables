@@ -1,4 +1,6 @@
 import 'server-only';
+import { cache } from 'react';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from './supabase/server';
 import { isDemoMode } from './demo/mode';
@@ -28,32 +30,71 @@ export type Viewer = {
  * two paths can never both be live, and the demo path can never reach a
  * real database because there isn't one configured.
  */
-export async function getViewer(): Promise<Viewer | null> {
+/*
+ * Memoised for the length of one request.
+ *
+ * The admin layout asks who you are, then asks again to decide what to
+ * show, and then the page asks a third time. Each ask was two round
+ * trips to Frankfurt — six requests to answer one question, and about
+ * 1.8 seconds of a dashboard spent re-establishing the same identity.
+ *
+ * React's cache() deduplicates within a single render pass, so the
+ * second and third callers get the first answer. It does NOT persist
+ * across requests, which is exactly right: the next visitor asks again.
+ */
+export const getViewer = cache(async function getViewer(): Promise<Viewer | null> {
   if (isDemoMode()) {
     const persona = await currentDemoPersona();
     if (!persona) return null;
     return { ...persona, isDemo: true };
   }
 
+  /*
+   * A visitor with no session cookie has no session.
+   *
+   * Without this the House asked the auth server to identify every
+   * anonymous reader of every public page — two round trips to Frankfurt
+   * to be told, 600ms later, that nobody was signed in. The cookie's
+   * absence is proof enough, and it is the one direction that cannot be
+   * forged: a forged cookie still fails verification below, and a missing
+   * one cannot invent a session.
+   */
+  const jar = await cookies();
+  const hasSession = jar.getAll().some((c) => /^sb-.*-auth-token/.test(c.name));
+  if (!hasSession) return null;
+
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  /*
+   * Asked together. viewer_context() reads auth.uid() from the JWT, so
+   * it does not need getUser() to have answered first — waiting for it
+   * cost a round trip on every signed-in page for no information.
+   */
+  const [{ data: { user } }, { data: contextData }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.rpc('viewer_context'),
+  ]);
 
   if (!user) return null;
 
-  const [{ data: profile }, { data: roleRow }] = await Promise.all([
-    supabase.from('profiles').select('display_name').eq('id', user.id).single(),
-    supabase.from('user_roles').select('role').eq('user_id', user.id).single(),
-  ]);
+  /*
+   * One request for the display name and the role, not two.
+   *
+   * They are one question about one person, and from a machine 300ms
+   * from the database two questions cost twice as much as one. The
+   * getUser() above stays as it is — it verifies the token against the
+   * auth server rather than trusting the cookie, and that is not a cost
+   * worth saving.
+   */
+  const context = (contextData ?? {}) as { display_name?: string | null; role?: string | null };
 
   return {
     id: user.id,
     email: user.email ?? null,
-    displayName: profile?.display_name ?? null,
-    role: (roleRow?.role as AppRole) ?? 'reader',
+    displayName: context.display_name ?? null,
+    role: (context.role as AppRole) ?? 'reader',
   };
-}
+});
 
 /** For pages that require a reader. Middleware normally catches this first. */
 export async function requireViewer(next?: string): Promise<Viewer> {

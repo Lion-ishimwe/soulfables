@@ -1,4 +1,5 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { formatMoney } from './format';
 import { isDemoMode } from './demo/mode';
 import { DEMO_BODIES, DEMO_NARRATED } from './demo/stories';
@@ -190,7 +191,7 @@ async function demoAuthorName(slug: string | null): Promise<string> {
   return demoListAuthors().find((a) => a.slug === slug)?.name ?? 'Soulfables';
 }
 
-export async function getShelves(): Promise<Shelf[]> {
+async function fetchGetShelves(): Promise<Shelf[]> {
   if (!isConfigured) {
     // Read the editorial store, not the constant — otherwise renaming a
     // shelf in the admin would change nothing a reader can see, which
@@ -226,7 +227,7 @@ export async function getShelf(slug: string): Promise<Shelf | null> {
   return all.find((s) => s.slug === slug) ?? null;
 }
 
-export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
+async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
   if (!isConfigured) {
     const rows = (await demoStories()).filter((s) => s.status === 'published');
 
@@ -283,7 +284,7 @@ export async function getStories(shelfSlug?: string): Promise<StoryCard[]> {
   }));
 }
 
-export async function getProducts(): Promise<Product[]> {
+async function fetchGetProducts(): Promise<Product[]> {
   if (!isConfigured) return PRODUCTS;
   const { createPublicClient } = await import('./supabase/server');
   const supabase = createPublicClient();
@@ -312,7 +313,7 @@ export async function getProducts(): Promise<Product[]> {
   });
 }
 
-export async function getJourney(shelfSlug: string) {
+async function fetchGetJourney(shelfSlug: string) {
   let j = JOURNEYS[shelfSlug] ?? { from: [], to: [] };
 
   if (!isConfigured) {
@@ -421,6 +422,48 @@ export type FullStory = StoryCard & {
  * path (listings, search, shelves) omits body_mdx from its select, so a
  * story body can only ever arrive through this function.
  */
+
+// ---------------------------------------------------------------------
+// Caching
+//
+// The database is in Frankfurt and a round trip costs roughly 300ms
+// whatever it asks for, so page time is set by how many requests a page
+// makes rather than by how heavy they are. Everything below is identical
+// for every visitor — the shelves, the published stories, the shop —
+// which makes it exactly the kind of thing that should be fetched once
+// and shared.
+//
+// These wrap only the anonymous readers. Anything that depends on WHO is
+// asking (a story body, a library, a journal) is deliberately absent: a
+// cache keyed on the arguments alone would hand one reader another
+// reader's page.
+//
+// Sixty seconds is short enough that nobody notices staleness and long
+// enough to collapse a burst of traffic into one query. Edits do not
+// wait for it: the editorial actions call revalidateTag('content').
+// ---------------------------------------------------------------------
+const CONTENT_TAG = 'content';
+
+export const getShelves = unstable_cache(fetchGetShelves, ['shelves'], {
+  revalidate: 60,
+  tags: [CONTENT_TAG],
+});
+
+export const getStories = unstable_cache(fetchGetStories, ['stories'], {
+  revalidate: 60,
+  tags: [CONTENT_TAG],
+});
+
+export const getProducts = unstable_cache(fetchGetProducts, ['products'], {
+  revalidate: 60,
+  tags: [CONTENT_TAG],
+});
+
+export const getJourney = unstable_cache(fetchGetJourney, ['journey'], {
+  revalidate: 60,
+  tags: [CONTENT_TAG],
+});
+
 export async function getStory(slug: string): Promise<FullStory | null> {
   if (!isConfigured) {
     const row = (await demoStories()).find((s) => s.slug === slug);
@@ -486,75 +529,49 @@ export async function getStory(slug: string): Promise<FullStory | null> {
   const { createClient } = await import('./supabase/server');
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from('stories')
-    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors!stories_author_id_fkey(name), story_shelves(is_primary, shelves(slug))')
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .maybeSingle();
-
+  /*
+   * One request, not three.
+   *
+   * This was the row, then a premium-access check, then the body —
+   * three questions about one story, asked one after another, each about
+   * 300ms away. On a reading site the story page cannot be the slowest
+   * page, and it was.
+   *
+   * story_for_reader() (migration 0019) answers all three at once and
+   * withholds the prose by exactly the same rule story_body() used. The
+   * `locked` flag below still only decides what to RENDER; if it were
+   * wrong the function would still have sent no body.
+   */
+  const { data } = await supabase.rpc('story_for_reader', { p_slug: slug });
   if (!data) return null;
 
-  // PostgREST types an embedded relation as an array even where the FK
-  // makes it single-valued, so normalise rather than fight the type.
-  const shelves = (data.story_shelves ?? []) as unknown as {
-    is_primary: boolean;
-    shelves: { slug: string } | { slug: string }[] | null;
-  }[];
-  const primaryRow = shelves.find((s) => s.is_primary) ?? shelves[0];
-  const primaryShelf = Array.isArray(primaryRow?.shelves)
-    ? primaryRow.shelves[0]
-    : primaryRow?.shelves;
-
-  let locked = false;
-  if (data.access === 'premium') {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      locked = true;
-    } else {
-      const { data: hasAccess } = await supabase.rpc('has_premium_access', {
-        p_user: user.id,
-      });
-      locked = !hasAccess;
-    }
-  }
-
-  /*
-   * The body comes from story_body(), never from a column.
-   *
-   * stories.body_mdx is not selectable by anon or authenticated — see
-   * migration 0015. The function decides whether this caller may have
-   * the prose, using the same session this client carries, so the
-   * paywall is enforced by the database rather than by the `locked`
-   * flag below. That flag now only decides what the page renders; if it
-   * were wrong, the function would still return nothing.
-   */
-  let body: string | null = null;
-  if (!locked) {
-    const { data: prose } = await supabase.rpc('story_body', {
-      p_slug: data.slug as string,
-    });
-    body = (prose as string | null) ?? null;
-  }
+  const row = data as Record<string, unknown>;
+  const locked = Boolean(row.locked);
+  const body = (row.body as string | null) ?? null;
+  const audio = row.audio as { storage_path?: string; narrator?: string } | null;
 
   return {
-    id: data.id as string,
-    slug: data.slug as string,
-    title: data.title as string,
-    subtitle: (data.subtitle as string) ?? '',
-    author: ((data.authors as { name?: string } | null)?.name) ?? 'Soulfables',
-    readingMinutes: (data.reading_minutes as number) ?? 0,
-    shelf: primaryShelf?.slug ?? '',
-    access: (data.access as 'free' | 'premium') ?? 'free',
-    coverImage: (data.cover_image as string) ?? null,
+    id: row.id as string,
+    slug: row.slug as string,
+    title: row.title as string,
+    subtitle: (row.subtitle as string) ?? '',
+    author: (row.author as string) ?? 'Soulfables',
+    readingMinutes: (row.reading_minutes as number) ?? 0,
+    shelf: (row.shelf as string) ?? '',
+    access: (row.access as 'free' | 'premium') ?? 'free',
+    coverImage: (row.cover_image as string) ?? null,
     locked,
-    // Withheld server-side, not hidden with CSS — and now withheld by
-    // the database too, not only by this line.
+    // Withheld server-side, not hidden with CSS — and withheld by the
+    // database, not only by this line.
     body,
     sections: body ? sectionsFrom(body) : [],
-    audio: null,
+    audio:
+      audio?.storage_path && !locked
+        ? {
+            src: audio.storage_path,
+            narrator: audio.narrator ?? 'The Librarian',
+            isPlaceholder: true,
+          }
+        : null,
   };
 }

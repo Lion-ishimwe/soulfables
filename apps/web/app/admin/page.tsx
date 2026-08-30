@@ -78,7 +78,7 @@ export default async function AdminHome({
       {/* ---- Greeting ------------------------------------------------ */}
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-[2.6rem] leading-tight text-ivory">
+          <h1 className="font-display text-3xl leading-tight text-ivory sm:text-[2.6rem]">
             Welcome back, {firstName} <span aria-hidden="true">👋</span>
           </h1>
           <p className="mt-1 font-ui text-sm text-grey-muted">
@@ -116,7 +116,7 @@ export default async function AdminHome({
       )}
 
       {/* ---- Stat row ------------------------------------------------ */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         {stats.map((s) => (
           <StatCard key={s.key} stat={s} />
         ))}

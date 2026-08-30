@@ -1,7 +1,7 @@
 'use server';
 
 import type { Route } from 'next';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireStaff, requireViewer, getViewer, isStaff } from '@/lib/auth';
@@ -116,6 +116,8 @@ export async function submitStory(
   });
 
   revalidatePath('/studio');
+
+  revalidateTag('content');
   revalidatePath('/admin/submissions');
 
   return {
@@ -165,6 +167,8 @@ export async function approveStory(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
   redirect(`/admin/submissions?published=${encodeURIComponent(story.title)}` as Route);
 }
 
@@ -193,6 +197,8 @@ export async function returnStory(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/studio');
+
+  revalidateTag('content');
   redirect('/admin/submissions?returned=1' as Route);
 }
 
@@ -235,6 +241,7 @@ export async function reassignStory(
 
   revalidatePath('/admin/stories');
   revalidatePath('/studio');
+  revalidateTag('content');
 
   return { message: `Handed to ${author.name}. They have been told.` };
 }
@@ -289,6 +296,8 @@ export async function saveChapter(
 
   revalidatePath('/', 'layout');
 
+  revalidateTag('content');
+
   return {
     message: publish
       ? `Chapter ${d.number} released.`
@@ -302,6 +311,7 @@ export async function removeChapter(formData: FormData): Promise<void> {
 
   demoDeleteChapter(storySlug, field(formData, 'id'));
   revalidatePath('/', 'layout');
+  revalidateTag('content');
 }
 
 export async function publishChapter(formData: FormData): Promise<void> {
@@ -331,6 +341,8 @@ export async function publishChapter(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/', 'layout');
+
+  revalidateTag('content');
 }
 
 // =====================================================================
@@ -447,6 +459,7 @@ export async function markNotificationsRead(): Promise<void> {
   const mine = await viewerAuthorSlug();
   if (mine) demoMarkNotificationsRead(mine);
   revalidatePath('/studio');
+  revalidateTag('content');
 }
 
 /** Discard a story from the studio or the admin. */
@@ -456,6 +469,7 @@ export async function discardStory(formData: FormData): Promise<void> {
 
   demoDeleteStory(slug);
   revalidatePath('/', 'layout');
+  revalidateTag('content');
   redirect('/admin/stories?deleted=1' as Route);
 }
 
@@ -556,6 +570,7 @@ export async function uploadStoryTemplate(
 
   revalidatePath('/admin/stories');
   revalidatePath('/studio');
+  revalidateTag('content');
 
   const notes = [
     `“${parsed.title}” came in as a draft.`,
@@ -733,6 +748,7 @@ export async function updateOwnBio(
 
     demoSaveAuthor(slug, { ...author, bio: bio.trim() || null });
     revalidatePath('/studio');
+    revalidateTag('content');
     return { message: 'Saved.' };
   }
 
@@ -742,6 +758,9 @@ export async function updateOwnBio(
   if (error) return { error: error.message };
 
   revalidatePath('/studio');
+
+  revalidateTag('content');
   revalidatePath('/voices');
+  revalidateTag('content');
   return { message: 'Saved. Readers will see this on your stories.' };
 }

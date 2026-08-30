@@ -78,7 +78,7 @@ export function StatCard({ stat }: { stat: StatCardData }) {
         <span className="font-ui text-xs text-grey-muted">{stat.label}</span>
       </div>
 
-      <p className="font-display text-[2.5rem] leading-none text-ivory">
+      <p className="font-display text-3xl leading-none text-ivory sm:text-[2.5rem]">
         {/* An em dash, not a zero. The number is unknown, not none. */}
         {stat.value === null ? (
           <span className="text-grey-faint">&mdash;</span>
@@ -96,7 +96,7 @@ export function StatCard({ stat }: { stat: StatCardData }) {
   );
 
   const className =
-    'block rounded-lg border border-rule bg-ink-raised p-5 transition-colors hover:border-rule-strong';
+    'block rounded-lg border border-rule bg-ink-raised p-4 transition-colors hover:border-rule-strong sm:p-5';
 
   return stat.href ? (
     <Link href={stat.href as Route} className={className}>
@@ -223,7 +223,7 @@ export function AdminPageHeader({
   return (
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="font-display text-[2.6rem] leading-tight text-ivory">{title}</h1>
+        <h1 className="font-display text-3xl leading-tight text-ivory sm:text-[2.6rem]">{title}</h1>
         {subtitle && (
           <p className="mt-1 max-w-prose font-ui text-sm text-grey-muted">{subtitle}</p>
         )}

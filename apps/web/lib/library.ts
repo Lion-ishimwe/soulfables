@@ -1,5 +1,6 @@
 import 'server-only';
 import { createClient } from './supabase/server';
+import { getViewer } from './auth';
 import { isDemoMode } from './demo/mode';
 import {
   demoOwnedProducts,
@@ -178,6 +179,17 @@ export { formatBytes } from './format';
 /** Where the reader left off in the narration, in seconds. */
 export async function getListeningPosition(slug: string): Promise<number> {
   if (isDemoMode()) return demoListeningPosition(slug);
+
+  /*
+   * Nobody signed in has nowhere to have got to.
+   *
+   * RLS would return no rows anyway, so this changes no answer — it
+   * saves the round trip to Frankfurt spent arriving at it. On a
+   * narrated story that was half the time an anonymous reader waited for
+   * the page.
+   */
+  const viewer = await getViewer();
+  if (!viewer) return 0;
 
   const supabase = await createClient();
   const { data } = await supabase

@@ -92,11 +92,37 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // getUser() revalidates against the auth server. getSession() only reads
-  // the cookie, which a client could have tampered with — never use it here.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /*
+   * Both at once, not one after the other.
+   *
+   * getUser() revalidates against the auth server. getSession() only
+   * reads the cookie, which a client could have tampered with — never
+   * use it here.
+   *
+   * The role lookup used to wait for that answer so it could use
+   * user.id. It does not need to: viewer_context() reads auth.uid() from
+   * the same JWT, so both questions can be asked at once and the answers
+   * checked together. From 300ms away that is the difference between one
+   * round trip and two, on every admin request.
+   */
+  /*
+   * Skip the auth server entirely for visitors who have no session.
+   *
+   * Most traffic is anonymous and most routes are public, and asking
+   * GoTrue to identify somebody who has not signed in costs a round trip
+   * to Frankfurt to learn nothing. A missing cookie cannot be a valid
+   * session; a forged one still fails verification below.
+   */
+  const hasSession = request.cookies
+    .getAll()
+    .some((c) => /^sb-.*-auth-token/.test(c.name));
+
+  const [{ data: { user } }, context] = hasSession
+    ? await Promise.all([
+        supabase.auth.getUser(),
+        needsStaff ? supabase.rpc('viewer_context') : Promise.resolve({ data: null }),
+      ])
+    : [{ data: { user: null } }, { data: null }];
 
   if ((needsUser || needsStaff) && !user) {
     const url = request.nextUrl.clone();
@@ -106,13 +132,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (needsStaff && user) {
-    const { data: role } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
+    const role = (context?.data ?? null) as { role?: string } | null;
 
-    if (!role || !['editor', 'admin', 'owner'].includes(role.role)) {
+    if (!role?.role || !['editor', 'admin', 'owner'].includes(role.role)) {
       // Not "forbidden" — the House does not confirm that /admin exists
       // to someone who has no business there.
       const url = request.nextUrl.clone();

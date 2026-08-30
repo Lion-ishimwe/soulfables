@@ -127,71 +127,31 @@ export async function dashboardStats(days = 30): Promise<StatCardData[]> {
 
   if (!isLive()) return blank();
 
-  const supabase = await createClient();
-
   /*
-   * Count a specific column, never '*'.
+   * One request, not twelve.
    *
-   * Migration 0015 revoked the table-level select on stories and granted
-   * the columns back individually, so `select('*')` is refused there. With
-   * head:true that refusal arrives as an error alongside a null count —
-   * and `count ?? 0` turns it into a confident zero. The dashboard then
-   * reports no stories to a House that has twelve.
+   * Each count used to be its own PostgREST call. From here every round
+   * trip to Frankfurt costs about 300ms whatever it asks for, so twelve
+   * counts cost twelve times the network and none of the database.
+   * dashboard_counts() answers all of them at once — see migration 0018.
    *
-   * So: count id, and return null on failure rather than a number. A
-   * question that could not be answered must not look like an answer.
+   * A failed call leaves every value null, and the cards render an em
+   * dash. A question that could not be answered must not look like an
+   * answer of zero.
    */
-  const count = async (table: string, filters: [string, string][] = []) => {
-    let q = supabase.from(table).select('id', { count: 'exact', head: true });
-    for (const [col, val] of filters) q = q.eq(col, val);
-    const { count: n, error } = await q;
-    return error ? null : (n ?? 0);
-  };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('dashboard_counts', { p_days: days });
 
-  /** Rows created inside a window, for the two windows a trend compares. */
-  const windowed = async (table: string, column: string, filters: [string, string][] = []) => {
-    const build = (from: string, to?: string) => {
-      let q = supabase.from(table).select('id', { count: 'exact', head: true }).gte(column, from);
-      if (to) q = q.lt(column, to);
-      for (const [col, val] of filters) q = q.eq(col, val);
-      return q;
-    };
-    const [{ count: recent }, { count: prior }] = await Promise.all([
-      build(daysAgo(days)),
-      build(daysAgo(days * 2), daysAgo(days)),
-    ]);
-    return trendFrom(recent ?? 0, prior ?? 0);
-  };
-
-  const [
-    published,
-    drafts,
-    products,
-    orders,
-    readers,
-    stories,
-    orderTrend,
-    readerTrend,
-    publishedTrend,
-  ] = await Promise.all([
-    count('stories', [['status', 'published']]),
-    count('stories', [['status', 'draft']]),
-    count('products', [['status', 'published']]),
-    count('orders', [['status', 'paid']]),
-    count('profiles'),
-    count('stories'),
-    windowed('orders', 'paid_at', [['status', 'paid']]),
-    windowed('profiles', 'created_at'),
-    windowed('stories', 'published_at', [['status', 'published']]),
-  ]);
+  if (error || !data) return blank().map((s) => ({ ...s, value: null }));
+  const c = data as Record<string, number>;
 
   return [
-    { key: 'published', label: 'Published stories', value: published, hint: 'Live on the site', trend: publishedTrend, href: '/admin/stories' },
-    { key: 'drafts', label: 'Drafts', value: drafts, hint: 'Not yet visible', trend: null, href: '/admin/stories' },
-    { key: 'products', label: 'Products', value: products, hint: 'Active products', trend: null, href: '/admin/products' },
-    { key: 'orders', label: 'Paid orders', value: orders, hint: 'Completed orders', trend: orderTrend, href: '/admin/orders' },
-    { key: 'readers', label: 'Readers', value: readers, hint: 'Registered readers', trend: readerTrend, href: '/admin/users' },
-    { key: 'stories', label: 'All stories', value: stories, hint: 'Total in database', trend: null, href: '/admin/stories' },
+    { key: 'published', label: 'Published stories', value: c.published, hint: 'Live on the site', trend: trendFrom(c.published_recent, c.published_prior), href: '/admin/stories' },
+    { key: 'drafts', label: 'Drafts', value: c.drafts, hint: 'Not yet visible', trend: null, href: '/admin/stories' },
+    { key: 'products', label: 'Products', value: c.products, hint: 'Active products', trend: null, href: '/admin/products' },
+    { key: 'orders', label: 'Paid orders', value: c.orders, hint: 'Completed orders', trend: trendFrom(c.orders_recent, c.orders_prior), href: '/admin/orders' },
+    { key: 'readers', label: 'Readers', value: c.readers, hint: 'Registered readers', trend: trendFrom(c.readers_recent, c.readers_prior), href: '/admin/users' },
+    { key: 'stories', label: 'All stories', value: c.stories, hint: 'Total in database', trend: null, href: '/admin/stories' },
   ];
 }
 
@@ -225,48 +185,49 @@ export async function dashboardSeries(days = 30): Promise<MetricSeries[]> {
     ];
   }
 
+  /*
+   * One request for all four metrics, already bucketed by day.
+   *
+   * This was four queries returning every raw timestamp for the window,
+   * bucketed in JavaScript. dashboard_series() does the bucketing in the
+   * database — which matters less for the work than for the wire: one
+   * round trip instead of four, and thirty numbers per metric instead of
+   * every event.
+   */
   const supabase = await createClient();
-  const since = daysAgo(days);
+  const { data, error } = await supabase.rpc('dashboard_series', { p_days: days });
 
-  const column = async (table: string, col: string, filters: [string, string][] = []) => {
-    let q = supabase.from(table).select(col).gte(col, since).order(col);
-    for (const [c, v] of filters) q = q.eq(c, v);
-    const { data } = await q;
-    return ((data ?? []) as unknown as Record<string, string>[])
-      .map((r) => r[col])
-      .filter(Boolean);
+  if (error || !data) {
+    return [
+      empty('opens', 'Story opens', 'The database did not answer.'),
+      empty('readers', 'New readers'),
+      empty('orders', 'Orders'),
+      empty('published', 'Published'),
+    ];
+  }
+
+  const s = data as { days: string[] } & Record<string, number[]>;
+
+  const build = (key: string, label: string, note: string): MetricSeries => {
+    const values = s[key] ?? [];
+    const total = values.reduce((a, b) => a + b, 0);
+    return {
+      key,
+      label,
+      points: (s.days ?? []).map((date, i) => ({ date, value: values[i] ?? 0 })),
+      total,
+      empty: total === 0,
+      note: total === 0 ? note : undefined,
+    };
   };
 
-  const [opens, readers, orders, published] = await Promise.all([
-    (async () => {
-      const { data } = await supabase
-        .from('analytics_events')
-        .select('created_at')
-        .eq('event_name', 'story_opened')
-        .gte('created_at', since)
-        .order('created_at');
-      return (data ?? []).map((r) => r.created_at as string);
-    })(),
-    column('profiles', 'created_at'),
-    column('orders', 'paid_at', [['status', 'paid']]),
-    column('stories', 'published_at', [['status', 'published']]),
-  ]);
-
-  const build = (key: string, label: string, stamps: string[], note?: string): MetricSeries => ({
-    key,
-    label,
-    points: bucketByDay(stamps, days),
-    total: stamps.length,
-    empty: stamps.length === 0,
-    note: stamps.length === 0 ? note : undefined,
-  });
-
   return [
-    build('opens', 'Story opens', opens, 'Nothing recorded yet. Events begin the first time somebody opens a story.'),
-    build('readers', 'New readers', readers, 'No accounts created in this window.'),
-    build('orders', 'Orders', orders, 'No paid orders yet — checkout is the last milestone.'),
-    build('published', 'Published', published, 'Nothing published in this window.'),
+    build('opens', 'Story opens', 'Nothing recorded yet. Events begin the first time somebody opens a story.'),
+    build('readers', 'New readers', 'No accounts created in this window.'),
+    build('orders', 'Orders', 'No paid orders yet — checkout is the last milestone.'),
+    build('published', 'Published', 'Nothing published in this window.'),
   ];
+
 }
 
 // ---------------------------------------------------------------------
