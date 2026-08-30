@@ -108,7 +108,7 @@ export function normalise(url) {
   }
 
   const fixed = `${parts.scheme}${parts.user}${password ? ':' + password : ''}@${parts.host}`;
-  return { url: fixed, notes, host: parts.host };
+  return { url: fixed, notes, host: parts.host, user: parts.user };
 }
 
 /** Safe to print. Masks on the last @, so nothing of the password shows. */
@@ -122,7 +122,11 @@ export function mask(url) {
  * Advice for the connection failures that actually happen, rather than a
  * generic "check your settings".
  */
-export function explain(message, host = '') {
+export function explain(message, host = '', user = '') {
+  const ref = (user.match(/^postgres\.([a-z0-9]+)$/) || [])[1] || (host.match(/^db\.([a-z0-9]+)\./) || [])[1];
+  const settings = ref
+    ? `https://supabase.com/dashboard/project/${ref}/settings/database`
+    : 'Project Settings → Database';
   if (/could not translate host name|ENOTFOUND|Name or service not known/i.test(message)) {
     if (/^db\./.test(host)) {
       return [
@@ -140,12 +144,15 @@ export function explain(message, host = '') {
     ];
   }
   if (/password authentication failed/i.test(message)) {
-    return ['Wrong password. Settings → Database has a reset.'];
-  }
-  if (/Network is unreachable|ETIMEDOUT|timeout expired/i.test(message)) {
     return [
-      'Reached DNS but not the server. On the Free plan the direct host is',
-      'IPv6-only; the Session pooler works over IPv4.',
+      'The database password is being rejected. Note that this is NOT your',
+      'Supabase account password — it is a separate password set when the',
+      'project was created, and it is shown only once.',
+      '',
+      'If you do not have it, reset it here:',
+      settings,
+      '',
+      'The nav may not list Database any more; that link still works.',
     ];
   }
   return [];

@@ -163,7 +163,7 @@ if (/:6543(\/|$|\?)/.test(RAW_URL)) {
  * Normalise before use. A password containing @ or / splits the URL in
  * the wrong place, and libpq then blames DNS for it.
  */
-const { url: DB_URL, notes: URL_NOTES, host: DB_HOST } = normalise(RAW_URL);
+const { url: DB_URL, notes: URL_NOTES, host: DB_HOST, user: DB_USER } = normalise(RAW_URL);
 
 /** Masks on the LAST @, so no part of the password reaches the screen. */
 const SAFE = mask(DB_URL);
@@ -204,7 +204,7 @@ try {
 } catch (e) {
   const msg = String(e.stderr ?? e.stdout ?? e).trim();
   console.error(red('Could not connect.') + '\n' + msg.split('\n').slice(-4).join('\n') + '\n');
-  for (const line of explain(msg, DB_HOST)) console.error(dim(line));
+  for (const line of explain(msg, DB_HOST, DB_USER)) console.error(dim(line));
   process.exit(1);
 }
 

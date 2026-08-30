@@ -222,7 +222,7 @@ if (env.SUPABASE_DB_URL) {
     const msg = String(e.stderr ?? e.stdout ?? e).trim();
     console.log(red('failed'));
     console.log(dim('  ' + msg.split('\n').slice(-2).join('\n  ')));
-    for (const line of explain(msg, normalise(env.SUPABASE_DB_URL).host)) {
+    for (const line of explain(msg, normalise(env.SUPABASE_DB_URL).host, normalise(env.SUPABASE_DB_URL).user)) {
       console.log(dim(line));
     }
 
