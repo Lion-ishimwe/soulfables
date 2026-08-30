@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
+import { validate, normalise, mask, explain } from './connection.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ENV = join(REPO, '.env.local');
@@ -143,7 +144,7 @@ if (Object.keys(env).length) {
 }
 
 // --- connection string ------------------------------------------------
-const dbUrl = await ask(
+let dbUrl = await ask(
   bold('Database connection string') +
     dim('\n  Connect → Session pooler (port 5432). Input is hidden.'),
   { secret: true }
@@ -156,12 +157,20 @@ if (dbUrl) {
     rl?.close();
     process.exit(1);
   }
-  if (!/^postgres(ql)?:\/\//.test(dbUrl)) {
-    console.log('\n' + red('That does not look like a connection string.'));
-    console.log(dim('It should begin postgresql:// — copy the whole URI.\n'));
+  const check = validate(dbUrl);
+  if (!check.ok) {
+    console.log('');
+    console.log(red(check.problem[0]));
+    for (const line of check.problem.slice(1)) console.log(dim(line));
+    console.log('');
     rl?.close();
     process.exit(1);
   }
+
+  // Encode the password and surface anything worth knowing before we try.
+  const norm = normalise(dbUrl);
+  dbUrl = norm.url;
+  for (const n of norm.notes) console.log(dim('  ' + n));
   env.SUPABASE_DB_URL = dbUrl;
 
   /*
@@ -213,17 +222,10 @@ if (env.SUPABASE_DB_URL) {
     const msg = String(e.stderr ?? e.stdout ?? e).trim();
     console.log(red('failed'));
     console.log(dim('  ' + msg.split('\n').slice(-2).join('\n  ')));
-    if (/ENOTFOUND|Tenant or user not found/i.test(msg)) {
-      console.log(
-        '\n' + dim('Check the username — the pooler needs postgres.PROJECT_REF, not postgres.')
-      );
-    } else if (/could not translate host|Network is unreachable|ETIMEDOUT/i.test(msg)) {
-      console.log(
-        '\n' + dim('Looks like the IPv6-only direct host. Use the Session pooler instead.')
-      );
-    } else if (/password authentication/i.test(msg)) {
-      console.log('\n' + dim('Wrong password. Settings → General has a reset.'));
+    for (const line of explain(msg, normalise(env.SUPABASE_DB_URL).host)) {
+      console.log(dim(line));
     }
+
     console.log(dim('\nSaving anyway so you can correct it by hand.'));
   }
 }

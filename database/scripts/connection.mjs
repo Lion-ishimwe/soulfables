@@ -40,6 +40,38 @@ function split(url) {
 }
 
 /**
+ * Is this even a connection string?
+ *
+ * Checked before anything is printed. A string missing its @ has no
+ * boundary between password and host, so there is no safe way to mask
+ * it — the only correct move is to refuse it and never echo it.
+ */
+export function validate(url) {
+  if (!/^postgres(ql)?:\/\//.test(url)) {
+    return {
+      ok: false,
+      problem: ['That does not start with postgresql:// — copy the whole URI.'],
+    };
+  }
+
+  const rest = url.replace(/^postgres(ql)?:\/\//, "");
+  if (!rest.includes('@')) {
+    return {
+      ok: false,
+      problem: [
+        "There is no @ between the password and the host, so the password",
+        "is running straight into the hostname.",
+        "",
+        "The @ is part of the structure and must stay. If your password",
+        "itself contains an @, leave it alone — it gets encoded for you.",
+      ],
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
  * Percent-encode the password if it needs it, leaving an already-encoded
  * one alone. Returns the usable URL plus anything worth telling the user.
  */
@@ -59,6 +91,19 @@ export function normalise(url) {
     password = encodeURIComponent(password);
     notes.push(
       'The password contains a character that has meaning in a URL, so it has been percent-encoded.'
+    );
+  }
+
+  /*
+   * Say this before the connection is attempted, not after it fails.
+   * The direct host publishes only an AAAA record, so on a network
+   * without IPv6 it cannot resolve at all — and the resulting error
+   * talks about DNS, which sounds like something the user broke.
+   */
+  if (/^db\./.test(parts.host)) {
+    notes.push(
+      'This is the direct host, which is IPv6-only on the Free plan. If your' +
+        ' network is IPv4 it will not resolve — use the Session pooler instead.'
     );
   }
 
