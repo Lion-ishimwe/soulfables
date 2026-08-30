@@ -3,6 +3,7 @@ import { Cormorant_Garamond, EB_Garamond, Inter } from 'next/font/google';
 import { DemoBanner } from '@/components/demo-banner';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
+import { PublicChrome } from '@/components/public-chrome';
 import './globals.css';
 
 /*
@@ -86,9 +87,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <DemoBanner />
-        <SiteHeader />
+        <PublicChrome>
+          <SiteHeader />
+        </PublicChrome>
         <main id="main">{children}</main>
-        <SiteFooter />
+        <PublicChrome>
+          <SiteFooter />
+        </PublicChrome>
       </body>
     </html>
   );

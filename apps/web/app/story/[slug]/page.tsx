@@ -8,6 +8,7 @@ import { ReaderToolkit } from '@/components/reader-toolkit';
 import { AudioPlayer } from '@/components/audio-player';
 import { Cover } from '@/components/cover-art';
 import { getListeningPosition } from '@/lib/library';
+import { track } from '@/lib/analytics';
 
 /*
  * The reader.
@@ -82,6 +83,23 @@ export default async function StoryPage({
   const { slug } = await params;
   const story = await getStory(slug);
   if (!story) notFound();
+
+  /*
+   * Record the open, and do not wait for it.
+   *
+   * This is what gives the dashboard a real views-over-time series.
+   * story.view_count is a running total with no history, so a chart
+   * drawn from it would be a drawing rather than a measurement.
+   *
+   * Not awaited on purpose: a story must not be slower to open, or
+   * fail to open, because counting was slow or failed. The page is
+   * rendered per request, so this fires once per actual read.
+   */
+  void track('story_opened', {
+    entityType: 'story',
+    entityId: story.id,
+    properties: { slug: story.slug, access: story.access, locked: story.locked },
+  });
 
   const [shelf, stories, resumeAt] = await Promise.all([
     story.shelf ? getShelf(story.shelf) : Promise.resolve(null),

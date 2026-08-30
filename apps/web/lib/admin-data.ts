@@ -203,7 +203,9 @@ export async function adminCounts() {
   const supabase = await createClient();
 
   const count = async (table: string, filter?: [string, string]) => {
-    let q = supabase.from(table).select('*', { count: 'exact', head: true });
+    // Not '*': migration 0015 refuses that on stories, and head:true
+    // turns the refusal into a null count that reads as a real zero.
+    let q = supabase.from(table).select('id', { count: 'exact', head: true });
     if (filter) q = q.eq(filter[0], filter[1]);
     const { count: n } = await q;
     return n ?? 0;

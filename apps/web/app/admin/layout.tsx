@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth';
+import { unreadNotifications } from '@/lib/admin-dashboard';
 import { AdminNav } from '@/components/admin/admin-nav';
+import { SidebarToggle } from '@/components/admin/sidebar-toggle';
+import { Icon } from '@/components/admin/dashboard';
 import { signOut } from '@/app/actions/auth';
 
 export const metadata: Metadata = {
@@ -19,6 +23,12 @@ export const metadata: Metadata = {
  * Three layers guard this: middleware redirects non-staff, requireStaff()
  * below re-checks on the server, and RLS returns nothing to a non-staff
  * session regardless. Any one of them failing is survivable.
+ *
+ * The shell is a fixed sidebar beside a scrolling column. The sidebar
+ * holds its own scroll, so a long section list never pushes the identity
+ * card off the bottom, and the page beneath never moves when you
+ * navigate — which is most of what makes a dashboard feel like one
+ * surface rather than a series of pages.
  */
 export default async function AdminLayout({
   children,
@@ -26,54 +36,151 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const viewer = await requireStaff();
+  const unread = await unreadNotifications();
+
+  const name = viewer.displayName ?? viewer.email ?? 'Staff';
+  const initial = name.trim().charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-ink">
-      <header className="border-b border-rule">
-        <div className="mx-auto flex h-14 max-w-wide items-center justify-between px-5 sm:px-8">
-          <div className="flex items-center gap-8">
-            <Link href="/admin" className="font-display text-lg text-ivory">
+    <div className="min-h-screen bg-ink lg:flex">
+      {/* ---- Sidebar ------------------------------------------------- */}
+      <aside
+        id="admin-sidebar"
+        className="hidden w-60 flex-none flex-col border-r border-rule lg:sticky lg:top-0 lg:flex lg:h-screen"
+      >
+        <div className="border-b border-rule px-5 py-5">
+          <Link href={'/admin' as Route} className="font-display text-lg text-ivory">
+            Soulfables
+            <span className="ml-2 font-ui text-micro uppercase tracking-[0.18em] text-gold">
+              Admin
+            </span>
+          </Link>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3">
+          <AdminNav role={viewer.role} />
+        </div>
+
+        <div className="border-t border-rule p-3">
+          <Link
+            href={'/' as Route}
+            className="mb-2 flex items-center justify-between rounded border border-rule px-3 py-2.5 font-ui text-xs text-grey transition-colors hover:border-rule-strong hover:text-ivory"
+          >
+            View site
+            <span aria-hidden="true">↗</span>
+          </Link>
+
+          {/*
+            Who you are, at the foot of the sidebar rather than only in
+            the top bar. On a surface where one person may hold several
+            roles, "which account am I acting as" is worth answering
+            permanently rather than on hover.
+          */}
+          <div className="flex items-center gap-3 rounded px-2 py-2">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 font-ui text-sm text-gold">
+              {initial}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-ui text-xs text-ivory">{name}</span>
+              <span className="block truncate font-ui text-micro capitalize text-grey-muted">
+                {viewer.role}
+              </span>
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      {/* ---- Main column --------------------------------------------- */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-10 border-b border-rule bg-ink/95 backdrop-blur">
+          <div className="flex h-16 items-center gap-4 px-5 sm:px-8">
+            <SidebarToggle />
+
+            <Link href={'/admin' as Route} className="font-display text-base text-ivory lg:hidden">
               Soulfables
               <span className="ml-2 font-ui text-micro uppercase tracking-[0.18em] text-gold">
                 Admin
               </span>
             </Link>
-          </div>
 
-          <div className="flex items-center gap-5">
-            <Link
-              href="/studio"
-              className="font-ui text-xs text-grey-muted transition-colors hover:text-ivory"
-            >
-              Writing Room
-            </Link>
-            <Link
-              href="/"
-              className="font-ui text-xs text-grey-muted transition-colors hover:text-ivory"
-            >
-              View site ↗
-            </Link>
-            <span className="hidden font-ui text-xs text-grey-muted sm:inline">
-              {viewer.displayName ?? viewer.email}
-              <span className="ml-2 border border-rule px-1.5 py-0.5 text-micro uppercase tracking-wide text-gold">
-                {viewer.role}
-              </span>
-            </span>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="font-ui text-xs text-grey-muted transition-colors hover:text-ivory"
+            <div className="ml-auto flex items-center gap-5">
+              <Link
+                href={'/studio' as Route}
+                className="hidden font-ui text-xs text-grey-muted transition-colors hover:text-ivory sm:inline"
               >
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+                Writing Room
+              </Link>
+              <Link
+                href={'/' as Route}
+                className="hidden font-ui text-xs text-grey-muted transition-colors hover:text-ivory sm:inline"
+              >
+                View site ↗
+              </Link>
 
-      <div className="mx-auto flex max-w-wide gap-0 px-5 sm:px-8">
-        <AdminNav role={viewer.role} />
-        <main className="min-w-0 flex-1 py-10 pl-0 lg:pl-10">{children}</main>
+              <span className="hidden items-center gap-2 font-ui text-xs text-grey sm:flex">
+                {name}
+                <span className="rounded border border-gold/50 px-2 py-0.5 text-micro uppercase tracking-wide text-gold">
+                  {viewer.role}
+                </span>
+              </span>
+
+              {/*
+                The badge is a real count of this person's unread
+                notifications — the editorial workflow writes one when a
+                story is submitted, approved or returned. It is hidden
+                entirely at zero rather than showing a 0, which would be
+                a permanent small alarm about nothing.
+              */}
+              <Link
+                href={'/admin/submissions' as Route}
+                aria-label={unread > 0 ? `${unread} unread notifications` : 'Notifications'}
+                className="relative text-grey-muted transition-colors hover:text-ivory"
+              >
+                <Icon name="bell" className="h-[18px] w-[18px]" />
+                {unread > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 font-ui text-[0.625rem] text-ink">
+                    {unread > 9 ? '9+' : unread}
+                  </span>
+                )}
+              </Link>
+
+              <span className="h-6 w-px bg-rule" />
+
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="font-ui text-xs text-grey-muted transition-colors hover:text-ivory"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
+          </div>
+        </header>
+
+        {/* Section list for narrow screens, where the sidebar is hidden. */}
+        <div className="border-b border-rule px-5 lg:hidden">
+          <AdminNav role={viewer.role} />
+        </div>
+
+        <main className="min-w-0 flex-1 px-5 py-8 sm:px-8">{children}</main>
+
+        <footer className="border-t border-rule px-5 py-5 sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4 font-ui text-xs text-grey-muted">
+            <p>© {new Date().getFullYear()} Soulfables. All rights reserved.</p>
+            <nav className="flex flex-wrap items-center gap-5">
+              <Link href={'/support' as Route} className="transition-colors hover:text-ivory">
+                Support
+              </Link>
+              <Link href={'/privacy' as Route} className="transition-colors hover:text-ivory">
+                Privacy Policy
+              </Link>
+              <Link href={'/terms' as Route} className="transition-colors hover:text-ivory">
+                Terms of Service
+              </Link>
+            </nav>
+          </div>
+        </footer>
       </div>
     </div>
   );
