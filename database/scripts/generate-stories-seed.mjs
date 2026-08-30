@@ -1,0 +1,217 @@
+/**
+ * Generate database/seed/0002_stories.sql from the demo fixtures.
+ *
+ * The twelve stories were written into TypeScript because demo mode came
+ * first. Retyping them into SQL by hand would create two copies that
+ * drift, and the drift would be silent — a story edited in one place and
+ * not the other looks fine until someone reads it.
+ *
+ * So the SQL is generated from the fixtures, which stay the source of
+ * truth for the prose. Run this again if the fixtures change:
+ *
+ *   node database/scripts/generate-stories-seed.mjs
+ *
+ * The generated file IS committed. It has to be, because the seed has to
+ * work on a machine that is only running psql.
+ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const WEB = join(REPO, 'apps', 'web', 'lib');
+const OUT = join(REPO, 'database', 'seed', '0002_stories.sql');
+
+/**
+ * Pull a literal out of a TypeScript file and evaluate it as JavaScript.
+ *
+ * These are plain data literals — objects, arrays, template strings — so
+ * evaluating them is exact where a regex would be approximate. Bodies
+ * contain apostrophes, em dashes and blank lines, all of which a
+ * hand-rolled parser gets wrong eventually.
+ */
+function literalAfter(source, marker, open, close) {
+  const start = source.indexOf(marker);
+  if (start === -1) throw new Error(`could not find ${marker}`);
+
+  /*
+   * Start looking after the `=`, not after the name.
+   *
+   * `const STORIES: StoryCard[] = [...]` has a `[` in its type
+   * annotation, and scanning from the name finds that empty pair first.
+   * The result is a valid, empty literal — no error, just silently
+   * nothing, which is the failure mode worth designing against.
+   */
+  const assign = source.indexOf('=', start);
+  if (assign === -1) throw new Error(`${marker} is not an assignment`);
+
+  let i = source.indexOf(open, assign);
+  let depth = 0;
+  let inTemplate = false;
+
+  for (let j = i; j < source.length; j++) {
+    const c = source[j];
+    if (c === '`' && source[j - 1] !== '\\') inTemplate = !inTemplate;
+    if (inTemplate) continue;
+    if (c === open) depth++;
+    else if (c === close) {
+      depth--;
+      if (depth === 0) return source.slice(i, j + 1);
+    }
+  }
+  throw new Error(`unbalanced ${open} after ${marker}`);
+}
+
+const storiesTs = readFileSync(join(WEB, 'demo', 'stories.ts'), 'utf8');
+const contentTs = readFileSync(join(WEB, 'content.ts'), 'utf8');
+
+const bodies = eval('(' + literalAfter(storiesTs, 'DEMO_BODIES', '{', '}') + ')');
+const narrated = new Set(eval(literalAfter(storiesTs, 'DEMO_NARRATED', '[', ']')));
+const cards = eval(literalAfter(contentTs, 'const STORIES', '[', ']'));
+
+/*
+ * An extraction that finds nothing must fail here rather than produce a
+ * seed file containing no stories. The first run of this script did
+ * exactly that and reported success.
+ */
+if (!cards.length) throw new Error('no stories extracted from content.ts');
+if (!Object.keys(bodies).length) throw new Error('no bodies extracted from demo/stories.ts');
+if (!narrated.size) throw new Error('no narrated list extracted');
+if (Object.keys(bodies).length !== cards.length) {
+  throw new Error(`${cards.length} stories but ${Object.keys(bodies).length} bodies`);
+}
+
+/** Display name in the fixtures → author slug in the database. */
+const AUTHOR_SLUG = {
+  'The Librarian': 'the-librarian',
+  'Apophia Kamwine': 'apophia-kamwine',
+  'Seren Adair': 'seren-adair',
+  'Caelum Orr': 'caelum-orr',
+};
+
+/*
+ * Dollar-quoting, so nothing inside a story body needs escaping. The tag
+ * is checked against the content rather than assumed — a body that
+ * happened to contain the tag would end the string early and produce SQL
+ * that is silently wrong rather than loudly broken.
+ */
+const TAG = '$sf$';
+function quote(text) {
+  if (text.includes(TAG)) throw new Error(`a story body contains ${TAG}; pick another tag`);
+  return TAG + text + TAG;
+}
+const str = (s) => (s === null || s === undefined ? 'null' : quote(String(s)));
+
+const rows = cards.map((card, i) => {
+  const body = bodies[card.slug];
+  if (!body) throw new Error(`no body for ${card.slug}`);
+
+  const authorSlug = AUTHOR_SLUG[card.author];
+  if (!authorSlug) throw new Error(`unknown author "${card.author}" on ${card.slug}`);
+
+  // Deterministic, so re-running produces an identical file.
+  const published = new Date(Date.UTC(2025, 0, 6 + i * 9)).toISOString();
+
+  return {
+    ...card,
+    body,
+    authorSlug,
+    published,
+    wordCount: body.trim().split(/\s+/).length,
+    narrated: narrated.has(card.slug),
+  };
+});
+
+const lines = [];
+const w = (s = '') => lines.push(s);
+
+w('-- =====================================================================');
+w('-- Soulfables — 0002 Stories');
+w('--');
+w('-- GENERATED by database/scripts/generate-stories-seed.mjs from the');
+w('-- demo fixtures in apps/web/lib. Do not edit by hand — edit the');
+w('-- fixtures and run the generator, or the two copies will drift.');
+w('--');
+w(`-- ${rows.length} stories, all published, matching what demo mode shows.`);
+w('--');
+w('-- Idempotent: re-running updates in place rather than duplicating, so');
+w('-- it is safe to apply to a database that already has these.');
+w('-- =====================================================================');
+w();
+
+for (const r of rows) {
+  w(`-- ${r.title}`);
+  w('insert into stories (');
+  w('  slug, title, subtitle, excerpt, body_mdx, author_id, assigned_author_id,');
+  w('  reading_minutes, word_count, status, access, release_mode,');
+  w('  published_at, approved_at, seo_title, seo_description');
+  w(') select');
+  w(`  ${str(r.slug)},`);
+  w(`  ${str(r.title)},`);
+  w(`  ${str(r.subtitle)},`);
+  w(`  ${str(r.subtitle)},`);
+  w(`  ${str(r.body)},`);
+  w(`  a.id,`);
+  w(`  a.id,`);
+  w(`  ${r.readingMinutes},`);
+  w(`  ${r.wordCount},`);
+  w(`  'published',`);
+  w(`  '${r.access}',`);
+  w(`  'full',`);
+  w(`  '${r.published}',`);
+  w(`  '${r.published}',`);
+  w(`  ${str(r.title + ' — Soulfables')},`);
+  w(`  ${str(r.subtitle)}`);
+  w(`from authors a where a.slug = ${str(r.authorSlug)}`);
+  w('on conflict (slug) do update set');
+  w('  title = excluded.title,');
+  w('  subtitle = excluded.subtitle,');
+  w('  excerpt = excluded.excerpt,');
+  w('  body_mdx = excluded.body_mdx,');
+  w('  author_id = excluded.author_id,');
+  w('  reading_minutes = excluded.reading_minutes,');
+  w('  word_count = excluded.word_count,');
+  w('  status = excluded.status,');
+  w('  access = excluded.access,');
+  w('  published_at = excluded.published_at,');
+  w('  updated_at = now();');
+  w();
+}
+
+w('-- ---------------------------------------------------------------------');
+w('-- Shelf placement. Each story sits primarily on one shelf; the join');
+w('-- table allows more, which is how a story can later appear in two');
+w('-- places without being duplicated.');
+w('-- ---------------------------------------------------------------------');
+for (const r of rows) {
+  w('insert into story_shelves (story_id, shelf_id, is_primary, sort_order)');
+  w(`select s.id, sh.id, true, 0`);
+  w(`from stories s, shelves sh`);
+  w(`where s.slug = ${str(r.slug)} and sh.slug = ${str(r.shelf)}`);
+  w('on conflict (story_id, shelf_id) do update set is_primary = excluded.is_primary;');
+}
+w();
+
+w('-- ---------------------------------------------------------------------');
+w('-- Narration. Only some stories have it, which is the point — the');
+w('-- player must cope with its absence rather than assume audio exists.');
+w('-- ---------------------------------------------------------------------');
+for (const r of rows.filter((x) => x.narrated)) {
+  w('insert into story_audio (story_id, storage_path, format, duration_seconds, narrator, access)');
+  w(`select s.id, ${str(`audio/${r.slug}.mp3`)}, 'mp3', ${r.readingMinutes * 60}, ${str('The Librarian')}, '${r.access}'`);
+  w(`from stories s where s.slug = ${str(r.slug)}`);
+  w('on conflict do nothing;');
+}
+w();
+
+w("do $$ begin raise notice 'Seeded % stories.', (select count(*) from stories); end $$;");
+w();
+
+writeFileSync(OUT, lines.join('\n'), { encoding: 'utf8' });
+
+console.log(`wrote ${OUT}`);
+console.log(`  ${rows.length} stories, ${rows.filter((r) => r.narrated).length} narrated`);
+console.log(`  ${rows.filter((r) => r.access === 'premium').length} premium, ${rows.filter((r) => r.access === 'free').length} free`);
+const byShelf = {};
+for (const r of rows) byShelf[r.shelf] = (byShelf[r.shelf] ?? 0) + 1;
+console.log('  shelves: ' + Object.entries(byShelf).map(([k, v]) => `${k} ${v}`).join(', '));
