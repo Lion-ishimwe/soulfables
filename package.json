@@ -17,10 +17,10 @@
     "start": "npm run start --workspace=@soulfables/web",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "db:reset": "node scripts/db-reset.mjs",
-    "db:migrate": "node scripts/db-migrate.mjs",
-    "db:test": "node database/test/run-migrations.mjs",
     "demo": "npm run build --workspace=@soulfables/web && npm run start --workspace=@soulfables/web",
-    "db:local": "node database/scripts/local.mjs"
+    "db:test": "node database/test/run-migrations.mjs",
+    "db:local": "node database/scripts/local.mjs",
+    "db:remote": "node database/scripts/remote.mjs",
+    "db:remote:apply": "node database/scripts/remote.mjs --apply"
   }
 }

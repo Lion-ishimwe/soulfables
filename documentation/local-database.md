@@ -83,3 +83,70 @@ private is denied by default, and the public library stays public.
 `scoop`'s PostgreSQL does not ship pgvector, and the schema copes —
 migration 0004 creates `stories.embedding` only where the extension
 exists. That conditional is exercised every time this script runs.
+
+---
+
+# Going to a real Supabase project
+
+`npm run db:remote`. Different script from `db:local`, because the two do
+opposite things:
+
+| | Behaviour |
+|---|---|
+| `db:local` | **Drops** the database and replays everything. Proves the schema applies to an empty server. |
+| `db:remote` | **Never drops anything.** Applies only what has not been applied, and records it. |
+
+A live project holds someone's data. Replaying a migration that already
+ran is at best noisy and at worst destructive, so the remote runner keeps
+a `schema_migrations` table and advances past it.
+
+## Connection
+
+Put the direct connection string in `.env.local`, which is gitignored —
+better than shell history:
+
+```
+SUPABASE_DB_URL=postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres
+```
+
+Dashboard → Project Settings → Database → Connection string → URI.
+
+**Port 5432, not 6543.** The pooled connection on 6543 is a transaction
+pooler and cannot run DDL reliably.
+
+## It looks before it touches
+
+The default mode changes nothing. It connects and reports the server
+version, how many tables and policies exist, how many accounts are in
+`auth.users`, and whether pgvector is available — then stops.
+
+```bash
+npm run db:remote
+```
+
+Only `--apply` writes:
+
+```bash
+npm run db:remote:apply
+```
+
+Add `--seed` to load the house content (shelves, the twelve stories,
+products). Seeding a project that already has real content is usually not
+what you want, so it is a separate flag.
+
+## What it refuses
+
+If `public` already has tables but no `schema_migrations` record, it
+stops. It cannot tell whether those tables are an earlier hand-run of
+these same migrations or something else entirely, and guessing wrong
+costs someone their data. The message explains how to record an existing
+state if that is the case.
+
+It also stops if there is no `auth` schema — that means a bare PostgreSQL
+rather than a Supabase project, and the answer there is `db:local`.
+
+## Resuming
+
+Each migration is recorded as it succeeds. If one fails, fix it and
+re-run: everything before it is skipped and the run resumes at the file
+that failed.
