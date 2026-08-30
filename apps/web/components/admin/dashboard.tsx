@@ -217,7 +217,8 @@ export function AdminPageHeader({
 }: {
   title: string;
   subtitle?: string;
-  action?: { href: string; label: string };
+  /** A link, or any control — some pages open a dialog rather than navigate. */
+  action?: { href: string; label: string } | React.ReactNode;
 }) {
   return (
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
@@ -228,15 +229,18 @@ export function AdminPageHeader({
         )}
       </div>
 
-      {action && (
-        <Link
-          href={action.href as Route}
-          className="flex shrink-0 items-center gap-2 rounded border border-gold/60 px-5 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-colors hover:bg-gold hover:text-ink"
-        >
-          <span aria-hidden="true" className="text-base leading-none">+</span>
-          {action.label}
-        </Link>
-      )}
+      {action &&
+        (typeof action === 'object' && action !== null && 'href' in action ? (
+          <Link
+            href={(action as { href: string }).href as Route}
+            className="flex shrink-0 items-center gap-2 rounded border border-gold/60 px-5 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-colors hover:bg-gold hover:text-ink"
+          >
+            <span aria-hidden="true" className="text-base leading-none">+</span>
+            {(action as { label: string }).label}
+          </Link>
+        ) : (
+          (action as React.ReactNode)
+        ))}
     </div>
   );
 }

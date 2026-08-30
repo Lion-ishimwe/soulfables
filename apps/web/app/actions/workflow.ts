@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireStaff, requireViewer, getViewer, isStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
+import { provisionAuthorAccount, revokeAccountFor } from '@/lib/author-accounts';
+import { createClient } from '@/lib/supabase/server';
 import {
   demoGetStory,
   demoSaveStory,
@@ -18,6 +20,7 @@ import {
   demoRevokeAccount,
   demoAccountFor,
   demoMarkNotificationsRead,
+  demoSaveAuthor,
 } from '@/lib/demo/editorial';
 
 /**
@@ -339,6 +342,18 @@ const accountSchema = z.object({
   authorSlug: slugRule,
 });
 
+/**
+ * Give an existing author a way in.
+ *
+ * Live mode creates a real account, links it to the author row and sends
+ * a notification; demo mode writes to the in-process store. Until now
+ * only the second existed, so in live mode this reported success and
+ * created nothing.
+ *
+ * The temporary password is returned to the person doing the inviting
+ * rather than emailed, because no email provider is connected yet.
+ * Saying so is better than a silent half-measure.
+ */
 export async function createAuthorAccount(
   _prev: WorkflowResult,
   formData: FormData,
@@ -352,38 +367,75 @@ export async function createAuthorAccount(
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const author = demoListAuthors().find((a) => a.slug === parsed.data.authorSlug);
-  if (!author) return { error: 'Choose which author this account writes as.' };
-  if (author.isPersona) {
-    return { error: 'A House voice is not a person and cannot sign in.' };
+  if (isDemoMode()) {
+    const author = demoListAuthors().find((a) => a.slug === parsed.data.authorSlug);
+    if (!author) return { error: 'Choose which author this account writes as.' };
+    if (author.isPersona) {
+      return { error: 'A House voice is not a person and cannot sign in.' };
+    }
+
+    const result = demoCreateAccount({
+      email: parsed.data.email,
+      authorSlug: parsed.data.authorSlug,
+      invitedAt: new Date().toISOString(),
+    });
+    if (result.error) return { error: result.error };
+
+    demoNotify({
+      forAuthor: parsed.data.authorSlug,
+      kind: 'account.created',
+      title: 'Welcome to the writing room',
+      body: `${viewer.displayName ?? 'The House'} gave you an account. Anything you write comes to us before it goes out.`,
+      href: '/studio',
+    });
+
+    revalidatePath('/admin/authors');
+    return { message: `${author.name} can now sign in with ${parsed.data.email} and write.` };
   }
 
-  const result = demoCreateAccount({
-    email: parsed.data.email,
+  const supabase = await createClient();
+  const { data: author } = await supabase
+    .from('authors')
+    .select('slug, name, is_persona, user_id')
+    .eq('slug', parsed.data.authorSlug)
+    .single();
+
+  if (!author) return { error: 'Choose which author this account writes as.' };
+  if (author.is_persona) {
+    return { error: 'A House voice is not a person and cannot sign in.' };
+  }
+  if (author.user_id) {
+    return { error: `${author.name} already has an account.` };
+  }
+
+  const result = await provisionAuthorAccount({
     authorSlug: parsed.data.authorSlug,
-    invitedAt: new Date().toISOString(),
+    email: parsed.data.email,
+    invitedBy: viewer.id,
+    displayName: author.name as string,
   });
 
-  if (result.error) return { error: result.error };
-
-  demoNotify({
-    forAuthor: parsed.data.authorSlug,
-    kind: 'account.created',
-    title: 'Welcome to the writing room',
-    body: `${viewer.displayName ?? 'The House'} gave you an account. Anything you write comes to us before it goes out.`,
-    href: '/studio',
-  });
+  if (!result.ok) return { error: result.error };
 
   revalidatePath('/admin/authors');
 
   return {
-    message: `${author.name} can now sign in with ${parsed.data.email} and write.`,
+    message: `${author.name} can sign in with ${parsed.data.email}. Their temporary password is ${result.password} — send it to them and ask them to change it. It is not shown again.`,
   };
 }
 
 export async function revokeAuthorAccount(formData: FormData): Promise<void> {
   await requireStaff();
-  demoRevokeAccount(field(formData, 'email'));
+
+  if (isDemoMode()) {
+    demoRevokeAccount(field(formData, 'email'));
+  } else {
+    // The byline and everything published under it stay exactly as they
+    // are. What goes is the ability to sign in.
+    const slug = field(formData, 'authorSlug');
+    if (slug) await revokeAccountFor(slug);
+  }
+
   revalidatePath('/admin/authors');
 }
 
@@ -514,4 +566,182 @@ export async function uploadStoryTemplate(
   ];
 
   return { message: notes.join(' ') };
+}
+
+// =====================================================================
+// Adding a writer
+// =====================================================================
+
+const newAuthorSchema = z.object({
+  name: z.string().trim().min(1, 'A writer needs a name.').max(120),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('That does not look like an email address.'),
+  bio: z.string().trim().max(2000).optional(),
+});
+
+/**
+ * Turn a name and an address into a writer who can sign in.
+ *
+ * Deliberately not the same thing as the old two-step flow, which
+ * created a byline and then, separately, an account for it. An author IS
+ * a person here: they have a name, a way in, and something to say about
+ * themselves. A byline with nobody behind it is a different and rarer
+ * thing, and the edit page still makes one.
+ *
+ * Three fields, no more. The URL is derived from the name and the
+ * position is the end of the list — both are editorial details nobody
+ * should have to decide while adding a person, and both are editable
+ * afterwards.
+ */
+export async function createAuthorWithAccount(
+  _prev: WorkflowResult,
+  formData: FormData,
+): Promise<WorkflowResult> {
+  const viewer = await requireStaff();
+
+  const parsed = newAuthorSchema.safeParse({
+    name: field(formData, 'name'),
+    email: field(formData, 'email'),
+    bio: field(formData, 'bio'),
+  });
+
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { name, email, bio } = parsed.data;
+
+  /** A readable URL, and one that cannot collide with an existing author. */
+  const baseSlug =
+    name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'author';
+
+  if (isDemoMode()) {
+    const taken = new Set(demoListAuthors().map((a) => a.slug));
+    let slug = baseSlug;
+    for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
+
+    const saved = demoSaveAuthor(null, {
+      slug,
+      name,
+      bio: bio || null,
+      avatarUrl: null,
+      isPersona: false,
+      sortOrder: demoListAuthors().length,
+    });
+    if (saved.error) return { error: saved.error };
+
+    const account = demoCreateAccount({
+      email,
+      authorSlug: slug,
+      invitedAt: new Date().toISOString(),
+    });
+    if (account.error) return { error: account.error };
+
+    demoNotify({
+      forAuthor: slug,
+      kind: 'account.created',
+      title: 'Welcome to the writing room',
+      body: `${viewer.displayName ?? 'The House'} added you. Anything you write comes to us before it goes out.`,
+      href: '/studio',
+    });
+
+    revalidatePath('/admin/authors');
+    return { message: `${name} can now sign in with ${email} and write.` };
+  }
+
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from('authors')
+    .select('slug')
+    .like('slug', `${baseSlug}%`);
+
+  const taken = new Set((existing ?? []).map((r) => r.slug as string));
+  let slug = baseSlug;
+  for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
+
+  // Append to the end of the list rather than asking for a position.
+  const { count } = await supabase
+    .from('authors')
+    .select('id', { count: 'exact', head: true });
+
+  const { error: insertError } = await supabase.from('authors').insert({
+    slug,
+    name,
+    bio: bio || null,
+    is_persona: false,
+    sort_order: count ?? 0,
+  });
+
+  if (insertError) {
+    return {
+      error:
+        insertError.code === '23505'
+          ? 'An author with that name already exists.'
+          : insertError.message,
+    };
+  }
+
+  const result = await provisionAuthorAccount({
+    authorSlug: slug,
+    email,
+    invitedBy: viewer.id,
+    displayName: name,
+  });
+
+  if (!result.ok) {
+    /*
+     * The author row exists but nobody can sign in as them, which is a
+     * half-made thing the admin would have to clean up by hand. Remove
+     * it and report the reason the account failed, which is the part
+     * that actually needs fixing.
+     */
+    await supabase.from('authors').delete().eq('slug', slug);
+    return { error: result.error };
+  }
+
+  revalidatePath('/admin/authors');
+
+  return {
+    message: `${name} can sign in with ${email}. Their temporary password is ${result.password} — send it to them and ask them to change it. It is not shown again.`,
+  };
+}
+
+/** An author, editing their own description of themselves. */
+export async function updateOwnBio(
+  _prev: WorkflowResult,
+  formData: FormData,
+): Promise<WorkflowResult> {
+  await requireViewer();
+
+  const bio = field(formData, 'bio') ?? '';
+  if (bio.length > 2000) {
+    return { error: 'A biography of more than 2000 characters is a story, not a biography.' };
+  }
+
+  if (isDemoMode()) {
+    const slug = await viewerAuthorSlug();
+    if (!slug) return { error: 'You do not have an author page to edit.' };
+    const author = demoListAuthors().find((a) => a.slug === slug);
+    if (!author) return { error: 'You do not have an author page to edit.' };
+
+    demoSaveAuthor(slug, { ...author, bio: bio.trim() || null });
+    revalidatePath('/studio');
+    return { message: 'Saved.' };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('update_own_author_bio', { p_bio: bio });
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/studio');
+  revalidatePath('/voices');
+  return { message: 'Saved. Readers will see this on your stories.' };
 }

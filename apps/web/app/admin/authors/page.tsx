@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { listAdminAuthors, listAuthorAccounts } from '@/lib/admin-data';
 import { EmptyState } from '@/components/admin/ui';
 import { AdminPageHeader, StatusDot } from '@/components/admin/dashboard';
+import { NewAuthorModal } from '@/components/admin/new-author-modal';
 import { Avatar } from '@/components/admin/avatar';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import { AuthorAccountForm } from '@/components/admin/author-account-form';
@@ -48,7 +49,7 @@ export default async function AuthorsPage({
       <AdminPageHeader
         title="Authors"
         subtitle="Who writes for the House — and which of them are the House itself."
-        action={{ href: '/admin/authors/new', label: 'New author' }}
+        action={<NewAuthorModal />}
       />
 
       {saved && (
@@ -192,7 +193,7 @@ export default async function AuthorsPage({
                                   kind: 'action' as const,
                                   label: 'Revoke account',
                                   action: revokeAuthorAccount,
-                                  fields: { email: account.email },
+                                  fields: { authorSlug: a.slug, email: account.email },
                                   danger: true,
                                   confirm: `Revoke ${a.name}'s account? They keep their byline and their published work, but can no longer sign in.`,
                                 },

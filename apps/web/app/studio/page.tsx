@@ -10,6 +10,8 @@ import {
 import { StatusPill } from '@/components/admin/ui';
 import { TemplatePanel } from '@/components/studio/template-panel';
 import { formatDate } from '@/lib/format';
+import { BioEditor } from '@/components/studio/bio-editor';
+import { myAuthor } from '@/lib/author-accounts';
 
 export const metadata: Metadata = {
   title: 'The Writing Room',
@@ -42,6 +44,9 @@ export default async function StudioPage() {
       : [];
 
   const notes = account ? await notificationsFor(account.authorSlug) : [];
+
+  // Their own record, so they can rewrite how readers see them.
+  const myProfile = await myAuthor();
   const unread = notes.filter((n) => !n.readAt);
 
   const drafts = mine.filter((s) => s.status === 'draft');
@@ -97,6 +102,8 @@ export default async function StudioPage() {
           </Link>
         )}
       </header>
+
+      {myProfile && <BioEditor bio={myProfile.bio} name={myProfile.name} />}
 
       {/* What the House has said. */}
       {unread.length > 0 && (
