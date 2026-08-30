@@ -5,9 +5,9 @@ import { listAdminAuthors, listAuthorAccounts } from '@/lib/admin-data';
 import { EmptyState } from '@/components/admin/ui';
 import { AdminPageHeader, StatusDot } from '@/components/admin/dashboard';
 import { NewAuthorModal } from '@/components/admin/new-author-modal';
+import { InviteAuthorModal } from '@/components/admin/invite-author-modal';
 import { Avatar } from '@/components/admin/avatar';
 import { KebabMenu } from '@/components/admin/kebab-menu';
-import { AuthorAccountForm } from '@/components/admin/author-account-form';
 import { deleteAuthor } from '@/app/actions/editorial';
 import { revokeAuthorAccount } from '@/app/actions/workflow';
 import { formatDate } from '@/lib/format';
@@ -37,11 +37,6 @@ export default async function AuthorsPage({
   const accountFor = (slug: string) =>
     accounts.find((a) => a.authorSlug === slug) ?? null;
 
-  // Only real people, and only those without an account already.
-  const invitable = authors
-    .filter((a) => !a.isPersona && !accountFor(a.slug))
-    .map((a) => ({ slug: a.slug, name: a.name }));
-
   const th = 'px-5 py-3.5 text-left font-normal font-ui text-micro uppercase tracking-[0.14em] text-grey-faint';
 
   return (
@@ -62,10 +57,6 @@ export default async function AuthorsPage({
           Author removed. Their stories kept their place and simply lost a byline.
         </p>
       )}
-
-      <div className="mb-6">
-        <AuthorAccountForm authors={invitable} />
-      </div>
 
       {authors.length === 0 ? (
         <EmptyState
@@ -167,9 +158,7 @@ export default async function AuthorsPage({
                       ) : (
                         <>
                           <StatusDot tone="none" label="No account" />
-                          <span className="mt-1 block font-ui text-xs text-grey-faint">
-                            Not invited yet
-                          </span>
+                          <InviteAuthorModal authorSlug={a.slug} authorName={a.name} />
                         </>
                       )}
                     </td>
