@@ -15,7 +15,12 @@
 create temporary table expected_service_role_only (name text primary key);
 insert into expected_service_role_only (name) values
   ('webhook_events'),
-  ('email_events');
+  ('email_events'),
+  -- Migration bookkeeping, created by database/scripts/remote.mjs rather
+  -- than by a migration. RLS on with no policies denies everyone, and the
+  -- grants are revoked so PostgREST will not offer it. Nobody but the
+  -- migration runner has any business reading it.
+  ('schema_migrations');
 
 do $$
 declare

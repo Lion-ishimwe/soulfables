@@ -338,6 +338,22 @@ sql(
    )`
 );
 
+/*
+ * Lock down the bookkeeping table.
+ *
+ * Anything in `public` on a Supabase project is served by PostgREST to
+ * whoever holds the anon key. This table is mine rather than the
+ * schema's, and I created it without RLS — which quietly punched the
+ * one hole in a database whose entire claim is deny-by-default. It
+ * holds only filenames, but the rule has to hold everywhere or it is
+ * not a rule.
+ *
+ * RLS on with no policies denies everyone; the revoke means PostgREST
+ * will not even offer it.
+ */
+sql('alter table schema_migrations enable row level security');
+sql('revoke all on schema_migrations from anon, authenticated');
+
 console.log('');
 for (const f of pending) {
   try {
