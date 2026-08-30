@@ -116,7 +116,7 @@ export default async function AdminHome({
       )}
 
       {/* ---- Stat row ------------------------------------------------ */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
         {stats.map((s) => (
           <StatCard key={s.key} stat={s} />
         ))}
