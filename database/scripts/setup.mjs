@@ -27,7 +27,18 @@ import { homedir } from 'node:os';
 import { validate, normalise, mask, explain } from './connection.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const ENV = join(REPO, '.env.local');
+/*
+ * Where this writes, and why it is overridable.
+ *
+ * Testing this script means running it, and running it means it writes
+ * .env.local — over whatever real credentials were there. That is not
+ * hypothetical: it happened, and it destroyed a working configuration
+ * including a database password that could not be recovered.
+ *
+ * SOULFABLES_ENV_FILE points it somewhere harmless, so a test can
+ * exercise the real code path without aiming it at the real file.
+ */
+const ENV = process.env.SOULFABLES_ENV_FILE ?? join(REPO, '.env.local');
 
 const green = (s) => `\x1b[32m${s}\x1b[0m`;
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
@@ -204,6 +215,37 @@ const service = await ask(
   { secret: true }
 );
 if (service) env.SUPABASE_SERVICE_ROLE_KEY = service;
+
+/*
+ * The two keys look alike and sit next to each other in the dashboard.
+ * Pasting the anon key into both slots produces a configuration that
+ * reads perfectly and cannot write anything: every admin action fails
+ * with "permission denied", which reads like a broken policy rather
+ * than a copied key. Checked here, where it is one paste to fix.
+ */
+function roleOf(key) {
+  try {
+    return JSON.parse(Buffer.from(key.split('.')[1], 'base64').toString()).role ?? null;
+  } catch {
+    return null; // a new-format sb_secret_ key carries no readable claim
+  }
+}
+
+if (env.NEXT_PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (env.NEXT_PUBLIC_SUPABASE_ANON_KEY === env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.log('');
+    console.log(red('Those are the same key.'));
+    console.log(dim('The service role key is a different one, further down the API Keys'));
+    console.log(dim('page. Nothing that writes will work until they differ.'));
+  } else {
+    const r = roleOf(env.SUPABASE_SERVICE_ROLE_KEY);
+    if (r && r !== 'service_role') {
+      console.log('');
+      console.log(red(`That service key says role="${r}", not service_role.`));
+      console.log(dim('Admin actions will fail with permission denied.'));
+    }
+  }
+}
 
 rl?.close();
 

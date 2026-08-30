@@ -29,12 +29,25 @@ import { getListeningPosition } from '@/lib/library';
  * in the DOM to unlock with a devtools inspector.
  */
 
-export const revalidate = 300;
-
-export async function generateStaticParams() {
-  const stories = await getStories();
-  return stories.map((s) => ({ slug: s.slug }));
-}
+/*
+ * Rendered per request, not prerendered.
+ *
+ * The prose is the same for everybody; the page is not. Whether the
+ * story is locked, whether you have saved it, how far you had read —
+ * all of that is yours. One cached copy per URL serves whichever
+ * version happened to be built first.
+ *
+ * Concretely: prerendering happens with no session, so a premium story
+ * bakes in its paywall, and a Resident who is paying for that story
+ * would be handed the wall. Not a leak — migration 0015 means the body
+ * is never in that HTML to begin with — but a paying reader locked out
+ * of what they bought.
+ *
+ * It was static while the demo store made every visitor identical. A
+ * real session ends that. The listings around it stay static, because
+ * those genuinely are the same for everybody.
+ */
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
