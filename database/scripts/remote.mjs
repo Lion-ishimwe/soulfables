@@ -21,9 +21,17 @@
  *   node database/scripts/remote.mjs --apply          # apply pending migrations
  *   node database/scripts/remote.mjs --apply --seed   # and load the house content
  *
- * Connection comes from SUPABASE_DB_URL, or --url. Use the DIRECT
- * connection (port 5432), not the transaction pooler (6543) — pooled
- * connections cannot run DDL reliably.
+ * Connection comes from SUPABASE_DB_URL, or --url. Get it from the
+ * Connect button in the dashboard header — it is no longer in Settings.
+ *
+ * Any connection on port 5432 works. Port 6543 does not: that is the
+ * TRANSACTION pooler, which cannot run DDL. The distinction that catches
+ * people is that Supabase offers two poolers and only the port tells
+ * them apart.
+ *
+ *   Direct           db.REF.supabase.co:5432          IPv6 only on Free
+ *   Session pooler   aws-N-REGION.pooler.supabase.com:5432   IPv4, fine
+ *   Transaction      aws-N-REGION.pooler.supabase.com:6543   NO
  */
 import { execFileSync } from 'node:child_process';
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
@@ -85,11 +93,41 @@ if (!DB_URL) {
       '',
       'Set SUPABASE_DB_URL in .env.local, or pass --url.',
       '',
-      'Find it in the Supabase dashboard under',
-      '  Project Settings → Database → Connection string → URI',
+      'In the Supabase dashboard, press Connect in the header bar — it is',
+      'not under Settings any more.',
       '',
-      'Use the DIRECT connection on port 5432. The pooled one on 6543',
-      'cannot run migrations.',
+      'Take a connection string on port 5432. Either the direct one or',
+      'the Session pooler will do; on the Free plan the direct host is',
+      'IPv6-only, so an IPv4 network needs the Session pooler.',
+      '',
+      'Not port 6543. That is the transaction pooler and cannot run DDL.',
+      '',
+    ].join('\n')
+  );
+  process.exit(1);
+}
+
+/*
+ * Catch the transaction pooler before it wastes anyone's afternoon.
+ *
+ * Port 6543 connects perfectly well and then fails partway through a
+ * migration with something about prepared statements, which reads like a
+ * schema bug rather than a wrong hostname. Cheaper to say so up front.
+ */
+if (/:6543(\/|$|\?)/.test(DB_URL)) {
+  console.error(
+    [
+      '',
+      red('That is the transaction pooler (port 6543).'),
+      '',
+      'It cannot run migrations — DDL needs a session, and this pooler',
+      'does not give you one. It will connect and then fail partway',
+      'through, in a way that looks like a schema problem.',
+      '',
+      'Use port 5432 instead. In the Connect dialog that is either the',
+      'direct connection or the Session pooler; on the Free plan the',
+      'direct host is IPv6-only, so on an IPv4 network take the Session',
+      'pooler.',
       '',
     ].join('\n')
   );

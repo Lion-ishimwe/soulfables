@@ -109,10 +109,26 @@ better than shell history:
 SUPABASE_DB_URL=postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres
 ```
 
-Dashboard → Project Settings → Database → Connection string → URI.
+Press **Connect** in the dashboard header bar to get it. It is no longer
+under Settings, which is confusing if you go looking for a Database page
+that does not exist any more.
 
-**Port 5432, not 6543.** The pooled connection on 6543 is a transaction
-pooler and cannot run DDL reliably.
+The dialog offers three strings and the port is what distinguishes them:
+
+| | Port | Use it? |
+|---|---|---|
+| Direct connection | 5432 | Yes — but IPv6-only on the Free plan |
+| Session pooler | 5432 | Yes — this is the IPv4 answer |
+| Transaction pooler | 6543 | **No** — cannot run DDL |
+
+Most networks are IPv4-only, so on the Free plan the Session pooler is
+usually the one that works. Its username is `postgres.PROJECT_REF` rather
+than plain `postgres`; copy the whole string and don't assemble it by
+hand.
+
+Passing 6543 is rejected immediately rather than allowed to fail partway
+through a migration, because when it does fail it complains about
+prepared statements and reads like a schema bug.
 
 ## It looks before it touches
 
