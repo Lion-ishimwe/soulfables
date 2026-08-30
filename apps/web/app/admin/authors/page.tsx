@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { listAdminAuthors, listAuthorAccounts } from '@/lib/admin-data';
-import { PageHeader, EmptyState } from '@/components/admin/ui';
+import { EmptyState } from '@/components/admin/ui';
+import { AdminPageHeader, StatusDot } from '@/components/admin/dashboard';
+import { Avatar } from '@/components/admin/avatar';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import { AuthorAccountForm } from '@/components/admin/author-account-form';
 import { deleteAuthor } from '@/app/actions/editorial';
@@ -38,26 +41,28 @@ export default async function AuthorsPage({
     .filter((a) => !a.isPersona && !accountFor(a.slug))
     .map((a) => ({ slug: a.slug, name: a.name }));
 
+  const th = 'px-5 py-3.5 text-left font-normal font-ui text-micro uppercase tracking-[0.14em] text-grey-faint';
+
   return (
     <>
-      <PageHeader
+      <AdminPageHeader
         title="Authors"
         subtitle="Who writes for the House — and which of them are the House itself."
         action={{ href: '/admin/authors/new', label: 'New author' }}
       />
 
       {saved && (
-        <p className="mb-6 border-l-2 border-state-success bg-state-success/10 px-4 py-3 text-sm text-ivory">
+        <p className="mb-6 rounded border-l-2 border-state-success bg-state-success/10 px-4 py-3 font-ui text-sm text-ivory">
           Saved “{saved}”.
         </p>
       )}
       {deleted && (
-        <p className="mb-6 border-l-2 border-state-danger bg-state-danger/10 px-4 py-3 text-sm text-ivory">
+        <p className="mb-6 rounded border-l-2 border-state-danger bg-state-danger/10 px-4 py-3 font-ui text-sm text-ivory">
           Author removed. Their stories kept their place and simply lost a byline.
         </p>
       )}
 
-      <div className="mb-10">
+      <div className="mb-6">
         <AuthorAccountForm authors={invitable} />
       </div>
 
@@ -68,100 +73,145 @@ export default async function AuthorsPage({
           action={{ href: '/admin/authors/new', label: 'Add the first' }}
         />
       ) : (
-        <div className="overflow-x-auto border border-rule">
-          <table className="w-full min-w-[42rem] text-sm">
+        <div className="overflow-x-auto rounded-lg border border-rule bg-ink-raised">
+          <table className="w-full min-w-[52rem]">
             <thead>
               <tr className="border-b border-rule">
-                <th className="sf-eyebrow px-5 py-3 text-left">Name</th>
-                <th className="sf-eyebrow px-5 py-3 text-left">Kind</th>
-                <th className="sf-eyebrow px-5 py-3 text-left">Biography</th>
-                <th className="sf-eyebrow px-5 py-3 text-right">Stories</th>
-                <th className="sf-eyebrow px-5 py-3 text-left">Account</th>
-                <th className="sf-eyebrow px-5 py-3 text-right">Order</th>
-                <th className="sf-eyebrow px-5 py-3 text-right"><span className="sr-only">Actions</span></th>
+                <th className={th}>Author</th>
+                <th className={th}>Kind</th>
+                <th className={th}>Biography</th>
+                <th className={`${th} w-24`}>Stories</th>
+                <th className={`${th} w-56`}>Account</th>
+                <th className={`${th} w-20`}>Order</th>
+                <th className={`${th} w-12`}>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-rule">
-              {authors.map((a) => (
-                <tr key={a.slug} className="transition-colors hover:bg-ink-raised">
-                  <td className="px-5 py-3.5">
-                    <Link href={`/admin/authors/${a.slug}`} className="block">
-                      <span className="block text-ivory">{a.name}</span>
-                      <span className="mt-0.5 block font-mono text-xs text-grey-muted">
-                        {a.slug}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    {a.isPersona ? (
-                      <span className="whitespace-nowrap border border-gold/45 px-2 py-0.5 font-ui text-micro uppercase tracking-[0.12em] text-gold">
-                        House voice
-                      </span>
-                    ) : (
-                      <span className="font-ui text-xs text-grey-muted">Person</span>
-                    )}
-                  </td>
-                  <td className="max-w-md px-5 py-3.5">
-                    {a.bio ? (
-                      <span className="line-clamp-2 text-grey-muted">{a.bio}</span>
-                    ) : (
-                      <span className="text-xs text-grey-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
-                    {a.storyCount}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    {a.isPersona ? (
-                      <span className="text-xs text-grey-muted">—</span>
-                    ) : accountFor(a.slug) ? (
-                      <span className="font-ui text-xs text-grey-muted">
-                        {accountFor(a.slug)!.email}
-                        <span className="mt-0.5 block">
-                          since {formatDate(accountFor(a.slug)!.invitedAt)}
+
+            <tbody>
+              {authors.map((a) => {
+                const account = accountFor(a.slug);
+
+                return (
+                  <tr
+                    key={a.slug}
+                    className="border-b border-rule/60 transition-colors last:border-0 hover:bg-ink-hover"
+                  >
+                    <td className="px-5 py-4">
+                      <Link
+                        href={`/admin/authors/${a.slug}` as Route}
+                        className="flex items-center gap-3.5"
+                      >
+                        <Avatar src={a.avatarUrl} name={a.name} isPersona={a.isPersona} />
+                        <span className="min-w-0">
+                          <span className="block truncate font-ui text-sm text-ivory">
+                            {a.name}
+                          </span>
+                          <span className="mt-0.5 block truncate font-mono text-micro text-grey-faint">
+                            {a.slug}
+                          </span>
                         </span>
-                      </span>
-                    ) : (
-                      <span className="font-ui text-xs text-grey-muted">
-                        No account
-                      </span>
-                    )}
-                  </td>
+                      </Link>
+                    </td>
 
-                  <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
-                    {a.sortOrder}
-                  </td>
+                    <td className="px-5 py-4">
+                      {a.isPersona ? (
+                        <span className="whitespace-nowrap rounded border border-gold/45 px-2.5 py-1 font-ui text-micro uppercase tracking-[0.12em] text-gold">
+                          House voice
+                        </span>
+                      ) : (
+                        <span className="font-ui text-sm text-grey-muted">Person</span>
+                      )}
+                    </td>
 
-                  <td className="px-5 py-3.5">
-                    <KebabMenu
-                      label={a.name}
-                      items={[
-                        { kind: 'link', label: 'Edit author', href: `/admin/authors/${a.slug}` as never },
-                        ...(accountFor(a.slug)
-                          ? [
-                              {
-                                kind: 'action' as const,
-                                label: 'Revoke account',
-                                action: revokeAuthorAccount,
-                                fields: { email: accountFor(a.slug)!.email },
-                                danger: true,
-                                confirm: `Revoke ${a.name}'s account? They keep their byline and their published work, but can no longer sign in.`,
-                              },
-                            ]
-                          : []),
-                        {
-                          kind: 'action' as const,
-                          label: 'Remove author',
-                          action: deleteAuthor,
-                          fields: { slug: a.slug },
-                          danger: true,
-                          confirm: `Remove ${a.name}? Their ${a.storyCount} stories stay published and simply lose the byline.`,
-                        },
-                      ]}
-                    />
-                  </td>
-                </tr>
-              ))}
+                    <td className="max-w-sm px-5 py-4">
+                      {a.bio ? (
+                        <span className="line-clamp-2 font-ui text-sm leading-relaxed text-grey-muted">
+                          {a.bio}
+                        </span>
+                      ) : (
+                        <span className="font-ui text-sm text-grey-faint">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 font-ui text-sm tabular-nums text-ivory">
+                      {a.storyCount}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      {/*
+                        Three states, not two. A House voice has no account
+                        and never will; a person without one is waiting for
+                        an invitation. Collapsing those into "no account"
+                        would make The Librarian look like an oversight.
+                      */}
+                      {a.isPersona ? (
+                        <>
+                          <StatusDot tone="idle" label="House voice" />
+                          <span className="mt-1 block font-ui text-xs text-grey-faint">
+                            No account
+                          </span>
+                        </>
+                      ) : account ? (
+                        <>
+                          <StatusDot tone="active" label="Active" />
+                          <span className="mt-1 block truncate font-ui text-xs text-grey-muted">
+                            {account.email}
+                          </span>
+                          <span className="block font-ui text-xs text-grey-faint">
+                            since {formatDate(account.invitedAt)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <StatusDot tone="none" label="No account" />
+                          <span className="mt-1 block font-ui text-xs text-grey-faint">
+                            Not invited yet
+                          </span>
+                        </>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 font-ui text-sm tabular-nums text-grey-muted">
+                      {a.sortOrder}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <KebabMenu
+                        label={a.name}
+                        items={[
+                          {
+                            kind: 'link',
+                            label: 'Edit author',
+                            href: `/admin/authors/${a.slug}` as never,
+                          },
+                          ...(account
+                            ? [
+                                {
+                                  kind: 'action' as const,
+                                  label: 'Revoke account',
+                                  action: revokeAuthorAccount,
+                                  fields: { email: account.email },
+                                  danger: true,
+                                  confirm: `Revoke ${a.name}'s account? They keep their byline and their published work, but can no longer sign in.`,
+                                },
+                              ]
+                            : []),
+                          {
+                            kind: 'action' as const,
+                            label: 'Remove author',
+                            action: deleteAuthor,
+                            fields: { slug: a.slug },
+                            danger: true,
+                            confirm: `Remove ${a.name}? Their ${a.storyCount} stories stay published and simply lose the byline.`,
+                          },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

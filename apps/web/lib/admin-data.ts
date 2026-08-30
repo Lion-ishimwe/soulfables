@@ -395,9 +395,30 @@ export async function listStoriesForAuthor(
   );
 }
 
+/**
+ * Which authors can sign in.
+ *
+ * This read the demo fixtures unconditionally until migration 0016 —
+ * including in live mode, where it showed invented emails and dates
+ * beside real authors. The email lives in auth.users, which PostgREST
+ * does not expose, so it comes through a staff-only function instead.
+ */
 export async function listAuthorAccounts(): Promise<AuthorAccount[]> {
-  const { demoListAccounts } = await import('./demo/editorial');
-  return demoListAccounts();
+  if (isDemoMode()) {
+    const { demoListAccounts } = await import('./demo/editorial');
+    return demoListAccounts();
+  }
+  if (!isConfigured()) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('author_accounts');
+  if (error) return [];
+
+  return ((data ?? []) as Record<string, string>[]).map((r) => ({
+    authorSlug: r.author_slug,
+    email: r.email,
+    invitedAt: r.invited_at,
+  }));
 }
 
 export async function accountForEmail(
