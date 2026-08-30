@@ -38,6 +38,7 @@ import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
+import { normalise, mask, explain } from './connection.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = join(ROOT, '..');
@@ -76,16 +77,40 @@ function connectionString() {
 
   const envFile = join(REPO, '.env.local');
   if (existsSync(envFile)) {
-    const line = readFileSync(envFile, 'utf8')
-      .split('\n')
+    const raw = readFileSync(envFile);
+
+    /*
+     * PowerShell 5.1's >> writes UTF-16LE. The file looks completely
+     * normal in an editor and parses as gibberish here, so say what has
+     * happened rather than reporting the key as missing.
+     */
+    if (raw[0] === 0xff || raw[0] === 0xfe) {
+      console.error(
+        [
+          '',
+          red('.env.local is UTF-16, not UTF-8.'),
+          '',
+          "PowerShell's >> operator does that. Nothing can read it — not",
+          'this script and not Next.',
+          '',
+          'Rewrite it with:  npm run db:setup',
+          '',
+        ].join('\n')
+      );
+      process.exit(1);
+    }
+
+    const line = raw
+      .toString('utf8')
+      .split(/\r?\n/)
       .find((l) => l.trim().startsWith('SUPABASE_DB_URL='));
     if (line) return line.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '');
   }
   return null;
 }
 
-const DB_URL = connectionString();
-if (!DB_URL) {
+const RAW_URL = connectionString();
+if (!RAW_URL) {
   console.error(
     [
       '',
@@ -114,7 +139,7 @@ if (!DB_URL) {
  * migration with something about prepared statements, which reads like a
  * schema bug rather than a wrong hostname. Cheaper to say so up front.
  */
-if (/:6543(\/|$|\?)/.test(DB_URL)) {
+if (/:6543(\/|$|\?)/.test(RAW_URL)) {
   console.error(
     [
       '',
@@ -134,8 +159,14 @@ if (/:6543(\/|$|\?)/.test(DB_URL)) {
   process.exit(1);
 }
 
-/** Never print the password back to a terminal or a log. */
-const SAFE = DB_URL.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:******@');
+/*
+ * Normalise before use. A password containing @ or / splits the URL in
+ * the wrong place, and libpq then blames DNS for it.
+ */
+const { url: DB_URL, notes: URL_NOTES, host: DB_HOST } = normalise(RAW_URL);
+
+/** Masks on the LAST @, so no part of the password reaches the screen. */
+const SAFE = mask(DB_URL);
 
 function sql(text) {
   return execFileSync(PSQL, [DB_URL, '-v', 'ON_ERROR_STOP=1', '-tAc', text], {
@@ -154,6 +185,7 @@ function runFile(path) {
 // --- look before touching --------------------------------------------
 console.log('\n' + bold('Soulfables — remote database'));
 console.log(dim('  ' + SAFE) + '\n');
+for (const n of URL_NOTES) console.log(dim('  ' + n));
 
 /*
  * Connecting and querying are separate failures and deserve separate
@@ -172,10 +204,7 @@ try {
 } catch (e) {
   const msg = String(e.stderr ?? e.stdout ?? e).trim();
   console.error(red('Could not connect.') + '\n' + msg.split('\n').slice(-4).join('\n') + '\n');
-  if (/Tenant or user not found|password authentication/i.test(msg)) {
-    console.error(dim('That usually means the password in the URL is wrong, or the'));
-    console.error(dim('pooled host was used with a direct-connection username.') + '\n');
-  }
+  for (const line of explain(msg, DB_HOST)) console.error(dim(line));
   process.exit(1);
 }
 

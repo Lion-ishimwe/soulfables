@@ -19,6 +19,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "demo": "npm run build --workspace=@soulfables/web && npm run start --workspace=@soulfables/web",
     "db:test": "node database/test/run-migrations.mjs",
+    "db:setup": "node database/scripts/setup.mjs",
     "db:local": "node database/scripts/local.mjs",
     "db:remote": "node database/scripts/remote.mjs",
     "db:remote:apply": "node database/scripts/remote.mjs --apply"
