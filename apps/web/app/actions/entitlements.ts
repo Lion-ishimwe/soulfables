@@ -104,17 +104,6 @@ export async function grantEntitlement(
   }
 
   const h = await headers();
-  await db.from('audit_log').insert({
-    actor_id: viewer.id,
-    actor_email: viewer.email,
-    action: 'entitlement.grant',
-    entity_type: 'product',
-    entity_id: productId,
-    before: null,
-    after: { grantedTo: email, userId: user.id, source: 'manual', note },
-    ip_address: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
-    user_agent: h.get('user-agent'),
-  });
 
   if (notify) {
     await sendDeliveryEmail({
@@ -153,15 +142,6 @@ export async function revokeEntitlement(formData: FormData): Promise<void> {
     .update({ revoked_at: new Date().toISOString(), revoked_reason: reason })
     .eq('id', id);
 
-  await db.from('audit_log').insert({
-    actor_id: viewer.id,
-    actor_email: viewer.email,
-    action: 'entitlement.revoke',
-    entity_type: 'entitlement',
-    entity_id: id,
-    before,
-    after: { reason },
-  });
 
   revalidatePath('/admin/entitlements');
 }

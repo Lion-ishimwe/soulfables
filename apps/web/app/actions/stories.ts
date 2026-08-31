@@ -106,17 +106,6 @@ async function audit(
   try {
     const h = await headers();
     const admin = createAdminClient();
-    await admin.from('audit_log').insert({
-      actor_id: actorId,
-      actor_email: actorEmail,
-      action,
-      entity_type: 'story',
-      entity_id: entityId,
-      before,
-      after,
-      ip_address: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
-      user_agent: h.get('user-agent'),
-    });
   } catch (e) {
     // Never let audit failure block the edit — but make it loud.
     console.error('[audit] story write not logged', e);

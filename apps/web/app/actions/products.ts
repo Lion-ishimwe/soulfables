@@ -55,17 +55,6 @@ async function audit(
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   try {
     const h = await headers();
-    await createAdminClient().from('audit_log').insert({
-      actor_id: actorId,
-      actor_email: actorEmail,
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-      before,
-      after,
-      ip_address: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
-      user_agent: h.get('user-agent'),
-    });
   } catch (e) {
     console.error('[audit] not logged', e);
   }

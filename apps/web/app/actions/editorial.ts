@@ -54,16 +54,6 @@ async function audit(
   try {
     const viewer = await requireStaff();
     const h = await headers();
-    await createAdminClient().from('audit_log').insert({
-      actor_id: viewer.id,
-      actor_email: viewer.email,
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-      after,
-      ip_address: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
-      user_agent: h.get('user-agent'),
-    });
   } catch (e) {
     console.error('[audit] not logged', e);
   }
