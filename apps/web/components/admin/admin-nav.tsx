@@ -52,6 +52,11 @@ const GROUPS = [
     ],
     adminOnly: true,
   },
+  {
+    heading: 'Settings',
+    items: [{ href: '/admin/settings', label: 'Settings', icon: 'gear' }],
+    adminOnly: true,
+  },
 ] as const;
 
 export function AdminNav({ role }: { role: AppRole }) {

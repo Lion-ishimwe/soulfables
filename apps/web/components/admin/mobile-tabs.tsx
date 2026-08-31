@@ -46,6 +46,7 @@ const MORE = [
     { href: '/admin/users', label: 'Readers', icon: 'people' },
     { href: '/admin/analytics', label: 'Analytics', icon: 'spark' },
     { href: '/admin/audit', label: 'Audit log', icon: 'clock' },
+    { href: '/admin/settings', label: 'Settings', icon: 'gear' },
   ]},
 ] as const;
 

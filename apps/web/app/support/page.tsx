@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getHouseSettings } from '@/lib/settings';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -17,9 +18,10 @@ export const metadata: Metadata = {
  * address someone can copy, and there is no send infrastructure behind a
  * form yet.
  */
-const DESKS = [
+function desks(general: string, shop: string) {
+  return [
   {
-    email: 'hello@soulfables.com',
+    email: general,
     title: 'General enquiries',
     blurb:
       'Anything about the House itself — writing for us, permissions, press, or a question that does not fit anywhere else.',
@@ -31,7 +33,7 @@ const DESKS = [
     ],
   },
   {
-    email: 'support@soulfables.com',
+    email: shop,
     title: 'Orders and books',
     blurb:
       'Anything to do with something you have bought — a missing download, a file that will not open, a receipt, a refund.',
@@ -42,9 +44,19 @@ const DESKS = [
       'Receipts, refunds and payment questions',
     ],
   },
-] as const;
+  ] as const;
+}
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  /*
+   * The addresses come from house_settings, not from this file. They used
+   * to be typed here and in the studio, both on soulfables.com while the
+   * site is soulfables.co — which is what a value kept in two places
+   * does eventually.
+   */
+  const settings = await getHouseSettings();
+  const DESKS = desks(settings.supportEmailGeneral, settings.supportEmailShop);
+
   return (
     <div className="mx-auto max-w-content px-5 py-20 sm:px-8">
       <header className="text-center">
@@ -107,7 +119,7 @@ export default function SupportPage() {
             },
             {
               q: 'I want to write for Soulfables',
-              a: 'Write to hello@soulfables.com and tell us what you are working on. Writers are given an account and a template; anything written comes to the House before it goes out.',
+              a: `Write to ${settings.supportEmailGeneral} and tell us what you are working on. Writers are given an account and a template; anything written comes to the House before it goes out.`,
               href: null,
               hrefLabel: null,
             },

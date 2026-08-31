@@ -12,6 +12,7 @@ import { TemplatePanel } from '@/components/studio/template-panel';
 import { formatDate } from '@/lib/format';
 import { BioEditor } from '@/components/studio/bio-editor';
 import { myAuthor } from '@/lib/author-accounts';
+import { getHouseSettings } from '@/lib/settings';
 
 export const metadata: Metadata = {
   title: 'The Writing Room',
@@ -47,6 +48,8 @@ export default async function StudioPage() {
 
   // Their own record, so they can rewrite how readers see them.
   const myProfile = await myAuthor();
+  // The same address the support page shows, from the same row.
+  const house = await getHouseSettings();
   const unread = notes.filter((n) => !n.readAt);
 
   const drafts = mine.filter((s) => s.status === 'draft');
@@ -65,10 +68,10 @@ export default async function StudioPage() {
           Soulfables gives writers an account when it invites them. If you
           have been writing for us and cannot get in, write to{' '}
           <a
-            href="mailto:hello@soulfables.com"
+            href={`mailto:${house.supportEmailGeneral}`}
             className="text-gold transition-colors hover:text-gold-soft"
           >
-            hello@soulfables.com
+            {house.supportEmailGeneral}
           </a>
           .
         </p>
