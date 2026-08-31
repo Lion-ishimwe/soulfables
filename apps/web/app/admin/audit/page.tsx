@@ -2,12 +2,7 @@ import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth';
-import {
-  listAuditEntries,
-  auditFacets,
-  AUDIT_PAGE_SIZE,
-  type AuditFilters,
-} from '@/lib/audit';
+import { listAuditEntries, AUDIT_PAGE_SIZE, type AuditFilters } from '@/lib/audit';
 import { AdminPageHeader, Panel, PanelEmpty, relativeTime } from '@/components/admin/dashboard';
 
 export const metadata: Metadata = { title: 'Audit log' };
@@ -25,10 +20,15 @@ export const dynamic = 'force-dynamic';
  * script holding the service key lands here too. Before that, five
  * server actions wrote entries and everything else changed silently.
  *
- * The filters are a form that navigates, so a window can be linked to
- * and survives a refresh. Date and time are separate controls because
- * they answer different questions — "what happened last week" and "what
- * happened overnight" — and resolve to one range.
+ * Thirty most recent by default, no filter applied. A window is a form
+ * that navigates, so it can be linked to and survives a refresh. Date and
+ * time are separate controls because they answer different questions —
+ * "what happened last week" and "what happened overnight" — and resolve
+ * to one range.
+ *
+ * There were dropdowns for table and actor. They went: on a log where
+ * almost everything is one person and a handful of tables, they were two
+ * controls earning nothing, and the columns already show both.
  */
 export default async function AuditPage({
   searchParams,
@@ -39,10 +39,7 @@ export default async function AuditPage({
   const params = await searchParams;
   const page = Math.max(0, Number(params.page ?? 0) || 0);
 
-  const [{ entries, total, live }, facets] = await Promise.all([
-    listAuditEntries(params, page),
-    auditFacets(),
-  ]);
+  const { entries, total, live } = await listAuditEntries(params, page);
 
   const field =
     'w-full rounded border border-rule bg-ink px-3 py-2 font-ui text-xs text-ivory outline-none transition-colors focus:border-gold/50';
@@ -57,7 +54,7 @@ export default async function AuditPage({
   };
 
   const hasFilter = Boolean(
-    params.from || params.to || params.fromTime || params.toTime || params.entity || params.actor,
+    params.from || params.to || params.fromTime || params.toTime,
   );
 
   return (
@@ -73,7 +70,7 @@ export default async function AuditPage({
         action="/admin/audit"
         className="mb-6 rounded-lg border border-rule bg-ink-raised p-5"
       >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label htmlFor="f-from" className={label}>From date</label>
             <input id="f-from" name="from" type="date" defaultValue={params.from ?? ''} className={field} />
@@ -91,25 +88,6 @@ export default async function AuditPage({
             <input id="f-totime" name="toTime" type="time" defaultValue={params.toTime ?? ''} className={field} />
           </div>
 
-          <div>
-            <label htmlFor="f-entity" className={label}>Table</label>
-            <select id="f-entity" name="entity" defaultValue={params.entity ?? ''} className={field}>
-              <option value="">Everything</option>
-              {facets.entities.map((e) => (
-                <option key={e} value={e}>{e}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="f-actor" className={label}>Who</label>
-            <select id="f-actor" name="actor" defaultValue={params.actor ?? ''} className={field}>
-              <option value="">Anyone</option>
-              {facets.actors.map((a) => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">

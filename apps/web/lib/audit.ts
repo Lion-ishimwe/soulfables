@@ -26,14 +26,18 @@ export type AuditEntry = {
 export type AuditFilters = {
   from?: string;
   to?: string;
-  /** Minutes past midnight, so a window can be narrower than a day. */
+  /** Paired with the dates, so a window can be narrower than a day. */
   fromTime?: string;
   toTime?: string;
-  entity?: string;
-  actor?: string;
 };
 
-export const AUDIT_PAGE_SIZE = 50;
+/**
+ * Thirty, which is what the page shows before anybody asks for anything.
+ *
+ * Small enough to read down in one go and large enough to cover a normal
+ * day's work; older entries are a page away rather than a scroll away.
+ */
+export const AUDIT_PAGE_SIZE = 30;
 
 /*
  * Columns that change on their own and say nothing about intent. Listing
@@ -89,8 +93,6 @@ export async function listAuditEntries(
 
   if (from) q = q.gte('created_at', from);
   if (to) q = q.lte('created_at', to);
-  if (filters.entity) q = q.eq('entity_type', filters.entity);
-  if (filters.actor) q = q.eq('actor_email', filters.actor);
 
   const { data, count, error } = await q;
   if (error) return { entries: [], total: 0, live: true };
@@ -107,36 +109,5 @@ export async function listAuditEntries(
       at: r.created_at as string,
       changed: changedFields(r.before, r.after),
     })),
-  };
-}
-
-/** The entity types and actors that actually appear, for the filters. */
-export async function auditFacets(): Promise<{ entities: string[]; actors: string[] }> {
-  if (isDemoMode()) return { entities: [], actors: [] };
-
-  const supabase = await createClient();
-
-  /*
-   * Sampled from the most recent thousand rather than distinct over the
-   * whole table. PostgREST cannot express DISTINCT, and a filter that
-   * costs a full scan every time the page loads is a filter that makes
-   * the page slower than the thing it filters.
-   */
-  const { data } = await supabase
-    .from('audit_log')
-    .select('entity_type, actor_email')
-    .order('created_at', { ascending: false })
-    .limit(1000);
-
-  const entities = new Set<string>();
-  const actors = new Set<string>();
-  for (const r of data ?? []) {
-    if (r.entity_type) entities.add(r.entity_type as string);
-    if (r.actor_email) actors.add(r.actor_email as string);
-  }
-
-  return {
-    entities: [...entities].sort(),
-    actors: [...actors].sort(),
   };
 }
