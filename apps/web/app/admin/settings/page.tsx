@@ -4,6 +4,7 @@ import { getHouseSettings } from '@/lib/settings';
 import { isDemoMode } from '@/lib/demo/mode';
 import { AdminPageHeader, Panel, StatusDot } from '@/components/admin/dashboard';
 import { SettingsForm } from '@/components/admin/settings-form';
+import { SettingsTabs } from '@/components/admin/settings-tabs';
 
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -71,6 +72,7 @@ export default async function SettingsPage() {
         title="Settings"
         subtitle="What the House says about itself, and what it is connected to."
       />
+      <SettingsTabs />
 
       <div className="mb-6">
         <SettingsForm settings={settings} />

@@ -10,7 +10,7 @@ import {
 import { StatusPill } from '@/components/admin/ui';
 import { TemplatePanel } from '@/components/studio/template-panel';
 import { formatDate } from '@/lib/format';
-import { BioEditor } from '@/components/studio/bio-editor';
+import { AccountPanel } from '@/components/studio/account-panel';
 import { myAuthor } from '@/lib/author-accounts';
 import { getHouseSettings } from '@/lib/settings';
 
@@ -106,7 +106,14 @@ export default async function StudioPage() {
         )}
       </header>
 
-      {myProfile && <BioEditor bio={myProfile.bio} name={myProfile.name} />}
+      {myProfile && (
+        <AccountPanel
+          displayName={viewer.displayName ?? myProfile.name}
+          bio={myProfile.bio}
+          email={viewer.email}
+          authorSlug={myProfile.slug}
+        />
+      )}
 
       {/* What the House has said. */}
       {unread.length > 0 && (

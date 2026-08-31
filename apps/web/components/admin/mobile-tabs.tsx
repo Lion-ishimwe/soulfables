@@ -32,7 +32,6 @@ const MORE = [
     { href: '/admin/submissions', label: 'Submissions', icon: 'draft' },
     { href: '/admin/shelves', label: 'Shelves', icon: 'layers' },
     { href: '/admin/authors', label: 'Authors', icon: 'people' },
-    { href: '/admin/featured', label: 'Featured', icon: 'spark' },
   ]},
   { heading: 'Commerce', items: [
     { href: '/admin/entitlements', label: 'Entitlements', icon: 'book' },
@@ -47,6 +46,8 @@ const MORE = [
     { href: '/admin/analytics', label: 'Analytics', icon: 'spark' },
     { href: '/admin/audit', label: 'Audit log', icon: 'clock' },
     { href: '/admin/settings', label: 'Settings', icon: 'gear' },
+    { href: '/admin/settings/featured', label: 'Featured', icon: 'spark' },
+    { href: '/admin/settings/account', label: 'Account', icon: 'people' },
   ]},
 ] as const;
 

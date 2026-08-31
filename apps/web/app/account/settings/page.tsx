@@ -3,6 +3,10 @@ import Link from 'next/link';
 import { requireViewer } from '@/lib/auth';
 import { getPlan } from '@/lib/membership';
 import { signOut } from '@/app/actions/auth';
+import { AccountForm } from '@/components/account/account-form';
+import { myAuthor } from '@/lib/author-accounts';
+import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo/mode';
 
 export const metadata: Metadata = {
   title: 'Account',
@@ -31,6 +35,26 @@ export default async function AccountSettingsPage() {
     { href: '/account/orders', label: 'Orders', copy: 'Receipts and files' },
     { href: '/companion', label: 'The Librarian', copy: 'A companion for reflection' },
   ] as const;
+
+  /*
+   * The same form the admin and the writing room use.
+   *
+   * This page was a list of links and a sign-out button — there was
+   * nowhere for a reader to change their own name, and the only way to
+   * change a password was to send yourself a reset email.
+   */
+  const author = await myAuthor();
+
+  let profileBio: string | null = null;
+  if (!author && !isDemoMode()) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('profiles')
+      .select('bio')
+      .eq('id', viewer.id)
+      .maybeSingle();
+    profileBio = (data?.bio as string) ?? null;
+  }
 
   return (
     <div className="mx-auto max-w-content px-5 py-20 sm:px-8">
@@ -83,6 +107,16 @@ export default async function AccountSettingsPage() {
           )}
         </dl>
       </section>
+
+      <div className="mb-10">
+        <AccountForm
+          displayName={viewer.displayName ?? ''}
+          bio={author ? author.bio : profileBio}
+          email={viewer.email}
+          isAuthor={Boolean(author)}
+          authorSlug={author?.slug ?? null}
+        />
+      </div>
 
       <section className="mb-10">
         <h2 className="sf-eyebrow mb-4">Elsewhere</h2>

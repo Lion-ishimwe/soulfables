@@ -24,7 +24,6 @@ const GROUPS = [
       { href: '/admin/stories', label: 'Stories', icon: 'book' },
       { href: '/admin/shelves', label: 'Shelves', icon: 'layers' },
       { href: '/admin/authors', label: 'Authors', icon: 'people' },
-      { href: '/admin/featured', label: 'Featured', icon: 'spark' },
     ],
   },
   {
@@ -54,8 +53,11 @@ const GROUPS = [
   },
   {
     heading: 'Settings',
-    items: [{ href: '/admin/settings', label: 'Settings', icon: 'gear' }],
-    adminOnly: true,
+    items: [
+      { href: '/admin/settings', label: 'Settings', icon: 'gear' },
+      { href: '/admin/settings/featured', label: 'Featured', icon: 'spark' },
+      { href: '/admin/settings/account', label: 'Account', icon: 'people' },
+    ],
   },
 ] as const;
 
