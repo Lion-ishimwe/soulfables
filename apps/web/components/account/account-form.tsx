@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   saveAccountProfile,
@@ -21,10 +21,32 @@ function Submit({ label, busy }: { label: string; busy: string }) {
   );
 }
 
+/**
+ * Say what happened, where it will be seen.
+ *
+ * This cost somebody an evening. The message rendered correctly and was
+ * missed, because it sits above the fields — so on a short viewport you
+ * press the button at the bottom, the answer appears off-screen above,
+ * and nothing appears to happen. A password that silently refused to
+ * change looks identical to one that silently changed.
+ *
+ * Scrolling it into view is the whole fix. The clearing of the password
+ * fields on success is the other half: an emptied form is a second, wordless
+ * signal that something happened.
+ */
 function Notice({ state }: { state: AccountResult }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (state.error || state.message) {
+      ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [state.error, state.message]);
+
   if (state.error) {
     return (
       <p
+        ref={ref}
         role="alert"
         className="mb-5 rounded border-l-2 border-state-danger bg-state-danger/10 px-4 py-3 font-ui text-sm text-ivory"
       >
@@ -35,6 +57,7 @@ function Notice({ state }: { state: AccountResult }) {
   if (state.message) {
     return (
       <p
+        ref={ref}
         aria-live="polite"
         className="mb-5 rounded border-l-2 border-state-success bg-state-success/10 px-4 py-3 font-ui text-sm text-ivory"
       >
@@ -85,6 +108,13 @@ export function AccountForm({
     changeOwnPassword,
     {},
   );
+
+  // Emptied on success, so the form does not sit there still holding the
+  // password it has already accepted.
+  const passwordForm = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (passwordState.message) passwordForm.current?.reset();
+  }, [passwordState.message]);
 
   return (
     <div className="space-y-6">
@@ -182,7 +212,7 @@ export function AccountForm({
       </form>
 
       {/* ---- Password ---------------------------------------------- */}
-      <form action={passwordAction} className="rounded-lg border border-rule bg-ink-raised">
+      <form ref={passwordForm} action={passwordAction} className="rounded-lg border border-rule bg-ink-raised">
         <header className="border-b border-rule px-5 py-4">
           <h2 className="font-ui text-sm text-ivory">Password</h2>
           <p className="mt-0.5 font-ui text-micro text-grey-faint">
