@@ -83,9 +83,7 @@ export default async function HomePage() {
         />
 
         <div className="relative mx-auto max-w-page px-5 py-24 text-center sm:px-8 sm:py-28">
-          <p className="font-ui text-sm text-gold">A quiet place for modern folktales</p>
-
-          <h1 className="mt-5 font-display text-4xl font-light leading-tight text-ivory sm:text-6xl">
+          <h1 className="font-display text-4xl font-light leading-tight text-ivory sm:text-6xl">
             <Greeting />
           </h1>
 
