@@ -82,12 +82,32 @@ export default async function HomePage() {
           }}
         />
 
-        <div className="relative mx-auto max-w-page px-5 py-24 text-center sm:px-8 sm:py-28">
-          <h1 className="font-display text-4xl font-light leading-tight text-ivory sm:text-6xl">
-            <Greeting />
+        {/*
+          The hero holds the screen.
+          
+          100svh rather than 100vh: on a phone, vh is measured against the
+          viewport with the browser chrome hidden, so a full-height hero
+          sits partly under the address bar until you scroll. svh is the
+          small viewport — what you can actually see right now.
+          
+          Minus the 4rem header above it, so the two together are one
+          screen rather than one screen plus a header.
+        */}
+        <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-page flex-col items-center justify-center px-5 py-16 text-center sm:px-8">
+          <Greeting />
+
+          {/*
+            The question is the heading, not the greeting.
+            
+            Greeting renders its own small italic line — wrapping it in an
+            h1 gave the page a heading with no visible headline in it, and
+            the front door lost the only sentence it was asking.
+          */}
+          <h1 className="mt-4 font-display text-4xl font-light leading-tight text-ivory sm:text-6xl">
+            How is your heart today?
           </h1>
 
-          <p className="mx-auto mt-5 max-w-measure font-ui text-base leading-relaxed text-grey">
+          <p className="mx-auto mt-6 max-w-measure font-ui text-base leading-relaxed text-grey sm:text-lg">
             Stories about love, loss, healing, identity, hope, and becoming.
           </p>
 
