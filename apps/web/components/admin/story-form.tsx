@@ -25,6 +25,8 @@ export type StoryDraft = {
   seoTitle?: string | null;
   seoDescription?: string | null;
   releaseMode?: string;
+  /** Theme ids already on the story. See ThemePicker below. */
+  themeIds?: string[];
 };
 
 const WORDS_PER_MINUTE = 220;
@@ -61,10 +63,13 @@ export function StoryForm({
   draft,
   authors,
   shelves,
+  themes = [],
 }: {
   draft: StoryDraft;
   authors: Option[];
   shelves: Option[];
+  /** Empty in demo mode, where there is no taxonomy to save against. */
+  themes?: Option[];
 }) {
   const [state, formAction] = useActionState<StoryActionResult, FormData>(
     saveStory,
@@ -249,6 +254,38 @@ export function StoryForm({
             options={[{ value: '', label: '— none —' }, ...shelves]}
             hint="The primary shelf. Drives breadcrumbs and the canonical URL."
           />
+
+          {themes.length > 0 && (
+            <div className="mb-5">
+              <span className="sf-eyebrow mb-2 block">Themes</span>
+              {/*
+                Checkboxes rather than a multi-select. There are twelve of
+                them and picking two is the normal case, which a list you
+                have to ctrl-click makes needlessly hard.
+              */}
+              <div className="flex flex-wrap gap-2">
+                {themes.map((t) => (
+                  <label
+                    key={t.value}
+                    className="flex cursor-pointer items-center gap-2 border border-rule bg-ink-raised px-3 py-1.5 font-ui text-xs text-grey transition-colors hover:border-gold/40 has-[:checked]:border-gold/50 has-[:checked]:bg-gold-dim has-[:checked]:text-ivory"
+                  >
+                    <input
+                      type="checkbox"
+                      name="themeIds"
+                      value={t.value}
+                      defaultChecked={draft.themeIds?.includes(t.value)}
+                      className="h-3.5 w-3.5 accent-[#C89528]"
+                    />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-grey-muted">
+                What the story is about, as opposed to where it lives. Two is
+                usually right; they show on every card.
+              </p>
+            </div>
+          )}
 
           <div className="mb-5">
             <label htmlFor="f-slug" className="sf-eyebrow mb-2 block">

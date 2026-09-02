@@ -30,3 +30,20 @@ export function formatDate(iso: string | null): string {
     year: 'numeric',
   });
 }
+
+/**
+ * Big numbers, short.
+ *
+ * "2.1K" rather than "2,143" on a card, because the card is asking "is
+ * this widely read?" and not "by exactly how many". Below a thousand the
+ * exact figure is short enough to just say.
+ */
+export function formatCount(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) {
+    const k = n / 1000;
+    return `${k < 10 ? k.toFixed(1).replace(/\.0$/, '') : Math.round(k)}K`;
+  }
+  const m = n / 1_000_000;
+  return `${m < 10 ? m.toFixed(1).replace(/\.0$/, '') : Math.round(m)}M`;
+}

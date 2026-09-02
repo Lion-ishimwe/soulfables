@@ -1,7 +1,7 @@
 import 'server-only';
 import { createClient } from './supabase/server';
 import { isDemoMode } from './demo/mode';
-import { getStories, getProducts, getShelves } from './content';
+import { getStories, getProducts, getShelves, themesOf } from './content';
 import { DEMO_BODIES } from './demo/stories';
 
 /**
@@ -445,6 +445,13 @@ export type WorkStory = EditorialStory & {
   authorName: string | null;
   assignedName: string | null;
   shelfLabel: string | null;
+  /** What the story is about. See StoryCard.themes. */
+  themes: { slug: string; label: string }[];
+  /** Real opens and completions, from stories.view_count. See 0024. */
+  views: number;
+  completions: number;
+  /** When it last changed — the column the list is already ordered by. */
+  updatedAt: string | null;
 };
 
 async function decorate(rows: EditorialStory[]): Promise<WorkStory[]> {
@@ -460,6 +467,12 @@ async function decorate(rows: EditorialStory[]): Promise<WorkStory[]> {
     authorName: name(r.authorSlug),
     assignedName: name(r.assignedAuthorSlug),
     shelfLabel: shelves.find((s) => s.slug === r.shelfSlug)?.label ?? null,
+    // Demo fixtures carry no taxonomy and no traffic. Empty and zero are
+    // the truthful answers, not placeholders to be filled in later.
+    themes: [],
+    views: 0,
+    completions: 0,
+    updatedAt: r.publishedAt ?? r.submittedAt ?? null,
   }));
 }
 
@@ -496,7 +509,8 @@ export async function listWorkStories(): Promise<WorkStory[]> {
     .select(
       `id, slug, title, subtitle, excerpt, access, status, release_mode,
        cover_image, reading_minutes, published_at, submitted_at, approved_at,
-       revision_note,
+       revision_note, updated_at, view_count, completion_count,
+       story_themes(themes(slug, label)),
        byline:authors!stories_author_id_fkey(slug, name),
        assigned:authors!stories_assigned_author_id_fkey(slug, name),
        story_shelves(is_primary, shelves(slug, label)),
@@ -567,6 +581,10 @@ export async function listWorkStories(): Promise<WorkStory[]> {
       authorName: byline?.name ?? null,
       assignedName: assigned?.name ?? null,
       shelfLabel: shelf?.label ?? null,
+      themes: themesOf(r.story_themes),
+      views: Number(r.view_count ?? 0),
+      completions: Number(r.completion_count ?? 0),
+      updatedAt: (r.updated_at as string) ?? null,
     };
   });
 }
@@ -579,7 +597,33 @@ export async function listSubmissions(): Promise<WorkStory[]> {
 }
 
 export async function getWorkStory(slug: string): Promise<WorkStory | null> {
-  return (await listWorkStories()).find((s) => s.slug === slug) ?? null;
+  const story = (await listWorkStories()).find((s) => s.slug === slug) ?? null;
+  if (!story || isDemoMode() || !isConfigured()) return story;
+
+  /*
+   * The body, which the list could not carry.
+   *
+   * listWorkStories() leaves bodyMdx empty on purpose — 0015 revoked the
+   * column grant, and a list has no business fetching forty story bodies
+   * anyway. But this returns ONE story, and its only caller is the
+   * editor, which needs the prose in the textarea.
+   *
+   * Without this the editor opened every story with an empty body, and
+   * saving wrote that emptiness back: the form does not know the
+   * difference between "this story has no text" and "the text never
+   * arrived". Every save silently destroyed the story it was saving.
+   */
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('story_body', { p_slug: slug });
+
+  if (error) {
+    console.error('[admin] getWorkStory body', error.message);
+    // Empty would look like an empty story to the editor, and the save
+    // that followed would make it one. Refusing to open it is better.
+    return null;
+  }
+
+  return { ...story, bodyMdx: (data as string | null) ?? '' };
 }
 
 /** What one author is carrying. */
@@ -630,4 +674,50 @@ export async function notificationsFor(
 ): Promise<Notification[]> {
   const { demoNotifications } = await import('./demo/editorial');
   return demoNotifications(authorSlug);
+}
+
+/**
+ * The themes a story can be given.
+ *
+ * Ids, not slugs, because story_themes is keyed on ids and the picker
+ * posts what the join table wants. The taxonomy is seeded and small, so
+ * this is one cheap read rather than anything that needs caching.
+ */
+export async function listThemes(): Promise<{ id: string; slug: string; label: string }[]> {
+  // Demo mode has no taxonomy to offer; an empty list hides the picker
+  // rather than showing one that cannot save.
+  if (isDemoMode() || !isConfigured()) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('themes')
+    .select('id, slug, label')
+    .eq('is_active', true)
+    .order('sort_order');
+
+  if (error) {
+    console.error('[admin] listThemes', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    slug: r.slug as string,
+    label: r.label as string,
+  }));
+}
+
+/** The themes already on one story, as ids the picker can pre-tick. */
+export async function storyThemeIds(storySlug: string): Promise<string[]> {
+  if (isDemoMode() || !isConfigured()) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('stories')
+    .select('story_themes(theme_id)')
+    .eq('slug', storySlug)
+    .maybeSingle();
+
+  const links = (data?.story_themes ?? []) as { theme_id: string }[];
+  return links.map((l) => l.theme_id);
 }

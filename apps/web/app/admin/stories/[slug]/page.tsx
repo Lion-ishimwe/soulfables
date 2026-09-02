@@ -5,6 +5,8 @@ import {
   getWorkStory,
   listAdminAuthors,
   listAdminShelves,
+  listThemes,
+  storyThemeIds,
 } from '@/lib/admin-data';
 import { PageHeader, StatusPill } from '@/components/admin/ui';
 import { StoryForm } from '@/components/admin/story-form';
@@ -31,10 +33,12 @@ export default async function EditStoryPage({
 }) {
   const { slug } = await params;
 
-  const [story, authors, shelves] = await Promise.all([
+  const [story, authors, shelves, themes, themeIds] = await Promise.all([
     getWorkStory(slug),
     listAdminAuthors(),
     listAdminShelves(),
+    listThemes(),
+    storyThemeIds(slug),
   ]);
 
   if (!story) notFound();
@@ -137,9 +141,11 @@ export default async function EditStoryPage({
           status: story.status,
           coverImage: story.coverImage,
           releaseMode: story.releaseMode,
+          themeIds,
         }}
         authors={authors.map((a) => ({ value: a.slug, label: a.name }))}
         shelves={shelves.map((s) => ({ value: s.slug, label: s.label }))}
+        themes={themes.map((t) => ({ value: t.id, label: t.label }))}
       />
 
       {story.releaseMode === 'serial' && (

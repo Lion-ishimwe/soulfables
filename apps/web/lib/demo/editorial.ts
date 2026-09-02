@@ -66,7 +66,7 @@ export type EditorialStory = {
   assignedAuthorSlug: string | null;
   shelfSlug: string;
   access: 'free' | 'premium';
-  status: 'draft' | 'in_review' | 'published' | 'archived';
+  status: 'draft' | 'in_review' | 'scheduled' | 'published' | 'archived';
   releaseMode: 'full' | 'serial';
   chapters: EditorialChapter[];
   coverImage: string | null;

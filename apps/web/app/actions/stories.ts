@@ -4,11 +4,9 @@ import type { Route } from 'next';
 
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import { z } from 'zod';
 import { checkbox, field } from '@/lib/form';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 
@@ -36,8 +34,20 @@ const storySchema = z.object({
   subtitle: z.string().trim().max(300).optional().or(z.literal('')),
   excerpt: z.string().trim().max(600).optional().or(z.literal('')),
   bodyMdx: z.string().optional().or(z.literal('')),
-  authorId: z.string().uuid().optional().or(z.literal('')),
-  shelfId: z.string().uuid().optional().or(z.literal('')),
+  /*
+   * Slugs, despite the names.
+   *
+   * These were typed as uuids and the form has always posted slugs — the
+   * admin data layer speaks in slugs throughout, and the demo branch
+   * below reads them as slugs too. The result was that every save in
+   * live mode died here on "Invalid uuid" before touching the database,
+   * while demo mode saved happily. Renaming the fields would mean
+   * renaming them in the form, the draft type and both pages; accepting
+   * what is actually sent and resolving it below is the smaller and more
+   * honest change.
+   */
+  authorId: z.string().trim().max(120).optional().or(z.literal('')),
+  shelfId: z.string().trim().max(120).optional().or(z.literal('')),
   access: z.enum(['free', 'premium']),
   status: z.enum(['draft', 'in_review', 'scheduled', 'published', 'archived']),
   coverImage: z.string().trim().max(600).optional().or(z.literal('')),
@@ -93,24 +103,20 @@ function parseSections(body: string) {
   return sections;
 }
 
-/** Log anything that changes published content or access. */
-async function audit(
-  actorId: string,
-  actorEmail: string | null,
-  action: string,
-  entityId: string,
-  before: unknown,
-  after: unknown,
-) {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
-  try {
-    const h = await headers();
-    const admin = createAdminClient();
-  } catch (e) {
-    // Never let audit failure block the edit — but make it loud.
-    console.error('[audit] story write not logged', e);
-  }
-}
+/*
+ * Auditing is not done here.
+ *
+ * This file used to carry an audit() helper that took an actor, a
+ * before and an after, opened an admin client — and then inserted
+ * nothing. It had been hollowed out and left behind, so every call site
+ * read as "this edit is logged" while nothing was written, and its own
+ * catch block promised to be loud about a failure that could not happen.
+ *
+ * Migration 0021 put an AFTER trigger on all 51 content tables, which
+ * records stories.update, story_themes.insert and the rest with the real
+ * actor. That is the audit trail, it works, and adding a second one here
+ * would double-log every edit.
+ */
 
 export async function saveStory(
   _prev: StoryActionResult,
@@ -141,6 +147,18 @@ export async function saveStory(
   }
 
   const d = parsed.data;
+
+  /*
+   * Themes come in as repeated checkbox values, which the single-value
+   * schema above cannot express — so they are read and validated here.
+   * Anything that is not a uuid is dropped rather than failing the save:
+   * a malformed theme should not cost somebody their draft.
+   */
+  const themeIds = formData
+    .getAll('themeIds')
+    .map(String)
+    .filter((v) => /^[0-9a-f-]{36}$/i.test(v));
+
   const body = d.bodyMdx ?? '';
   const words = countWords(body);
 
@@ -195,13 +213,44 @@ export async function saveStory(
 
   const supabase = await createClient();
 
+  /*
+   * Slug in, id out.
+   *
+   * The form knows stories, authors and shelves by their web addresses;
+   * the database joins them by id. Three small lookups turn one into the
+   * other. They run together because none depends on the others.
+   *
+   * `id` is the slug the story had when the form was opened, not the one
+   * in the slug field — that is the new address, and looking the story up
+   * by it would miss the row whenever somebody renames a story.
+   */
+  const [storyRes, authorRes, shelfRes] = await Promise.all([
+    id
+      ? supabase.from('stories').select('id').eq('slug', id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    d.authorId
+      ? supabase.from('authors').select('id').eq('slug', d.authorId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    d.shelfId
+      ? supabase.from('shelves').select('id').eq('slug', d.shelfId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const existingId = (storyRes.data as { id?: string } | null)?.id ?? null;
+  const authorId = (authorRes.data as { id?: string } | null)?.id ?? null;
+  const shelfId = (shelfRes.data as { id?: string } | null)?.id ?? null;
+
+  if (id && !existingId) {
+    return { error: 'That story no longer exists. It may have been deleted.' };
+  }
+
   const row = {
     title: d.title,
     slug: d.slug,
     subtitle: d.subtitle || null,
     excerpt: d.excerpt || null,
     body_mdx: body || null,
-    author_id: d.authorId || null,
+    author_id: authorId,
     access: d.access,
     status: d.status,
     word_count: words,
@@ -215,23 +264,43 @@ export async function saveStory(
       d.status === 'published' ? new Date().toISOString() : null,
   };
 
-  let storyId = id;
+  let storyId = existingId;
   let before: unknown = null;
 
-  if (id) {
+  if (existingId) {
     const { data: existing } = await supabase
       .from('stories')
-      .select('status, slug, access, published_at')
-      .eq('id', id)
+      .select('status, slug, access, published_at, word_count')
+      .eq('id', existingId)
       .single();
     before = existing;
+
+    /*
+     * Never blank a story by accident.
+     *
+     * An empty body arriving for a story that has one is almost always a
+     * form that failed to load the prose rather than a writer deleting
+     * it — that is exactly how the editor destroyed a story before
+     * getWorkStory learned to fetch the body. word_count is used rather
+     * than body_mdx because the column cannot be selected (0015), and it
+     * answers the only question being asked.
+     *
+     * Deliberately emptying a story is still possible; it just has to go
+     * through Delete, which asks first.
+     */
+    if (!body.trim() && Number(existing?.word_count ?? 0) > 0) {
+      return {
+        error:
+          'The body came through empty for a story that has one. Nothing was saved — reload the page and try again.',
+      };
+    }
 
     // Preserve the original publication date across later edits.
     if (existing?.published_at && d.status === 'published') {
       row.published_at = existing.published_at;
     }
 
-    const { error } = await supabase.from('stories').update(row).eq('id', id);
+    const { error } = await supabase.from('stories').update(row).eq('id', existingId);
     if (error) {
       return {
         error:
@@ -272,23 +341,29 @@ export async function saveStory(
   }
 
   // Primary shelf placement.
-  if (d.shelfId) {
+  if (shelfId) {
     await supabase.from('story_shelves').delete().eq('story_id', storyId);
     await supabase.from('story_shelves').insert({
       story_id: storyId,
-      shelf_id: d.shelfId,
+      shelf_id: shelfId,
       is_primary: true,
     });
   }
 
-  await audit(
-    viewer.id,
-    viewer.email,
-    id ? 'story.update' : 'story.create',
-    storyId,
-    before,
-    { status: d.status, slug: d.slug, access: d.access },
-  );
+  /*
+   * Themes. Replaced wholesale, like sections — the join table carries
+   * nothing of its own, so there is nothing to preserve by diffing.
+   *
+   * Unconditional, unlike the shelf above: clearing every theme is a
+   * real edit, and skipping the write when the list is empty would make
+   * removing the last one impossible.
+   */
+  await supabase.from('story_themes').delete().eq('story_id', storyId);
+  if (themeIds.length) {
+    await supabase
+      .from('story_themes')
+      .insert(themeIds.map((theme_id) => ({ story_id: storyId, theme_id })));
+  }
 
   // Refresh the public pages this story appears on.
   revalidatePath('/library');
@@ -314,7 +389,6 @@ export async function deleteStory(formData: FormData): Promise<void> {
     .single();
 
   await supabase.from('stories').delete().eq('id', id);
-  await audit(viewer.id, viewer.email, 'story.delete', id, before, null);
 
   revalidatePath('/library');
 

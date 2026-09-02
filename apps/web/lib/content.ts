@@ -62,6 +62,19 @@ export type StoryCard = {
   hasAudio?: boolean;
   /** Uploaded artwork. Null means the drawn cover is used instead. */
   coverImage?: string | null;
+  /**
+   * What the story is about, as opposed to where it lives.
+   *
+   * A shelf is a place and a story sits on one; a theme is a subject and
+   * a story usually carries two. The card shows them because "Grief,
+   * Nostalgia" tells a reader what they are walking into in a way that
+   * a subtitle written to be beautiful does not.
+   */
+  themes?: { slug: string; label: string }[];
+  /** Real opens. Absent offline, and zero until somebody reads it. */
+  views?: number;
+  /** For sorting the Library by when things arrived. */
+  publishedAt?: string | null;
 };
 
 export type Product = {
@@ -229,6 +242,23 @@ export async function getShelf(slug: string): Promise<Shelf | null> {
   return all.find((s) => s.slug === slug) ?? null;
 }
 
+/**
+ * Flatten PostgREST's story_themes(themes(...)) into a plain list.
+ *
+ * Kept in one place because three callers need it and each would
+ * otherwise re-derive the same two levels of nesting slightly
+ * differently.
+ */
+export function themesOf(raw: unknown): { slug: string; label: string }[] {
+  const links = (raw ?? []) as {
+    themes: { slug: string; label: string } | { slug: string; label: string }[] | null;
+  }[];
+
+  return links
+    .map((l) => (Array.isArray(l.themes) ? l.themes[0] : l.themes))
+    .filter((t): t is { slug: string; label: string } => Boolean(t?.slug));
+}
+
 async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
   if (!isConfigured) {
     const rows = (await demoStories()).filter((s) => s.status === 'published');
@@ -266,7 +296,7 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors!stories_author_id_fkey(name), story_shelves!inner(is_primary, shelves!inner(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, view_count, published_at, authors!stories_author_id_fkey(name), story_themes(themes(slug, label)), story_shelves!inner(is_primary, shelves!inner(slug))')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
@@ -301,6 +331,9 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
       shelf: joined?.slug ?? shelfSlug ?? '',
       access: (r.access as 'free' | 'premium') ?? 'free',
       coverImage: (r.cover_image as string) ?? null,
+      themes: themesOf(r.story_themes),
+      views: Number(r.view_count ?? 0),
+      publishedAt: (r.published_at as string) ?? null,
     };
   });
 }
