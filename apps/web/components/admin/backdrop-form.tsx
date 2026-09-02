@@ -29,6 +29,7 @@ export function BackdropForm({ current }: { current: string | null }) {
     setUploading(true);
     const body = new FormData();
     body.set('file', file);
+    body.set('folder', 'backdrops');
     const result = await uploadImage(body);
     setUploading(false);
     if (result.error) setError(result.error);

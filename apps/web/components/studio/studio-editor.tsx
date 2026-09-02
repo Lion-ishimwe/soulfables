@@ -8,10 +8,12 @@ import {
   removeChapter,
   publishChapter,
   type WorkflowResult,
+  saveStoryCover,
 } from '@/app/actions/workflow';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import type { WorkStory } from '@/lib/admin-data';
 import { ChapterTrack } from './chapter-track';
+import { CoverField } from '@/components/admin/cover-field';
 
 function Button({
   label,
@@ -58,6 +60,10 @@ export function StudioEditor({
     submitStory,
     {},
   );
+  const [coverState, coverAction] = useActionState<WorkflowResult, FormData>(
+    saveStoryCover,
+    {},
+  );
   const [chapterState, chapterAction] = useActionState<WorkflowResult, FormData>(
     saveChapter,
     {},
@@ -72,6 +78,48 @@ export function StudioEditor({
   return (
     <>
       {/* Chapters, for a serialised story. */}
+      {/*
+        The cover, for whoever is carrying the story.
+        
+        The admin has had this field all along; the writing room has not,
+        so the person who wrote a story was the one person who could not
+        choose its face.
+      */}
+      <section className="mb-10">
+        <h2 className="sf-eyebrow mb-4">Cover</h2>
+
+        <form action={coverAction} className="border border-rule p-5">
+          <input type="hidden" name="storySlug" value={story.slug} />
+
+          {coverState.error && (
+            <p role="alert" className="mb-4 border-l-2 border-state-danger bg-state-danger/10 px-4 py-3 text-sm text-ivory">
+              {coverState.error}
+            </p>
+          )}
+          {coverState.message && (
+            <p aria-live="polite" className="mb-4 border-l-2 border-state-success bg-state-success/10 px-4 py-3 text-sm text-ivory">
+              {coverState.message}
+            </p>
+          )}
+
+          <CoverField
+            defaultValue={story.coverImage ?? ''}
+            title={story.title}
+            author={story.authorName ?? ''}
+            shelf={story.shelfSlug}
+          />
+
+          <div className="mt-5">
+            <button
+              type="submit"
+              className="rounded border border-gold/60 px-6 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-colors hover:bg-gold hover:text-ink"
+            >
+              Save cover
+            </button>
+          </div>
+        </form>
+      </section>
+
       {story.releaseMode === 'serial' && (
         <section className="mb-10">
           <h2 className="sf-eyebrow mb-4">Chapters</h2>

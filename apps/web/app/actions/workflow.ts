@@ -868,3 +868,50 @@ export async function updateOwnBio(
   revalidateTag('content');
   return { message: 'Saved. Readers will see this on your stories.' };
 }
+
+/**
+ * A story's cover, set by whoever is carrying it.
+ *
+ * Scoped through canEdit(), the same guard the chapter forms use — an
+ * author may change the cover of a story assigned to them and nothing
+ * else. Staff may change any, because staff may change any story.
+ *
+ * Authors could not set a cover at all before this: the field existed in
+ * the admin and nowhere in the writing room, so the person who wrote the
+ * story was the one person who could not choose its face.
+ */
+export async function saveStoryCover(
+  _prev: WorkflowResult,
+  formData: FormData,
+): Promise<WorkflowResult> {
+  const slug = field(formData, 'storySlug');
+  const cover = (field(formData, 'coverImage') ?? '').trim();
+
+  if (!(await canEdit(slug))) {
+    return { error: 'That story is not yours to edit.' };
+  }
+
+  if (cover && !/^https?:\/\//i.test(cover)) {
+    return { error: 'That is not an image address. Upload a file, or paste a link beginning https://' };
+  }
+
+  if (isDemoMode()) {
+    const story = demoGetStory(slug);
+    if (!story) return { error: 'That story no longer exists.' };
+    demoSaveStory(slug, { ...story, coverImage: cover || null });
+  } else {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('stories')
+      .update({ cover_image: cover || null })
+      .eq('slug', slug);
+
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath('/studio');
+  revalidatePath('/admin/stories');
+  revalidateTag('content');
+
+  return { message: cover ? 'Cover saved.' : 'Back to the drawn cover.' };
+}

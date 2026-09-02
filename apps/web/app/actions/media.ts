@@ -24,6 +24,13 @@ const MAX_BYTES = 8 * 1024 * 1024;
  * not use this for anything a reader has paid for; that is what
  * protected-media and signed URLs are for.
  */
+/*
+ * Where a picture goes. A backdrop and a book cover are different things
+ * with different lifetimes, and a flat bucket becomes unsearchable the
+ * moment there are more than a dozen of either.
+ */
+const FOLDERS = new Set(['backdrops', 'covers']);
+
 export async function uploadImage(formData: FormData): Promise<UploadResult> {
   await requireStaff();
 
@@ -42,14 +49,17 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
 
   if (file.size > MAX_BYTES) {
     return {
-      error: `That is ${(file.size / 1024 / 1024).toFixed(1)}MB. Eight is the limit — a backdrop that heavy makes the front page slow.`,
+      error: `That is ${(file.size / 1024 / 1024).toFixed(1)}MB. Eight is the limit — an image that heavy makes the page slow to open.`,
     };
   }
 
   const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
   // A random name, not the original: two people uploading "hero.jpg"
   // should not overwrite each other, and a filename is user input.
-  const path = `backdrops/${randomUUID()}.${extension}`;
+  const asked = String(formData.get('folder') ?? 'covers');
+  const folder = FOLDERS.has(asked) ? asked : 'covers';
+
+  const path = `${folder}/${randomUUID()}.${extension}`;
 
   const admin = createAdminClient();
   const { error } = await admin.storage

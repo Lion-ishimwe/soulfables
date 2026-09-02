@@ -6,6 +6,7 @@ import { useFormStatus } from 'react-dom';
 import { saveStory, type StoryActionResult } from '@/app/actions/stories';
 import { Field, TextArea, Select } from './ui';
 import { Cover } from '@/components/cover-art';
+import { CoverField } from './cover-field';
 
 type Option = { value: string; label: string };
 
@@ -167,34 +168,9 @@ export function StoryForm({
 
         {/* Settings */}
         <aside className="min-w-0 lg:border-l lg:border-rule lg:pl-8">
-          {/* Cover, with what the reader will actually see. */}
+          {/* Cover — uploaded or pasted, previewed as the reader sees it. */}
           <div className="mb-6">
-            <label htmlFor="f-coverImage" className="sf-eyebrow mb-2 block">
-              Cover
-            </label>
-            <div className="flex gap-4">
-              <div className="aspect-[2/3] w-20 flex-none overflow-hidden border border-rule">
-                <Cover
-                  src={cover || null}
-                  title={title || 'Untitled'}
-                  sizes="5rem"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <input
-                  id="f-coverImage"
-                  name="coverImage"
-                  value={cover}
-                  onChange={(e) => setCover(e.target.value)}
-                  placeholder="https://…"
-                  className="w-full border border-rule bg-ink-raised px-3.5 py-2.5 font-mono text-xs text-ivory outline-none transition-colors placeholder:text-grey-faint focus:border-gold/50"
-                />
-                <p className="mt-1.5 text-xs leading-normal text-grey-muted">
-                  Leave empty and the House draws one from the title and
-                  shelf. Paste an image address to use a photograph instead.
-                </p>
-              </div>
-            </div>
+            <CoverField defaultValue={draft.coverImage ?? ''} title={title} />
           </div>
 
           <div className="mb-6 border border-rule p-4">
