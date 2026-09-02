@@ -46,6 +46,21 @@ export default async function ReportPage() {
     },
   ];
 
+  /*
+   * A download beside the thing it downloads, rather than one button at
+   * the top exporting some unstated selection. Each is one table, which
+   * is what a CSV is.
+   */
+  const Download = ({ part, label }: { part: string; label: string }) => (
+    <a
+      href={`/admin/settings/report/download?part=${part}`}
+      download
+      className="shrink-0 font-ui text-xs text-gold transition-colors hover:text-gold-soft"
+    >
+      {label}
+    </a>
+  );
+
   return (
     <>
       <AdminPageHeader
@@ -65,7 +80,11 @@ export default async function ReportPage() {
       </div>
 
       <div className="mb-6">
-        <Panel title="Stories opened" hint="Daily, last 30 days">
+        <Panel
+          title="Stories opened"
+          hint="Daily, last 30 days"
+          aside={<Download part="opens" label="Download CSV" />}
+        >
           {report.opens === 0 ? (
             <PanelEmpty>
               Nothing recorded yet. An open is counted the first time somebody
@@ -83,7 +102,7 @@ export default async function ReportPage() {
         <Panel
           title="Most read"
           hint="Lifetime opens and completions"
-          action={{ href: '/admin/stories', label: 'All stories' }}
+          aside={<Download part="stories" label="Download CSV" />}
         >
           {report.topStories.length === 0 ? (
             <PanelEmpty>Nothing published yet.</PanelEmpty>
@@ -120,7 +139,11 @@ export default async function ReportPage() {
       </div>
 
       {/* ---- Readers, which used to be its own page ----------------- */}
-      <Panel title="Readers" hint="Everyone with an account">
+      <Panel
+        title="Readers"
+        hint="Everyone with an account"
+        aside={<Download part="readers" label="Download CSV" />}
+      >
         {!report.live ? (
           <PanelEmpty>
             Demo mode has no accounts. Connect a database to see who is here.
