@@ -116,13 +116,21 @@ export async function getStory(id: string) {
   if (!isConfigured()) return null;
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('stories')
     .select(
       'id, title, slug, subtitle, excerpt, author_id, access, status, seo_title, seo_description, story_shelves(shelf_id, is_primary)',
     )
     .eq('id', id)
     .single();
+
+  if (error) {
+    // null, not []. This returns one story, and an empty array is
+    // truthy — a caller checking `if (!story)` would sail straight
+    // past a failure and render a page about nothing.
+    console.error('[admin] getStory', error.message);
+    return null;
+  }
 
   if (!data) return null;
 
@@ -161,10 +169,15 @@ export async function listAuthorOptions() {
   }
   if (!isConfigured()) return [];
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('authors')
     .select('id, name')
     .order('sort_order');
+
+  if (error) {
+    console.error('[admin] listAuthorOptions', error.message);
+    return [];
+  }
   return (data ?? []).map((a) => ({ value: a.id as string, label: a.name as string }));
 }
 
@@ -175,10 +188,15 @@ export async function listShelfOptions() {
   }
   if (!isConfigured()) return [];
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('shelves')
     .select('id, label, title')
     .order('sort_order');
+
+  if (error) {
+    console.error('[admin] listShelfOptions', error.message);
+    return [];
+  }
   return (data ?? []).map((s) => ({
     value: s.id as string,
     label: s.label as string,
@@ -246,10 +264,34 @@ export async function listAdminShelves(): Promise<AdminShelfRow[]> {
   }
 
   const supabase = await createClient();
-  const { data } = await supabase
+
+  /*
+   * BOTH ends of the journey join are named, not just the inner one.
+   *
+   * shelf_journeys has two foreign keys back to shelves — shelf_id, the
+   * shelf the edge belongs to, and related_shelf_id, where it points. So
+   * "shelves with shelf_journeys" is ambiguous in its own right, and
+   * PostgREST refuses the whole query with PGRST201. Naming only the
+   * inner relation, as this did, fixes the wrong half.
+   *
+   * The symptom was a Shelves page with no shelves on it and no error
+   * anywhere, because the error was destructured away.
+   */
+  const { data, error } = await supabase
     .from('shelves')
-    .select('slug, label, title, emoji, tagline, librarian_note, accent_color, sort_order, status, shelf_journeys(direction, shelves!shelf_journeys_related_shelf_id_fkey(slug))')
+    .select(
+      `slug, label, title, emoji, tagline, librarian_note, accent_color, sort_order, status,
+       shelf_journeys!shelf_journeys_shelf_id_fkey(
+         direction,
+         shelves!shelf_journeys_related_shelf_id_fkey(slug)
+       )`,
+    )
     .order('sort_order');
+
+  if (error) {
+    console.error('[admin] listAdminShelves', error.message);
+    return [];
+  }
 
   return (data ?? []).map((r: Record<string, unknown>) => {
     const edges = (r.shelf_journeys as { direction: string; shelves: { slug: string } | null }[]) ?? [];
@@ -288,10 +330,15 @@ export async function listAdminAuthors(): Promise<
   }
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('authors')
     .select('slug, name, bio, avatar_url, is_persona, sort_order')
     .order('sort_order');
+
+  if (error) {
+    console.error('[admin] listAdminAuthors', error.message);
+    return [];
+  }
 
   return (data ?? []).map((a: Record<string, unknown>) => ({
     slug: a.slug as string,
@@ -316,11 +363,16 @@ export async function listAdminFeatured(): Promise<FeaturedSlot[]> {
   }
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('featured_slots')
     .select('id, placement, entity_type, entity_id, headline, blurb, sort_order, ends_at')
     .order('placement')
     .order('sort_order');
+
+  if (error) {
+    console.error('[admin] listAdminFeatured', error.message);
+    return [];
+  }
 
   return (data ?? []).map((f: Record<string, unknown>) => ({
     id: f.id as string,
@@ -368,11 +420,112 @@ async function decorate(rows: EditorialStory[]): Promise<WorkStory[]> {
   }));
 }
 
-/** Every story, whatever its state — the admin list. */
+/**
+ * Every story, whatever its state — the admin list.
+ *
+ * This read the demo fixtures unconditionally, in live mode included. The
+ * fixtures are empty when there is a real database, so the Stories page,
+ * Submissions, the Writing Room and every story editor showed nothing at
+ * all while twelve stories sat in Postgres.
+ *
+ * Third time this pattern has turned up: a function written during demo
+ * mode that never grew its live half, and reads plausibly because the
+ * demo call is right there in the body. The others were
+ * listAuthorAccounts and createAuthorAccount.
+ */
 export async function listWorkStories(): Promise<WorkStory[]> {
-  await ensureStories();
-  const { demoListStories } = await import('./demo/editorial');
-  return decorate(demoListStories());
+  if (isDemoMode()) {
+    await ensureStories();
+    const { demoListStories } = await import('./demo/editorial');
+    return decorate(demoListStories());
+  }
+  if (!isConfigured()) return [];
+
+  const supabase = await createClient();
+
+  /*
+   * Both author relations are named. stories has two foreign keys to
+   * authors — the byline and whoever is carrying it now — and PostgREST
+   * refuses a query that does not say which it means.
+   */
+  const { data, error } = await supabase
+    .from('stories')
+    .select(
+      `id, slug, title, subtitle, excerpt, access, status, release_mode,
+       cover_image, reading_minutes, published_at, submitted_at, approved_at,
+       revision_note,
+       byline:authors!stories_author_id_fkey(slug, name),
+       assigned:authors!stories_assigned_author_id_fkey(slug, name),
+       story_shelves(is_primary, shelves(slug, label)),
+       story_chapters(id, number, title, status, published_at),
+       story_audio(id)`,
+    )
+    .order('updated_at', { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error('[admin] listWorkStories', error.message);
+    return [];
+  }
+
+  /** PostgREST returns an embedded relation as an array even when a foreign key makes it single. */
+  const one = <T,>(v: T | T[] | null): T | null =>
+    Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+
+  return (data ?? []).map((r: Record<string, unknown>) => {
+    const byline = one(r.byline as { slug: string; name: string } | null);
+    const assigned = one(r.assigned as { slug: string; name: string } | null);
+
+    const links = (r.story_shelves ?? []) as {
+      is_primary: boolean;
+      shelves: { slug: string; label: string } | { slug: string; label: string }[] | null;
+    }[];
+    const primary = links.find((l) => l.is_primary) ?? links[0];
+    const shelf = one(primary?.shelves ?? null);
+
+    const chapters = ((r.story_chapters ?? []) as Record<string, unknown>[])
+      .map((c) => ({
+        id: c.id as string,
+        number: (c.number as number) ?? 0,
+        title: (c.title as string) ?? '',
+        // The list never renders chapter prose, and fetching every
+        // chapter body to build a table would be a great deal of wire
+        // for a column that does not exist.
+        bodyMdx: '',
+        status: (c.status as 'draft' | 'published') ?? 'draft',
+        publishedAt: (c.published_at as string) ?? null,
+      }))
+      .sort((a, b) => a.number - b.number);
+
+    return {
+      slug: r.slug as string,
+      title: r.title as string,
+      subtitle: (r.subtitle as string) ?? '',
+      excerpt: (r.excerpt as string) ?? '',
+      // Bodies come from story_body() when one story is opened, never in
+      // a list — migration 0015 does not permit selecting the column.
+      bodyMdx: '',
+      authorSlug: byline?.slug ?? null,
+      assignedAuthorSlug: assigned?.slug ?? null,
+      shelfSlug: shelf?.slug ?? '',
+      access: (r.access as 'free' | 'premium') ?? 'free',
+      status: (r.status as WorkStory['status']) ?? 'draft',
+      releaseMode: (r.release_mode as 'full' | 'serial') ?? 'full',
+      chapters,
+      coverImage: (r.cover_image as string) ?? null,
+      readingMinutes: (r.reading_minutes as number) ?? 0,
+      publishedAt: (r.published_at as string) ?? null,
+      submittedAt: (r.submitted_at as string) ?? null,
+      submittedBy: assigned?.slug ?? null,
+      approvedAt: (r.approved_at as string) ?? null,
+      revisionNote: (r.revision_note as string) ?? null,
+      hasAudio: ((r.story_audio ?? []) as unknown[]).length > 0,
+
+      authorName: byline?.name ?? null,
+      assignedName: assigned?.name ?? null,
+      shelfLabel: shelf?.label ?? null,
+    };
+  });
 }
 
 /** Waiting for the House to read them. */

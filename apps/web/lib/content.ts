@@ -264,24 +264,43 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors!stories_author_id_fkey(name), story_shelves!inner(shelves!inner(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, authors!stories_author_id_fkey(name), story_shelves!inner(is_primary, shelves!inner(slug))')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
   if (shelfSlug) query = query.eq('story_shelves.shelves.slug', shelfSlug);
 
   const { data } = await query;
-  return (data ?? []).map((r: Record<string, unknown>) => ({
-    id: r.id as string,
-    slug: r.slug as string,
-    title: r.title as string,
-    subtitle: (r.subtitle as string) ?? '',
-    author: ((r.authors as { name?: string } | null)?.name) ?? 'Soulfables',
-    readingMinutes: (r.reading_minutes as number) ?? 0,
-    shelf: shelfSlug ?? '',
-    access: (r.access as 'free' | 'premium') ?? 'free',
-    coverImage: (r.cover_image as string) ?? null,
-  }));
+
+  return (data ?? []).map((r: Record<string, unknown>) => {
+    /*
+     * The shelf comes from the row, not from the argument.
+     *
+     * This used to be `shelf: shelfSlug ?? ''`, which meant a story only
+     * knew which shelf it was on when the caller had already said so.
+     * Called without a filter — by the admin, by the home page, by the
+     * related-stories list — every story came back shelf-less, and
+     * anything counting or grouping by shelf silently got zero.
+     */
+    const links = (r.story_shelves ?? []) as {
+      is_primary?: boolean;
+      shelves: { slug: string } | { slug: string }[] | null;
+    }[];
+    const link = links.find((l) => l.is_primary) ?? links[0];
+    const joined = Array.isArray(link?.shelves) ? link.shelves[0] : link?.shelves;
+
+    return {
+      id: r.id as string,
+      slug: r.slug as string,
+      title: r.title as string,
+      subtitle: (r.subtitle as string) ?? '',
+      author: ((r.authors as { name?: string } | null)?.name) ?? 'Soulfables',
+      readingMinutes: (r.reading_minutes as number) ?? 0,
+      shelf: joined?.slug ?? shelfSlug ?? '',
+      access: (r.access as 'free' | 'premium') ?? 'free',
+      coverImage: (r.cover_image as string) ?? null,
+    };
+  });
 }
 
 async function fetchGetProducts(): Promise<Product[]> {
