@@ -24,6 +24,7 @@ import {
   demoMarkNotificationsRead,
   demoSaveAuthor,
 } from '@/lib/demo/editorial';
+import { canEditStory, viewerAuthorSlug } from '@/lib/can-edit';
 
 /**
  * The editorial workflow.
@@ -53,25 +54,7 @@ const slugRule = z
   .max(120);
 
 /** Which author byline the signed-in person writes under, if any. */
-async function viewerAuthorSlug(): Promise<string | null> {
-  const viewer = await getViewer();
-  if (!viewer?.email) return null;
-  if (!isDemoMode()) return null;
-  return demoAccountFor(viewer.email)?.authorSlug ?? null;
-}
 
-/** Staff, or the author this story is currently assigned to. */
-async function canEdit(storySlug: string): Promise<boolean> {
-  const viewer = await getViewer();
-  if (!viewer) return false;
-  if (isStaff(viewer.role)) return true;
-
-  const mine = await viewerAuthorSlug();
-  if (!mine) return false;
-
-  const story = demoGetStory(storySlug);
-  return Boolean(story && story.assignedAuthorSlug === mine);
-}
 
 // =====================================================================
 // Submitting
@@ -191,7 +174,7 @@ export async function submitStory(
   const viewer = await requireViewer('/studio');
   const slug = field(formData, 'slug');
 
-  if (!(await canEdit(slug))) {
+  if (!(await canEditStory(slug))) {
     return { error: 'That story is not yours to submit.' };
   }
 
@@ -396,7 +379,7 @@ export async function saveChapter(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
 
-  if (!(await canEdit(d.storySlug))) {
+  if (!(await canEditStory(d.storySlug))) {
     return { error: 'That story is not yours to edit.' };
   }
 
@@ -478,7 +461,7 @@ export async function saveChapter(
 
 export async function removeChapter(formData: FormData): Promise<void> {
   const storySlug = field(formData, 'storySlug');
-  if (!(await canEdit(storySlug))) return;
+  if (!(await canEditStory(storySlug))) return;
 
   if (isDemoMode()) {
     demoDeleteChapter(storySlug, field(formData, 'id'));
@@ -700,7 +683,7 @@ export async function markNotificationsRead(): Promise<void> {
 /** Discard a story from the studio or the admin. */
 export async function discardStory(formData: FormData): Promise<void> {
   const slug = field(formData, 'slug');
-  if (!(await canEdit(slug))) return;
+  if (!(await canEditStory(slug))) return;
 
   if (isDemoMode()) {
     demoDeleteStory(slug);
@@ -1109,7 +1092,7 @@ export async function saveStoryCover(
   const slug = field(formData, 'storySlug');
   const cover = (field(formData, 'coverImage') ?? '').trim();
 
-  if (!(await canEdit(slug))) {
+  if (!(await canEditStory(slug))) {
     return { error: 'That story is not yours to edit.' };
   }
 

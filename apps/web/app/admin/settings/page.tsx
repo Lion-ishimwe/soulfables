@@ -57,10 +57,10 @@ export default async function SettingsPage() {
       required: false,
     },
     {
-      name: 'The Librarian',
+      name: 'Writing assistant',
       detail: process.env.AI_API_KEY
-        ? `Connected via ${process.env.AI_PROVIDER ?? 'the configured provider'}.`
-        : 'Not connected. The companion answers from its own rules, which is narrower but never invents a story.',
+        ? `Connected — ${process.env.AI_MODEL || 'claude-sonnet-5'}. Drafts in the Writing Room; the reader-facing Librarian still answers from its own rules.`
+        : 'Not connected. The Writing Room has no drafting help, and the Librarian answers from its own rules — narrower, but it never invents a story.',
       connected: Boolean(process.env.AI_API_KEY),
       required: false,
     },

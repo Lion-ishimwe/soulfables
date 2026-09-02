@@ -160,9 +160,16 @@ export async function getCompanionProvider(): Promise<CompanionProvider> {
   // A real provider slots in here. Everything above and around it —
   // the system prompt, the safety screen, the context builder — is
   // provider-independent by design.
-  if (isDemoMode() || !process.env.AI_API_KEY) {
-    return new DemoCompanion();
-  }
+  /*
+   * The reader-facing Librarian is still the rule-based one, on purpose.
+   * It talks to somebody who may be in a bad way, and its safety screen
+   * and non-clinical rails are written against a known set of replies —
+   * putting a model behind it is a separate piece of work with a
+   * separate review, not a config change.
+   *
+   * The writing assistant, which talks to staff about drafts, does use
+   * the model. Same provider, different posture. See lib/ai/writing.ts.
+   */
   return new DemoCompanion();
 }
 

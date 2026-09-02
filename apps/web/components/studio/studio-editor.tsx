@@ -14,6 +14,7 @@ import { KebabMenu } from '@/components/admin/kebab-menu';
 import type { WorkStory } from '@/lib/admin-data';
 import { ChapterTrack } from './chapter-track';
 import { CoverField } from '@/components/admin/cover-field';
+import { Assistant } from './assistant';
 
 function Button({
   label,
@@ -78,6 +79,13 @@ export function StudioEditor({
   return (
     <>
       {/* Chapters, for a serialised story. */}
+      <Assistant
+        storySlug={story.slug}
+        shelfSlug={story.shelfSlug}
+        title={story.title}
+        body={story.bodyMdx}
+      />
+
       {/*
         The cover, for whoever is carrying the story.
         
