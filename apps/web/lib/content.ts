@@ -594,3 +594,63 @@ export async function getStory(slug: string): Promise<FullStory | null> {
         : null,
   };
 }
+
+/**
+ * The people whose names are on the stories.
+ *
+ * Public, cached with the rest of the content layer, and it includes
+ * House voices — The Librarian belongs on a page introducing who writes
+ * here, and the `isPersona` flag lets the page say so rather than
+ * implying a person.
+ *
+ * Story counts come from the same listing the shelves use, so a resident
+ * with nothing published reads as nothing published rather than as a
+ * missing number.
+ */
+export type Resident = {
+  slug: string;
+  name: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  isPersona: boolean;
+  storyCount: number;
+};
+
+async function fetchResidents(): Promise<Resident[]> {
+  const stories = await getStories();
+  const count = (name: string) => stories.filter((s) => s.author === name).length;
+
+  if (!isConfigured) {
+    const { demoListAuthors } = await import('./demo/editorial');
+    return demoListAuthors().map((a) => ({
+      slug: a.slug,
+      name: a.name,
+      bio: a.bio,
+      avatarUrl: a.avatarUrl,
+      isPersona: a.isPersona,
+      storyCount: count(a.name),
+    }));
+  }
+
+  const { createPublicClient } = await import('./supabase/server');
+  const supabase = createPublicClient();
+
+  const { data } = await supabase
+    .from('authors')
+    .select('slug, name, bio, avatar_url, is_persona')
+    .order('sort_order');
+
+  return (data ?? []).map((a: Record<string, unknown>) => ({
+    slug: a.slug as string,
+    name: a.name as string,
+    bio: (a.bio as string) ?? null,
+    avatarUrl: (a.avatar_url as string) ?? null,
+    isPersona: Boolean(a.is_persona),
+    storyCount: count(a.name as string),
+  }));
+}
+
+export const getResidents = unstable_cache(fetchResidents, ['residents'], {
+  revalidate: 60,
+  tags: ['content'],
+});
