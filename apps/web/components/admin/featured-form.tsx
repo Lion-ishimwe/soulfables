@@ -15,6 +15,16 @@ export type Catalogue = {
 
 const PLACEMENTS = [
   { value: 'home_hero', label: 'Front door — hero', where: 'The first thing on the home page' },
+  {
+    value: 'library_order',
+    label: 'Library — what comes first',
+    where: 'Leads the library. Anything unplaced follows behind.',
+  },
+  {
+    value: 'shop_order',
+    label: 'Bookshop — what comes first',
+    where: 'Leads the bookshop. Anything unplaced follows behind.',
+  },
   { value: 'librarian_pick', label: 'Front door — the Librarian suggests', where: 'Beneath the shelves' },
   { value: 'shop_hero', label: 'Bookshop — hero', where: 'Top of the shop' },
   { value: 'shelf_spotlight', label: 'Shelf — spotlight', where: 'Highlighted on a shelf page' },

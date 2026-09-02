@@ -34,6 +34,8 @@ function sectionsFrom(body: string) {
  */
 
 export type Shelf = {
+  /** Present only with a database behind it; see StoryCard.id. */
+  id?: string;
   slug: string;
   label: string;
   title: string;
@@ -212,11 +214,11 @@ async function fetchGetShelves(): Promise<Shelf[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from('shelves')
-    .select('slug, label, title, emoji, tagline, librarian_note')
+    .select('id, slug, label, title, emoji, tagline, librarian_note')
     .eq('status', 'published')
     .order('sort_order');
   return (data ?? []).map((r) => ({
-    slug: r.slug, label: r.label, title: r.title,
+    id: r.id, slug: r.slug, label: r.label, title: r.title,
     emoji: r.emoji ?? '', tagline: r.tagline ?? '',
     librarianNote: r.librarian_note ?? undefined,
   }));
@@ -309,7 +311,7 @@ async function fetchGetProducts(): Promise<Product[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from('products')
-    .select('slug, title, subtitle, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, product_prices(currency, unit_amount, is_default), product_files(format)')
+    .select('id, slug, title, subtitle, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, product_prices(currency, unit_amount, is_default), product_files(format)')
     .eq('status', 'published')
     .order('sort_order');
 
@@ -317,6 +319,7 @@ async function fetchGetProducts(): Promise<Product[]> {
     const prices = (r.product_prices as { currency: string; unit_amount: number; is_default: boolean }[]) ?? [];
     const price = prices.find((p) => p.is_default) ?? prices[0];
     return {
+      id: r.id as string,
       slug: r.slug as string,
       title: r.title as string,
       subtitle: (r.subtitle as string) ?? '',

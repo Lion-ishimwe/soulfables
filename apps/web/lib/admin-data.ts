@@ -374,12 +374,55 @@ export async function listAdminFeatured(): Promise<FeaturedSlot[]> {
     return [];
   }
 
-  return (data ?? []).map((f: Record<string, unknown>) => ({
+  const rows = data ?? [];
+
+  /*
+   * Resolve the id to a slug here, not in the page.
+   *
+   * The row stores a uuid and the page matched it against slugs, so it
+   * never matched and every placed item rendered as a raw uuid — the
+   * admin listing what it had placed in a language nobody reads.
+   *
+   * featured_slots.entity_id is polymorphic across three tables and so
+   * carries no foreign key, which is why this is a lookup per kind
+   * rather than a join. Three small queries on an admin page, and only
+   * for the kinds actually present.
+   */
+  const byType = new Map<string, Set<string>>();
+  for (const f of rows) {
+    const type = f.entity_type as string | null;
+    const id = f.entity_id as string | null;
+    if (!type || !id) continue;
+    if (!byType.has(type)) byType.set(type, new Set());
+    byType.get(type)!.add(id);
+  }
+
+  const TABLES: Record<string, string> = {
+    story: 'stories',
+    shelf: 'shelves',
+    product: 'products',
+  };
+
+  const slugOf = new Map<string, string>();
+  await Promise.all(
+    [...byType.entries()].map(async ([type, ids]) => {
+      const table = TABLES[type];
+      if (!table) return;
+      const { data: found } = await supabase
+        .from(table)
+        .select('id, slug')
+        .in('id', [...ids]);
+      for (const row of found ?? []) slugOf.set(row.id as string, row.slug as string);
+    }),
+  );
+
+  return rows.map((f: Record<string, unknown>) => ({
     id: f.id as string,
     placement: f.placement as FeaturedSlot['placement'],
     entityType: f.entity_type as FeaturedSlot['entityType'],
-    // The slug is resolved for display by the page; the row stores an id.
-    entitySlug: (f.entity_id as string) ?? '',
+    // The slug, so the page can name it. An id that resolves to nothing
+    // means the story was deleted out from under the placement.
+    entitySlug: slugOf.get(f.entity_id as string) ?? '',
     headline: (f.headline as string) ?? null,
     blurb: (f.blurb as string) ?? null,
     sortOrder: (f.sort_order as number) ?? 0,

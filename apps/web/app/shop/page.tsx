@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getProducts } from '@/lib/content';
 import { Cover } from '@/components/cover-art';
-import { getFeaturedOne } from '@/lib/featured';
+import { getFeaturedOne, getFeatured, applyOrder } from '@/lib/featured';
 
 export const metadata: Metadata = {
   title: 'The Bookshop',
@@ -14,10 +14,15 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function ShopPage() {
-  const [products, placed] = await Promise.all([
+  const [allProducts, placed, ordered] = await Promise.all([
     getProducts(),
     getFeaturedOne('shop_hero'),
+    getFeatured('shop_order'),
   ]);
+
+  // Whatever the House put first comes first; the rest keep their own
+  // order behind them.
+  const products = applyOrder(allProducts, ordered);
 
   // A deliberate placement beats the is_featured flag; the flag is the
   // fallback when nothing has been placed.

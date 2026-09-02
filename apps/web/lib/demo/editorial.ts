@@ -100,7 +100,13 @@ export type Notification = {
 
 export type FeaturedSlot = {
   id: string;
-  placement: 'home_hero' | 'librarian_pick' | 'shop_hero' | 'shelf_spotlight';
+  placement:
+    | 'home_hero'
+    | 'librarian_pick'
+    | 'shop_hero'
+    | 'shelf_spotlight'
+    | 'library_order'
+    | 'shop_order';
   entityType: 'story' | 'shelf' | 'product' | 'letter';
   entitySlug: string;
   headline: string | null;
@@ -482,4 +488,29 @@ export function demoMarkNotificationsRead(authorSlug: string): void {
   for (const n of store().notifications) {
     if (n.forAuthor === authorSlug && !n.readAt) n.readAt = now;
   }
+}
+
+
+/**
+ * Swap two placements in the demo store, so arranging behaves the same
+ * with and without a database. Without this the buttons would work in
+ * one mode and silently do nothing in the other, which is the bug this
+ * codebase has now been bitten by five times.
+ */
+export function demoMoveFeatured(id: string, direction: 'up' | 'down'): void {
+  const all = store().featured;
+  const self = all.find((f) => f.id === id);
+  if (!self) return;
+
+  const siblings = all
+    .filter((f) => f.placement === self.placement)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const at = siblings.findIndex((f) => f.id === id);
+  const other = siblings[direction === 'up' ? at - 1 : at + 1];
+  if (!other) return;
+
+  const swap = self.sortOrder;
+  self.sortOrder = other.sortOrder;
+  other.sortOrder = swap;
 }

@@ -522,3 +522,65 @@ export async function clearBackdrop(): Promise<void> {
   revalidatePath('/');
   revalidatePath('/admin/settings/featured');
 }
+
+/**
+ * Move a placement up or down its list.
+ *
+ * Ordering is a swap, not a renumber. Rewriting every sort_order on each
+ * click means two people arranging the same list at once produce a
+ * sequence neither of them chose; swapping two rows touches only what
+ * moved, and the worst case is that one move is lost rather than the
+ * whole order scrambled.
+ */
+export async function moveFeatured(formData: FormData): Promise<void> {
+  await requireStaff();
+
+  const id = field(formData, 'id');
+  const direction = field(formData, 'direction') === 'up' ? 'up' : 'down';
+  if (!id) return;
+
+  if (isDemoMode()) {
+    const { demoMoveFeatured } = await import('@/lib/demo/editorial');
+    demoMoveFeatured?.(id, direction);
+  } else {
+    const supabase = await createClient();
+
+    const { data: self } = await supabase
+      .from('featured_slots')
+      .select('id, placement, sort_order')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!self) return;
+
+    // The nearest row on the side we are moving towards.
+    const query = supabase
+      .from('featured_slots')
+      .select('id, sort_order')
+      .eq('placement', self.placement as string)
+      .limit(1);
+
+    const { data: neighbours } =
+      direction === 'up'
+        ? await query.lt('sort_order', self.sort_order as number).order('sort_order', { ascending: false })
+        : await query.gt('sort_order', self.sort_order as number).order('sort_order', { ascending: true });
+
+    const neighbour = neighbours?.[0];
+    // Already at the end. Nothing to swap with is not a failure.
+    if (!neighbour) return;
+
+    await Promise.all([
+      supabase.from('featured_slots').update({ sort_order: neighbour.sort_order }).eq('id', self.id),
+      supabase
+        .from('featured_slots')
+        .update({ sort_order: self.sort_order })
+        .eq('id', neighbour.id as string),
+    ]);
+  }
+
+  revalidateTag('content');
+  revalidatePath('/');
+  revalidatePath('/library');
+  revalidatePath('/shop');
+  revalidatePath('/admin/settings/featured');
+}

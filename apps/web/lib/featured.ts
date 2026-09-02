@@ -25,7 +25,15 @@ export type Placement =
   | 'home_hero'
   | 'librarian_pick'
   | 'shop_hero'
-  | 'shelf_spotlight';
+  | 'shelf_spotlight'
+  /*
+   * Ordered lists rather than single slots. These say which stories and
+   * which products come first on their page; anything not placed follows
+   * in the page's own order, so curating three items does not hide the
+   * other nine.
+   */
+  | 'library_order'
+  | 'shop_order';
 
 export type FeaturedItem = {
   id: string;
@@ -114,7 +122,16 @@ async function fetchFeatured(
     };
 
     if (slot.entityType === 'story') {
-      // Match on slug or id, so the same code serves demo and live.
+      /*
+       * Match on slug or id, so the same code serves demo and live.
+       *
+       * All three branches do this now. Shelves and products used to
+       * match on slug only, and their content queries did not select
+       * an id — so in live mode, where a slot stores a uuid, every
+       * placed shelf and product resolved to nothing and was skipped.
+       * A placement that silently shows the page default looks exactly
+       * like a placement nobody made.
+       */
       const s = stories.find((x) => x.slug === key || x.id === key);
       if (!s) continue;
       resolved.push({
@@ -133,7 +150,7 @@ async function fetchFeatured(
     }
 
     if (slot.entityType === 'shelf') {
-      const sh = shelves.find((x) => x.slug === key);
+      const sh = shelves.find((x) => x.slug === key || x.id === key);
       if (!sh) continue;
       resolved.push({
         ...base,
@@ -222,3 +239,25 @@ export const getBackdrop = unstable_cache(fetchBackdrop, ['home-backdrop'], {
   revalidate: 60,
   tags: ['content'],
 });
+
+/**
+ * Reorder a list so the placed items lead, in the order the House chose.
+ *
+ * Anything not placed keeps its own order behind them, which is the
+ * point: curating three stories should not hide the other nine. That is
+ * the difference between "featured" and "the only ones".
+ */
+export function applyOrder<T extends { slug: string }>(
+  items: T[],
+  placed: { slug: string }[],
+): T[] {
+  if (placed.length === 0) return items;
+
+  const rank = new Map(placed.map((p, i) => [p.slug, i]));
+  const lead = items
+    .filter((i) => rank.has(i.slug))
+    .sort((a, b) => (rank.get(a.slug) ?? 0) - (rank.get(b.slug) ?? 0));
+
+  const rest = items.filter((i) => !rank.has(i.slug));
+  return [...lead, ...rest];
+}

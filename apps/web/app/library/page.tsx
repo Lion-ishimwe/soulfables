@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getShelves, getStories } from '@/lib/content';
 import { StoryCard } from '@/components/story-card';
+import { getFeatured, applyOrder } from '@/lib/featured';
 
 export const metadata: Metadata = {
   title: 'The Library',
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function LibraryPage() {
-  const [stories, shelves] = await Promise.all([getStories(), getShelves()]);
+  const [all, shelves, placed] = await Promise.all([
+    getStories(),
+    getShelves(),
+    getFeatured('library_order'),
+  ]);
+
+  // Whatever the House put first comes first; everything else follows.
+  const stories = applyOrder(all, placed);
 
   return (
     <>
