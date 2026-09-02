@@ -193,3 +193,32 @@ export const getFeaturedOne = unstable_cache(fetchFeaturedOne, ['featured-one'],
   revalidate: 60,
   tags: ['content'],
 });
+
+/**
+ * The picture behind the front door, if the House has chosen one.
+ *
+ * A featured slot carrying an image rather than an entity — see
+ * migration 0022. Null means nobody has chosen one, and the page draws
+ * its own, which is the normal state rather than a missing thing.
+ */
+async function fetchBackdrop(): Promise<string | null> {
+  if (isDemoMode()) return null;
+
+  const { createPublicClient } = await import('./supabase/server');
+  const supabase = createPublicClient();
+
+  const { data } = await supabase
+    .from('featured_slots')
+    .select('image_url')
+    .eq('placement', 'home_backdrop')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return (data?.image_url as string) ?? null;
+}
+
+export const getBackdrop = unstable_cache(fetchBackdrop, ['home-backdrop'], {
+  revalidate: 60,
+  tags: ['content'],
+});

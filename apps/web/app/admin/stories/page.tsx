@@ -89,9 +89,6 @@ export default async function StoriesPage({
                   <td className="px-5 py-3.5">
                     <Link href={`/admin/stories/${s.slug}`} className="block">
                       <span className="block text-ivory">{s.title}</span>
-                      <span className="mt-0.5 block font-mono text-xs text-grey-muted">
-                        /story/{s.slug}
-                      </span>
                     </Link>
                   </td>
 

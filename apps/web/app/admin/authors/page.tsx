@@ -100,9 +100,6 @@ export default async function AuthorsPage({
                           <span className="block truncate font-ui text-sm text-ivory">
                             {a.name}
                           </span>
-                          <span className="mt-0.5 block truncate font-mono text-micro text-grey-faint">
-                            {a.slug}
-                          </span>
                         </span>
                       </Link>
                     </td>

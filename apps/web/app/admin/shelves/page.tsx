@@ -76,11 +76,14 @@ export default async function ShelvesPage({
                         <span aria-hidden="true" className="text-lg leading-none">
                           {s.emoji}
                         </span>
+                        {/*
+                          The URL is not shown. It is a technical detail of
+                          where the page lives, not a fact about the shelf,
+                          and a column of /shelf/… in a monospace font reads
+                          like something the reader is meant to act on.
+                        */}
                         <span className="min-w-0">
                           <span className="block text-ivory">{s.label}</span>
-                          <span className="mt-0.5 block font-mono text-xs text-grey-muted">
-                            /shelf/{s.slug}
-                          </span>
                         </span>
                       </Link>
                     </td>

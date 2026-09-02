@@ -3,6 +3,8 @@ import { Suspense } from 'react';
 import { getShelves } from '@/lib/content';
 import { Greeting } from '@/components/greeting';
 import { LibraryBackdrop } from '@/components/library-backdrop';
+import { getBackdrop } from '@/lib/featured';
+import Image from 'next/image';
 import { Suggestions, SuggestionsSkeleton } from '@/components/suggestions';
 import { FeaturedHero } from '@/components/featured-hero';
 
@@ -23,7 +25,7 @@ import { FeaturedHero } from '@/components/featured-hero';
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const shelves = await getShelves();
+  const [shelves, backdrop] = await Promise.all([getShelves(), getBackdrop()]);
   const entry = shelves.slice(0, 6);
 
   return (
@@ -31,7 +33,24 @@ export default async function HomePage() {
       <section className="relative overflow-hidden">
         {/* The House, seen from inside. Drawn rather than photographed —
             see components/library-backdrop.tsx. */}
-        <LibraryBackdrop />
+        {/*
+          A chosen photograph if the House has set one, and the drawn
+          library otherwise. Settings → Featured is where it changes; the
+          drawn one is the default rather than a fallback for failure.
+        */}
+        {backdrop ? (
+          <Image
+            src={backdrop}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover opacity-40"
+            unoptimized
+          />
+        ) : (
+          <LibraryBackdrop />
+        )}
 
         {/* The lamp, sitting over the room. */}
         <div

@@ -468,3 +468,57 @@ export async function deleteFeatured(formData: FormData): Promise<void> {
   revalidateTag('content');
   redirect('/admin/featured?deleted=1' as Route);
 }
+
+// =====================================================================
+// The front door backdrop
+// =====================================================================
+
+/**
+ * A featured slot that carries a picture instead of a story.
+ *
+ * Singular by nature — there is one front door — so this replaces rather
+ * than appends, the same way home_hero does. Migration 0022 made
+ * entity_id optional and added image_url for exactly this.
+ */
+export async function saveBackdrop(url: string): Promise<{ error?: string } | void> {
+  await requireStaff();
+
+  const trimmed = url.trim();
+  if (!trimmed) return { error: 'Choose or upload an image first.' };
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return { error: 'That is not a web address. It should begin http:// or https://' };
+  }
+
+  if (isDemoMode()) {
+    return { error: 'Demo mode keeps nothing. Connect a database and this sticks.' };
+  }
+
+  const supabase = await createClient();
+
+  await supabase.from('featured_slots').delete().eq('placement', 'home_backdrop');
+
+  const { error } = await supabase.from('featured_slots').insert({
+    placement: 'home_backdrop',
+    image_url: trimmed,
+    sort_order: 0,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidateTag('content');
+  revalidatePath('/');
+  revalidatePath('/admin/settings/featured');
+}
+
+/** Back to the drawn backdrop. */
+export async function clearBackdrop(): Promise<void> {
+  await requireStaff();
+  if (isDemoMode()) return;
+
+  const supabase = await createClient();
+  await supabase.from('featured_slots').delete().eq('placement', 'home_backdrop');
+
+  revalidateTag('content');
+  revalidatePath('/');
+  revalidatePath('/admin/settings/featured');
+}

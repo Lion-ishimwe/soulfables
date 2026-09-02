@@ -11,6 +11,7 @@ import {
 } from '@/app/actions/workflow';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import type { WorkStory } from '@/lib/admin-data';
+import { ChapterTrack } from './chapter-track';
 
 function Button({
   label,
@@ -73,12 +74,15 @@ export function StudioEditor({
       {/* Chapters, for a serialised story. */}
       {story.releaseMode === 'serial' && (
         <section className="mb-10">
-          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
-            <h2 className="sf-eyebrow">Chapters</h2>
-            <span className="font-ui text-xs text-grey-muted">
-              {story.chapters.filter((c) => c.status === 'published').length} of{' '}
-              {story.chapters.length} released
-            </span>
+          <h2 className="sf-eyebrow mb-4">Chapters</h2>
+
+          {/*
+            Where the serial has got to, before the list of what it is
+            made of. Returning after a fortnight, "released up to 3, next
+            is 5" is the thing you need; the rows are for checking it.
+          */}
+          <div className="mb-5">
+            <ChapterTrack chapters={story.chapters} />
           </div>
 
           {chapterState.error && (

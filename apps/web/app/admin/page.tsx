@@ -241,9 +241,7 @@ export default async function AdminHome({
                               <span className="block truncate font-ui text-sm text-ivory">
                                 {s.title}
                               </span>
-                              <span className="block truncate font-mono text-micro text-grey-faint">
-                                /story/{s.slug}
-                              </span>
+
                             </span>
                           </Link>
                         </td>

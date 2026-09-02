@@ -7,6 +7,8 @@ import { FeaturedForm, type Catalogue } from '@/components/admin/featured-form';
 import { deleteFeatured } from '@/app/actions/editorial';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
+import { BackdropForm } from '@/components/admin/backdrop-form';
+import { getBackdrop } from '@/lib/featured';
 
 export const metadata: Metadata = { title: 'Featured' };
 export const dynamic = 'force-dynamic';
@@ -36,13 +38,14 @@ export default async function FeaturedPage({
 }: {
   searchParams: Promise<{ saved?: string; deleted?: string }>;
 }) {
-  const [{ saved, deleted }, slots, stories, products, shelves] =
+  const [{ saved, deleted }, slots, stories, products, shelves, backdrop] =
     await Promise.all([
       searchParams,
       listAdminFeatured(),
       getStories(),
       getProducts(),
       listAdminShelves(),
+      getBackdrop(),
     ]);
 
   const catalogue: Catalogue = {
@@ -67,6 +70,10 @@ export default async function FeaturedPage({
         subtitle="What readers meet first, and where. Changing this changes the front door immediately."
       />
       <SettingsTabs />
+
+      <div className="mb-6">
+        <BackdropForm current={backdrop} />
+      </div>
 
       {saved && (
         <p className="mb-6 border-l-2 border-state-success bg-state-success/10 px-4 py-3 text-sm text-ivory">

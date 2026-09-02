@@ -1,5 +1,7 @@
 'use client';
 
+import { MarkPicker } from './mark-picker';
+
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
@@ -110,19 +112,8 @@ export function ShelfForm({
 
       <div className="grid gap-x-10 lg:grid-cols-[1fr_18rem]">
         <div className="min-w-0">
-          <div className="mb-5 grid grid-cols-[5rem_1fr] gap-4">
-            <div>
-              <label htmlFor="sh-emoji" className="sf-eyebrow mb-2 block">
-                Mark
-              </label>
-              <input
-                id="sh-emoji"
-                name="emoji"
-                defaultValue={draft.emoji ?? ''}
-                maxLength={8}
-                className="w-full border border-rule bg-ink-raised px-3 py-3 text-center text-2xl outline-none focus:border-gold/50"
-              />
-            </div>
+          <div className="mb-5 grid gap-4 sm:grid-cols-[auto_1fr]">
+            <MarkPicker name="emoji" defaultValue={draft.emoji ?? ''} />
             <div>
               <label htmlFor="sh-label" className="sf-eyebrow mb-2 block">
                 Label <span className="text-gold">*</span>

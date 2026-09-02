@@ -8,6 +8,7 @@ import { requireStaff, requireViewer, getViewer, isStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 import { provisionAuthorAccount, revokeAccountFor } from '@/lib/author-accounts';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   demoGetStory,
   demoSaveStory,
@@ -285,14 +286,64 @@ export async function saveChapter(
   const mayPublish = viewer ? isStaff(viewer.role) : false;
   const publish = d.publish === 'on' && mayPublish;
 
-  demoSaveChapter(d.storySlug, {
-    id: d.id || `ch-${Date.now()}`,
-    number: d.number,
-    title: d.title,
-    bodyMdx: d.bodyMdx ?? '',
-    status: publish ? 'published' : 'draft',
-    publishedAt: publish ? new Date().toISOString() : null,
-  });
+  const body = d.bodyMdx ?? '';
+  // Counted here so the chapter list can show length without loading
+  // every body — the columns exist for exactly this.
+  const words = body.trim() ? body.trim().split(/\s+/).length : 0;
+  const minutes = Math.max(1, Math.ceil(words / 220));
+
+  if (isDemoMode()) {
+    demoSaveChapter(d.storySlug, {
+      id: d.id || `ch-${Date.now()}`,
+      number: d.number,
+      title: d.title,
+      bodyMdx: body,
+      status: publish ? 'published' : 'draft',
+      publishedAt: publish ? new Date().toISOString() : null,
+    });
+  } else {
+    const supabase = await createClient();
+
+    const { data: story } = await supabase
+      .from('stories')
+      .select('id')
+      .eq('slug', d.storySlug)
+      .maybeSingle();
+
+    if (!story) return { error: 'That story no longer exists.' };
+
+    const row = {
+      story_id: story.id as string,
+      number: d.number,
+      title: d.title,
+      body_mdx: body,
+      status: publish ? 'published' : 'draft',
+      published_at: publish ? new Date().toISOString() : null,
+      word_count: words,
+      reading_minutes: minutes,
+    };
+
+    /*
+     * Number is the identity of a chapter within a story, not the row id
+     * — an author editing "chapter 3" means the third one, whether or not
+     * they still have the id from when it was created. The unique index
+     * on (story_id, number) makes that safe to lean on.
+     */
+    const { error } = d.id
+      ? await supabase.from('story_chapters').update(row).eq('id', d.id)
+      : await supabase
+          .from('story_chapters')
+          .upsert(row, { onConflict: 'story_id,number' });
+
+    if (error) {
+      return {
+        error:
+          error.code === '23505'
+            ? `There is already a chapter ${d.number}. Give this one the next number.`
+            : error.message,
+      };
+    }
+  }
 
   revalidatePath('/', 'layout');
 
@@ -309,7 +360,13 @@ export async function removeChapter(formData: FormData): Promise<void> {
   const storySlug = field(formData, 'storySlug');
   if (!(await canEdit(storySlug))) return;
 
-  demoDeleteChapter(storySlug, field(formData, 'id'));
+  if (isDemoMode()) {
+    demoDeleteChapter(storySlug, field(formData, 'id'));
+  } else {
+    const supabase = await createClient();
+    await supabase.from('story_chapters').delete().eq('id', field(formData, 'id'));
+  }
+
   revalidatePath('/', 'layout');
   revalidateTag('content');
 }
@@ -319,25 +376,72 @@ export async function publishChapter(formData: FormData): Promise<void> {
   const storySlug = field(formData, 'storySlug');
   const id = field(formData, 'id');
 
-  const story = demoGetStory(storySlug);
-  const chapter = story?.chapters.find((c) => c.id === id);
-  if (!story || !chapter) return;
+  if (isDemoMode()) {
+    const story = demoGetStory(storySlug);
+    const chapter = story?.chapters.find((c) => c.id === id);
+    if (!story || !chapter) return;
 
-  demoSaveChapter(storySlug, {
-    ...chapter,
-    status: 'published',
-    publishedAt: new Date().toISOString(),
-  });
-
-  const tell = story.assignedAuthorSlug ?? story.authorSlug;
-  if (tell) {
-    demoNotify({
-      forAuthor: tell,
-      kind: 'story.published',
-      title: `Chapter ${chapter.number} of “${story.title}” is out`,
-      body: chapter.title,
-      href: `/story/${storySlug}`,
+    demoSaveChapter(storySlug, {
+      ...chapter,
+      status: 'published',
+      publishedAt: new Date().toISOString(),
     });
+
+    const tell = story.assignedAuthorSlug ?? story.authorSlug;
+    if (tell) {
+      demoNotify({
+        forAuthor: tell,
+        kind: 'story.published',
+        title: `Chapter ${chapter.number} of “${story.title}” is out`,
+        body: chapter.title,
+        href: `/story/${storySlug}`,
+      });
+    }
+  } else {
+    const supabase = await createClient();
+
+    const { data: chapter } = await supabase
+      .from('story_chapters')
+      .select('number, title, stories(title, assigned_author_id, author_id)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!chapter) return;
+
+    await supabase
+      .from('story_chapters')
+      .update({ status: 'published', published_at: new Date().toISOString() })
+      .eq('id', id);
+
+    /*
+     * Tell whoever is carrying the story, falling back to whoever's name
+     * is on it. Notifications are written with the service role because
+     * they belong to somebody else — a reader cannot insert a row scoped
+     * to another user's id, which is the policy doing its job.
+     */
+    const parent = (Array.isArray(chapter.stories) ? chapter.stories[0] : chapter.stories) as
+      | { title: string; assigned_author_id: string | null; author_id: string | null }
+      | null;
+
+    const authorId = parent?.assigned_author_id ?? parent?.author_id ?? null;
+    if (authorId) {
+      const admin = createAdminClient();
+      const { data: author } = await admin
+        .from('authors')
+        .select('user_id')
+        .eq('id', authorId)
+        .maybeSingle();
+
+      if (author?.user_id) {
+        await admin.from('notifications').insert({
+          user_id: author.user_id as string,
+          kind: 'story.published',
+          title: `Chapter ${chapter.number} of “${parent?.title ?? 'your story'}” is out`,
+          body: chapter.title as string,
+          href: `/story/${storySlug}`,
+        });
+      }
+    }
   }
 
   revalidatePath('/', 'layout');
