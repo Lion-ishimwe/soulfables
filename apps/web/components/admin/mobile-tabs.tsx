@@ -41,15 +41,7 @@ const MORE = [
     { href: '/admin/letter', label: 'Weekly Letter', icon: 'draft' },
     { href: '/admin/prompts', label: 'Journal prompts', icon: 'spark' },
   ]},
-  { heading: 'Administration', adminOnly: true, items: [
-    { href: '/admin/users', label: 'Readers', icon: 'people' },
-    { href: '/admin/analytics', label: 'Analytics', icon: 'spark' },
-    { href: '/admin/audit', label: 'Audit log', icon: 'clock' },
-    { href: '/admin/settings', label: 'Settings', icon: 'gear' },
-    { href: '/admin/settings/featured', label: 'Featured', icon: 'spark' },
-    { href: '/admin/settings/account', label: 'Account', icon: 'people' },
-  ]},
-] as const;
+  ] as const;
 
 export function MobileTabs({ role }: { role: AppRole }) {
   const pathname = usePathname();

@@ -8,15 +8,21 @@ import { usePathname } from 'next/navigation';
  * Settings is now three pages, so it needs to look like one place.
  *
  * The House is what Soulfables says about itself, Featured is what it
- * puts in front of readers, and Account is you. They belong together
- * because they are all "configuration" and none of them is content — but
- * they are separate pages because each is a different job with a
- * different save.
+ * puts in front of readers, Account is you, and Report and the Audit log
+ * are what has happened. They belong together because none of them is
+ * content — but they are separate pages because each is a different job.
+ *
+ * Administration used to be its own group holding Readers, Analytics and
+ * the audit log. Three items is not a section, and two of them were
+ * halves of one question, so Analytics and Readers became Report and the
+ * group went away.
  */
 const TABS = [
   { href: '/admin/settings', label: 'The House', exact: true },
   { href: '/admin/settings/featured', label: 'Featured', exact: false },
   { href: '/admin/settings/account', label: 'Account', exact: false },
+  { href: '/admin/settings/report', label: 'Report', exact: false },
+  { href: '/admin/settings/audit', label: 'Audit log', exact: false },
 ] as const;
 
 export function SettingsTabs() {

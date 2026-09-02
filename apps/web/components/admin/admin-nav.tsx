@@ -42,21 +42,14 @@ const GROUPS = [
       { href: '/admin/prompts', label: 'Journal prompts', icon: 'spark' },
     ],
   },
-  {
-    heading: 'Administration',
-    items: [
-      { href: '/admin/users', label: 'Readers', icon: 'people' },
-      { href: '/admin/analytics', label: 'Analytics', icon: 'spark' },
-      { href: '/admin/audit', label: 'Audit log', icon: 'clock' },
-    ],
-    adminOnly: true,
-  },
-  {
+    {
     heading: 'Settings',
     items: [
       { href: '/admin/settings', label: 'Settings', icon: 'gear' },
       { href: '/admin/settings/featured', label: 'Featured', icon: 'spark' },
       { href: '/admin/settings/account', label: 'Account', icon: 'people' },
+      { href: '/admin/settings/report', label: 'Report', icon: 'spark' },
+      { href: '/admin/settings/audit', label: 'Audit log', icon: 'clock' },
     ],
   },
 ] as const;

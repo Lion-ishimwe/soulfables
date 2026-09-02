@@ -164,7 +164,7 @@ export default async function AdminHome({
           </Panel>
         </div>
 
-        <Panel title="Recent Activity" action={{ href: '/admin/audit', label: 'View all' }}>
+        <Panel title="Recent Activity" action={{ href: '/admin/settings/audit', label: 'View all' }}>
           {activity.length === 0 ? (
             <PanelEmpty>
               The audit log is empty. Every staff action that changes something is
