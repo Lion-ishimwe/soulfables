@@ -158,6 +158,29 @@ fi
 # now, so it never exists world-readable even for a moment.
 install -o "$APP_USER" -g "$APP_USER" -m 600 /dev/null "$APP_DIR/.env.production"
 
+# ---------------------------------------------------------------------
+# Let the service account restart its own service, and read its own logs.
+#
+# deploy.sh runs as soulfables — it must, so the files it writes are owned
+# by the user that serves them — and then has to restart the unit. A
+# system account has no sudo rights, so that failed with "I'm sorry
+# soulfables. I'm afraid I can't do that" after a fifteen minute build.
+#
+# Three exact commands, no wildcards, no shell: this account can restart
+# its own service and ask whether it is running, and nothing else. The
+# journal group is a read-only membership, so a failed deploy can print
+# the logs that explain itself instead of telling somebody to go and look.
+# ---------------------------------------------------------------------
+log "Allowing ${APP_USER} to restart its own service"
+cat > /etc/sudoers.d/soulfables <<'SUDOERS'
+soulfables ALL=(root) NOPASSWD: /usr/bin/systemctl restart soulfables
+soulfables ALL=(root) NOPASSWD: /usr/bin/systemctl start soulfables
+soulfables ALL=(root) NOPASSWD: /usr/bin/systemctl is-active soulfables
+SUDOERS
+chmod 440 /etc/sudoers.d/soulfables
+visudo -cf /etc/sudoers.d/soulfables
+usermod -aG systemd-journal "$APP_USER"
+
 log "Installing the systemd unit"
 install -m 644 "$(dirname "$0")/soulfables.service" /etc/systemd/system/soulfables.service
 systemctl daemon-reload

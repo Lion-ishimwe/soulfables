@@ -93,7 +93,13 @@ log "Installing dependencies"
 npm ci
 
 log "Building"
-npm run build
+# Node sizes its heap from physical memory and ignores swap entirely, so
+# on a 1 GB instance it caps at about 467 MB and the type-checker dies
+# with "Ineffective mark-compacts near heap limit" — which reads like a
+# bug in the code rather than a machine that is too small. The swap file
+# provisioning adds is what makes a larger ceiling safe; without it this
+# would trade a clean failure for the OOM killer.
+NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
 log "Restarting"
 sudo systemctl restart soulfables

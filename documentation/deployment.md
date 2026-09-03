@@ -1,5 +1,8 @@
 # Deploying Soulfables to EC2
 
+**Live at http://13.53.49.185** — instance `i-02fff24055818aa9b`,
+Ubuntu 26.04, t3.micro, eu-north-1.
+
 Target: a single Ubuntu instance in `eu-north-1` (Stockholm), serving on
 its public IP over HTTP. The database stays where it is — Supabase is
 hosted, so nothing about the data moves and no database runs on this box.
