@@ -58,7 +58,20 @@ const storySchema = z.object({
 
 export type StoryActionResult = { error?: string; message?: string };
 
-/** Average adult reading speed for narrative prose, rounded up. */
+/*
+ * Average adult reading speed for narrative prose, rounded up.
+ *
+ * The database is authoritative for this now: migration 0025 puts a
+ * trigger on stories and story_chapters that derives word_count and
+ * reading_minutes from the body, so whatever this file writes is
+ * recomputed on the way in. The two agree deliberately — same 220, same
+ * word count — so the value here is a correct prediction rather than a
+ * competing one, and the form can preview an estimate as somebody types.
+ *
+ * The trigger exists because the seed set reading times by hand, at six
+ * to eleven minutes for bodies of about 350 words, and the seed does not
+ * run application code.
+ */
 const WORDS_PER_MINUTE = 220;
 
 function countWords(text: string): number {
