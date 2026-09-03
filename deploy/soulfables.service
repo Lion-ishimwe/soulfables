@@ -1,0 +1,54 @@
+[Unit]
+Description=Soulfables (Next.js)
+Documentation=https://github.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=soulfables
+Group=soulfables
+WorkingDirectory=/srv/soulfables/apps/web
+
+# Written by deploy.sh from Parameter Store. systemd reads it directly,
+# so the secrets never appear in a process argument or in the unit file.
+EnvironmentFile=/srv/soulfables/.env.production
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Bound to loopback on purpose. nginx is the only thing that should be
+# able to reach the Node process; without -H the server listens on every
+# interface and port 3000 is reachable from the internet directly,
+# bypassing the proxy and anything it is doing.
+# The binary directly, not npx. If next were ever missing, npx would go
+# to the registry and download it — a production service quietly
+# installing software from the internet at boot. This fails instead.
+ExecStart=/srv/soulfables/node_modules/.bin/next start -H 127.0.0.1 -p 3000
+
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# The application writes nothing to disk: uploads go to Supabase Storage
+# and there is no local cache to keep. So it gets a read-only filesystem
+# with a private /tmp, and .next stays writable because Next writes its
+# cache there while serving.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/soulfables/apps/web/.next
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=soulfables
+
+[Install]
+WantedBy=multi-user.target

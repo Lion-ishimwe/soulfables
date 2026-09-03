@@ -1,0 +1,8 @@
+Scoped to /soulfables/production/* and nothing else. An instance holding
+this role can read the settings for this one deployment and cannot read
+another environment's, cannot write any of them, and cannot use the KMS
+key for anything except decrypting a parameter on its way out of SSM —
+that is what the kms:ViaService condition is doing.
+
+Resource uses a wildcard account id so the same file works whichever
+account you attach it in.
