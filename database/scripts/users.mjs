@@ -91,12 +91,17 @@ const sql = (q) =>
  *
  * The owner defaults to the address this project belongs to, so password
  * reset reaches a mailbox that exists. Override with --owner.
+ *
+ * Changed from info@rightseat.rw on 3 September 2026. The live account
+ * was moved with the admin API rather than recreated, so it kept its id,
+ * its owner role, its authors row and every audit entry attributed to it;
+ * this default only matters if the accounts are ever seeded afresh.
  */
 const ownerFlag = process.argv.indexOf('--owner');
 const OWNER_EMAIL =
   ownerFlag !== -1 && process.argv[ownerFlag + 1]
     ? process.argv[ownerFlag + 1]
-    : 'info@rightseat.rw';
+    : 'soulfableslib@gmail.com';
 
 const ACCOUNTS = [
   {
