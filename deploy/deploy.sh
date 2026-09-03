@@ -74,7 +74,29 @@ fi
 : > "$ENV_FILE"
 while IFS=$'\t' read -r name value; do
   key=${name##*/}
-  printf "%s='%s'\n" "$key" "${value//\'/\'\\\'\'}" >> "$ENV_FILE"
+
+  # Trim surrounding whitespace.
+  #
+  # A value pasted into the console form carries whatever came with it,
+  # and an Enter key at the end of a paste is invisible there and
+  # invisible in the listing afterwards — PAYMENT_PROVIDER arrived seven
+  # characters long for a six-character word. Nothing here ever wants
+  # leading or trailing space, and an embedded newline makes the file
+  # itself look malformed to whoever reads it next.
+  value=$(printf '%s' "$value" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+  # Refuse a value this writer cannot quote safely, rather than escaping
+  # it subtly wrong and producing a file that looks fine and fails to
+  # parse three lines later. No key, URL or address contains one; if one
+  # ever does, it should be a loud stop rather than a broken deploy.
+  case $value in
+    *"'"*)
+      echo "Value for ${key} contains a single quote. Change it in Parameter Store." >&2
+      exit 1
+      ;;
+  esac
+
+  printf "%s='%s'\n" "$key" "$value" >> "$ENV_FILE"
 done < /tmp/sf-params.$$
 rm -f /tmp/sf-params.$$
 
