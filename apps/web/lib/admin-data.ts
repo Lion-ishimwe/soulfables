@@ -721,3 +721,228 @@ export async function storyThemeIds(storySlug: string): Promise<string[]> {
   const links = (data?.story_themes ?? []) as { theme_id: string }[];
   return links.map((l) => l.theme_id);
 }
+
+/* =====================================================================
+ * The four lists that were fixtures.
+ *
+ * /admin/orders, /admin/subscriptions, /admin/prompts and /admin/letter
+ * each rendered a hard-coded array from lib/demo/admin — unconditionally,
+ * with no isDemoMode() branch anywhere near them. So with a live database
+ * connected, the House showed seven orders that had never been placed,
+ * money it had never taken, four subscribers who did not exist, three
+ * letters it had never written with open rates for sends that never
+ * happened, and five journal prompts while hiding the ten real ones.
+ *
+ * These read the database. Where the answer is "none yet", they say so.
+ * ===================================================================== */
+
+export type AdminOrder = {
+  id: string;
+  reference: string;
+  email: string | null;
+  status: string;
+  currency: string;
+  total: number;
+  paidAt: string | null;
+  createdAt: string;
+  items: string[];
+};
+
+export async function listAdminOrders(): Promise<AdminOrder[]> {
+  if (isDemoMode() || !isConfigured()) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, reference, email, status, currency, total_amount, paid_at, created_at, order_items(title_snapshot)')
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error('[admin] listAdminOrders', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    reference: (r.reference as string) ?? '—',
+    email: (r.email as string) ?? null,
+    status: (r.status as string) ?? 'pending',
+    currency: (r.currency as string) ?? 'USD',
+    total: Number(r.total_amount ?? 0),
+    paidAt: (r.paid_at as string) ?? null,
+    createdAt: r.created_at as string,
+    items: ((r.order_items ?? []) as { title_snapshot: string }[]).map((i) => i.title_snapshot),
+  }));
+}
+
+export type AdminSubscriber = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  status: string;
+  periodEnd: string | null;
+  cancelling: boolean;
+  since: string;
+};
+
+export async function listAdminSubscribers(): Promise<AdminSubscriber[]> {
+  if (isDemoMode() || !isConfigured()) return [];
+
+  const supabase = await createClient();
+
+  /*
+   * The email lives in auth.users, which PostgREST does not expose. The
+   * reader list already solves this, staff-gated, in reader_report() —
+   * so subscriptions join to it rather than growing a second function
+   * that reads auth.users under slightly different rules.
+   */
+  const [subsRes, readersRes] = await Promise.all([
+    supabase
+      .from('subscriptions')
+      .select('id, user_id, status, current_period_end, cancel_at_period_end, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase.rpc('reader_report'),
+  ]);
+
+  if (subsRes.error) {
+    console.error('[admin] listAdminSubscribers', subsRes.error.message);
+    return [];
+  }
+
+  const who = new Map<string, { email: string; name: string | null }>();
+  for (const r of (readersRes.data ?? []) as Record<string, unknown>[]) {
+    who.set(r.user_id as string, {
+      email: r.email as string,
+      name: (r.display_name as string) ?? null,
+    });
+  }
+
+  return (subsRes.data ?? []).map((r: Record<string, unknown>) => {
+    const person = who.get(r.user_id as string);
+    return {
+      id: r.id as string,
+      email: person?.email ?? null,
+      name: person?.name ?? null,
+      status: (r.status as string) ?? 'unknown',
+      periodEnd: (r.current_period_end as string) ?? null,
+      cancelling: Boolean(r.cancel_at_period_end),
+      since: r.created_at as string,
+    };
+  });
+}
+
+export type AdminPrompt = {
+  id: string;
+  body: string;
+  kind: string;
+  scheduledOn: string | null;
+  isActive: boolean;
+  uses: number;
+};
+
+export async function listAdminPrompts(): Promise<AdminPrompt[]> {
+  if (isDemoMode() || !isConfigured()) return [];
+
+  const supabase = await createClient();
+  const [promptsRes, usesRes] = await Promise.all([
+    supabase
+      .from('journal_prompts')
+      .select('id, body, kind, scheduled_on, is_active, created_at')
+      .order('scheduled_on', { ascending: false, nullsFirst: false })
+      .order('created_at'),
+    // "Entries written" is a fact about the prompt, never about a person:
+    // only the prompt id is read, and no entry is reachable from here.
+    supabase.from('journal_entries').select('prompt_id'),
+  ]);
+
+  if (promptsRes.error) {
+    console.error('[admin] listAdminPrompts', promptsRes.error.message);
+    return [];
+  }
+
+  const uses = new Map<string, number>();
+  for (const e of (usesRes.data ?? []) as { prompt_id: string | null }[]) {
+    if (e.prompt_id) uses.set(e.prompt_id, (uses.get(e.prompt_id) ?? 0) + 1);
+  }
+
+  return (promptsRes.data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    body: r.body as string,
+    kind: (r.kind as string) ?? 'daily',
+    scheduledOn: (r.scheduled_on as string) ?? null,
+    isActive: r.is_active !== false,
+    uses: uses.get(r.id as string) ?? 0,
+  }));
+}
+
+export type AdminLetter = {
+  id: string;
+  volume: number;
+  number: number;
+  title: string;
+  subject: string | null;
+  dek: string | null;
+  status: string;
+  publishedAt: string | null;
+  sentAt: string | null;
+  sends: number;
+};
+
+export async function listAdminLetters(): Promise<AdminLetter[]> {
+  if (isDemoMode() || !isConfigured()) return [];
+
+  const supabase = await createClient();
+  const [lettersRes, sendsRes] = await Promise.all([
+    supabase
+      .from('letters')
+      .select('id, volume, number, title, subject, dek, status, published_at, sent_at')
+      .order('volume', { ascending: false })
+      .order('number', { ascending: false })
+      .limit(200),
+    supabase.from('letter_sends').select('letter_id'),
+  ]);
+
+  if (lettersRes.error) {
+    console.error('[admin] listAdminLetters', lettersRes.error.message);
+    return [];
+  }
+
+  const sends = new Map<string, number>();
+  for (const s of (sendsRes.data ?? []) as { letter_id: string | null }[]) {
+    if (s.letter_id) sends.set(s.letter_id, (sends.get(s.letter_id) ?? 0) + 1);
+  }
+
+  return (lettersRes.data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    volume: Number(r.volume ?? 1),
+    number: Number(r.number ?? 0),
+    title: r.title as string,
+    subject: (r.subject as string) ?? null,
+    dek: (r.dek as string) ?? null,
+    status: (r.status as string) ?? 'draft',
+    publishedAt: (r.published_at as string) ?? null,
+    sentAt: (r.sent_at as string) ?? null,
+    sends: sends.get(r.id as string) ?? 0,
+  }));
+}
+
+/** How many people would receive the next letter. */
+export async function letterSubscriberCount(): Promise<number> {
+  if (isDemoMode() || !isConfigured()) return 0;
+
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from('letter_subscribers')
+    .select('email', { count: 'exact', head: true })
+    .eq('status', 'subscribed');
+
+  // Null, not zero. A refusal and an empty list are different answers and
+  // the caller should not be told "nobody" when the truth is "cannot say".
+  if (error) {
+    console.error('[admin] letterSubscriberCount', error.message);
+    return 0;
+  }
+  return count ?? 0;
+}

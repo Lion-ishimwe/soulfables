@@ -51,10 +51,17 @@ async function shim() {
     create role authenticated;
     create role service_role;
 
+    -- Mirrors the columns of Supabase's auth.users that our migrations
+    -- actually read. created_at was missing, and because a language-sql
+    -- function body is validated at creation time, migration 0016 could
+    -- not even be created here — so this suite has been failing at 0016
+    -- and validating nothing from there on. Everything added after that
+    -- point went to the live database unchecked.
     create table auth.users (
       id uuid primary key default gen_random_uuid(),
       email text,
-      raw_user_meta_data jsonb default '{}'::jsonb
+      raw_user_meta_data jsonb default '{}'::jsonb,
+      created_at timestamptz not null default now()
     );
 
     create table storage.buckets (

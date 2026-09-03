@@ -1,81 +1,98 @@
 import type { Metadata } from 'next';
-import { isReadOnly } from '@/lib/admin-data';
-import { PageHeader, ReadOnlyNotice, Stat } from '@/components/admin/ui';
-import { DEMO_READERS } from '@/lib/demo/admin';
-import { formatDate, formatMoney } from '@/lib/format';
+import { isReadOnly, listAdminSubscribers } from '@/lib/admin-data';
+import { PageHeader, ReadOnlyNotice, EmptyState, StatusPill } from '@/components/admin/ui';
+import { formatDate } from '@/lib/format';
 
 export const metadata: Metadata = { title: 'Residency' };
 export const dynamic = 'force-dynamic';
 
 /*
- * Residency.
+ * Who is a Resident.
  *
- * Tiers are rows, not code (brief 16), so adding one is an editorial
- * decision rather than a deploy. A subscription grants real entitlement
- * rows with an expiry, which means the download path is identical to a
- * purchase — one code path to get right instead of two.
+ * This rendered DEMO_READERS — four invented subscribers, one of them
+ * carrying the founder's own name — with no branch on whether a database
+ * was connected. It read as a membership list and was a fixture.
+ *
+ * It reads subscriptions now. Nobody can subscribe until a payment
+ * provider is connected, so it is empty and says why.
  */
-export default function SubscriptionsPage() {
-  const residents = DEMO_READERS.filter((r) => r.plan === 'resident');
-  const monthly = residents.length * 600;
+export default async function SubscriptionsPage() {
+  const people = await listAdminSubscribers();
+  const active = people.filter((p) => p.status === 'active' || p.status === 'trialing');
 
   return (
     <>
       <PageHeader
         title="Residency"
-        subtitle="Members, and what their tier grants them."
+        subtitle="Who is subscribed, and until when."
       />
 
       {isReadOnly() && <ReadOnlyNotice />}
 
-      <div className="mb-8 grid gap-px bg-rule sm:grid-cols-3">
-        <Stat label="Residents" value={residents.length} hint="Active members" />
-        <Stat label="Monthly" value={formatMoney(monthly, 'USD')} hint="Recurring, before fees" />
-        <Stat label="Tiers" value={2} hint="Reader and Resident" />
-      </div>
-
-      <div className="mb-10 overflow-x-auto border border-rule">
-        <table className="w-full min-w-[36rem] text-sm">
-          <thead>
-            <tr className="border-b border-rule">
-              <th className="sf-eyebrow px-5 py-3 text-left">Member</th>
-              <th className="sf-eyebrow px-5 py-3 text-left">Email</th>
-              <th className="sf-eyebrow px-5 py-3 text-right">Since</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-rule">
-            {residents.map((r) => (
-              <tr key={r.email} className="hover:bg-ink-raised">
-                <td className="px-5 py-3.5 text-ivory">{r.displayName}</td>
-                <td className="px-5 py-3.5 text-grey-muted">{r.email}</td>
-                <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
-                  {formatDate(r.joinedAt)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <section className="border border-rule p-6">
-        <h2 className="sf-eyebrow mb-4">What each tier grants</h2>
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <p className="font-display text-xl text-ivory">Reader</p>
-            <p className="mt-2 text-sm leading-normal text-grey-muted">
-              Free stories, the journal, saved stories, bookmarks and the
-              Weekly Letter.
-            </p>
+      {people.length === 0 ? (
+        <EmptyState
+          title="No Residents yet."
+          body="Residency needs a payment provider before anybody can subscribe. Readers with accounts are listed under Settings → Report; this page is only about who is paying."
+          action={{ href: '/admin/settings/report', label: 'See the readers' }}
+        />
+      ) : (
+        <>
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+            <div className="rounded-lg border border-rule bg-ink-raised p-5">
+              <p className="font-ui text-xs text-grey-muted">Residents</p>
+              <p className="mt-2 font-display text-3xl leading-none text-ivory">
+                {active.length}
+              </p>
+            </div>
+            <div className="rounded-lg border border-rule bg-ink-raised p-5">
+              <p className="font-ui text-xs text-grey-muted">Leaving</p>
+              <p className="mt-2 font-display text-3xl leading-none text-ivory">
+                {people.filter((p) => p.cancelling).length}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-display text-xl text-ivory">Resident</p>
-            <p className="mt-2 text-sm leading-normal text-grey-muted">
-              Everything a Reader has, plus premium shelves, narrated
-              editions, offline listening and the companion.
-            </p>
+
+          <div className="overflow-x-auto rounded-lg border border-rule">
+            <table className="w-full min-w-[42rem] text-sm">
+              <thead>
+                <tr className="border-b border-rule">
+                  <th className="sf-eyebrow px-5 py-3 text-left">Name</th>
+                  <th className="sf-eyebrow px-5 py-3 text-left">Email</th>
+                  <th className="sf-eyebrow px-5 py-3 text-left">Status</th>
+                  <th className="sf-eyebrow px-5 py-3 text-right">Renews</th>
+                  <th className="sf-eyebrow px-5 py-3 text-right">Since</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                {people.map((p) => (
+                  <tr key={p.id} className="hover:bg-ink-raised">
+                    <td className="px-5 py-3.5 text-ivory">{p.name ?? '—'}</td>
+                    <td className="px-5 py-3.5 text-xs text-grey-muted">
+                      {p.email ?? '—'}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <StatusPill status={p.status} />
+                        {p.cancelling && (
+                          <span className="whitespace-nowrap border border-gold/45 px-2 py-0.5 font-ui text-micro uppercase tracking-[0.12em] text-gold">
+                            Leaving
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
+                      {formatDate(p.periodEnd)}
+                    </td>
+                    <td className="px-5 py-3.5 text-right tabular-nums text-grey-muted">
+                      {formatDate(p.since)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
+        </>
+      )}
     </>
   );
 }
