@@ -94,7 +94,12 @@ log "$(aws --version)"
 # ---------------------------------------------------------------------
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
   log "Creating service user ${APP_USER}"
-  useradd --system --create-home --home-dir "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
+  # No --create-home: by the time this runs the directory already exists
+  # and holds the uploaded code, and useradd asked to create a home that
+  # is already there warns rather than succeeding quietly — which under
+  # `set -e` would stop provisioning on something that is not a problem.
+  # The mkdir and chown below own the directory either way.
+  useradd --system --home-dir "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
 fi
 mkdir -p "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"

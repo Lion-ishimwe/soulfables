@@ -42,10 +42,19 @@ tar -czf - \
   --exclude='*.pem' \
   . \
 | "${SSH[@]}" "${USER_NAME}@${HOST}" \
-    "sudo install -d -o soulfables -g soulfables '${APP_DIR}' \
-     && sudo tar -xzf - -C '${APP_DIR}' \
-     && sudo chown -R soulfables:soulfables '${APP_DIR}' \
-     && echo '    unpacked'"
+    "set -e
+     sudo mkdir -p '${APP_DIR}'
+     sudo tar -xzf - -C '${APP_DIR}'
+     # The service account does not exist yet on a first upload — it is
+     # created by provision.sh, which is itself one of the files being
+     # uploaded. So hand ownership over only once there is somebody to
+     # hand it to; on the first run provision.sh does that chown.
+     if id -u soulfables >/dev/null 2>&1; then
+       sudo chown -R soulfables:soulfables '${APP_DIR}'
+       echo '    unpacked, owned by soulfables'
+     else
+       echo '    unpacked (service account not created yet - run provision.sh next)'
+     fi"
 
 echo "==> Sent. Now deploy on the instance:"
 echo "    ${SSH[*]} ${USER_NAME}@${HOST}"
