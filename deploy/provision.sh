@@ -53,20 +53,65 @@ apt-get install -y -qq curl ca-certificates gnupg git nginx unzip
 # ---------------------------------------------------------------------
 # Node 20, from NodeSource.
 #
-# Ubuntu's own nodejs package is too old for Next 15, and the failure
-# arrives as a syntax error deep in a dependency rather than as "your
-# Node is old".
+# Two reasons not to use the distribution's packages.
+#
+# On older Ubuntu the nodejs package is too old for Next 15, and the
+# failure arrives as a syntax error deep in a dependency rather than as
+# "your Node is old".
+#
+# On 26.04 the opposite: nodejs is 22, new enough — but Ubuntu splits npm
+# into its own package, so a box can have a perfectly good Node and no
+# npm at all. That is why the test below asks for both. Installing
+# Ubuntu's npm instead would work and would also pull in fontconfig,
+# Wayland and a stack of desktop libraries, which is a lot of weight for
+# a 1 GB server that will never draw anything.
+#
+# NodeSource ships node and npm together, and pins the major to the one
+# CI builds with, so the machine that proves a release and the machine
+# that serves it are running the same thing.
 # ---------------------------------------------------------------------
-if ! command -v node >/dev/null || [[ $(node -v | cut -c2- | cut -d. -f1) -lt $NODE_MAJOR ]]; then
+if ! command -v node >/dev/null || ! command -v npm >/dev/null    || [[ $(node -v | cut -c2- | cut -d. -f1) -lt $NODE_MAJOR ]]; then
   log "Installing Node ${NODE_MAJOR}"
   mkdir -p /etc/apt/keyrings
+  # --batch --yes: gpg reaches for /dev/tty to ask about overwriting an
+  # existing keyring, and a script run over ssh has no terminal to ask
+  # on. Without these it dies with "cannot open '/dev/tty'", which says
+  # nothing at all about keys.
   curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-    | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+    | gpg --batch --yes --dearmor -o /etc/apt/keyrings/nodesource.gpg
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" \
     > /etc/apt/sources.list.d/nodesource.list
+
+  # Prefer NodeSource over the distribution, permanently.
+  #
+  # Ubuntu 26.04 ships nodejs 22, which apt reads as NEWER than
+  # NodeSource's 20 — so a plain `apt-get install nodejs` reports "already
+  # the newest version", changes nothing, and leaves the box with a Node
+  # and no npm. The pin also protects the next `apt upgrade`, which would
+  # otherwise swap Node 20 back for the distribution's 22 and take npm
+  # away again months from now, on a box nobody is watching.
+  cat > /etc/apt/preferences.d/nodesource <<'PIN'
+Package: nodejs
+Pin: origin deb.nodesource.com
+Pin-Priority: 700
+PIN
+
   apt-get update -qq
-  apt-get install -y -qq nodejs
+
+  # Ask for the exact version rather than the name, and allow the
+  # downgrade that the pin implies.
+  ns_version=$(apt-cache madison nodejs | awk '/nodesource/{print $3; exit}')
+  if [[ -z "$ns_version" ]]; then
+    echo "NodeSource has no nodejs ${NODE_MAJOR}.x for this architecture." >&2
+    exit 1
+  fi
+  log "NodeSource offers ${ns_version}"
+  apt-get install -y -qq --allow-downgrades "nodejs=${ns_version}"
 fi
+
+# Refuse to continue without npm rather than failing later inside the
+# build, where "npm: command not found" reads as a broken repository.
+command -v npm >/dev/null || { echo "npm is still missing after installing Node." >&2; exit 1; }
 log "Node $(node -v), npm $(npm -v)"
 
 # ---------------------------------------------------------------------

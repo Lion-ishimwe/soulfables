@@ -1,8 +1,16 @@
-Scoped to /soulfables/production/* and nothing else. An instance holding
-this role can read the settings for this one deployment and cannot read
-another environment's, cannot write any of them, and cannot use the KMS
-key for anything except decrypting a parameter on its way out of SSM —
-that is what the kms:ViaService condition is doing.
+Scoped to /soulfables/production and nothing else.
 
-Resource uses a wildcard account id so the same file works whichever
-account you attach it in.
+Two ARNs, not one. GetParametersByPath is authorised against the PATH
+being listed, which is "…/parameter/soulfables/production" with no
+trailing slash — while GetParameter is authorised against each child,
+"…/parameter/soulfables/production/AI_API_KEY". Granting only the /*
+form passes a policy review and then fails at runtime with
+AccessDeniedException naming a resource that looks like it should have
+matched.
+
+An instance holding this can read the settings for this one deployment,
+cannot write any of them, cannot read another environment's, and can use
+the KMS key only to decrypt a parameter on its way out of SSM — that is
+what the kms:ViaService condition does.
+
+The account id is a wildcard so the same file works in any account.
