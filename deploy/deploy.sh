@@ -55,53 +55,24 @@ umask 077
 
 if ! aws ssm get-parameters-by-path \
       --path "$SSM_PATH" --recursive --with-decryption \
-      --region "$REGION" \
-      --query 'Parameters[].[Name,Value]' --output text > /tmp/sf-params.$$; then
+      --region "$REGION" --output json > /tmp/sf-params.$$; then
   echo "Could not read Parameter Store. Is the IAM role attached to this instance?" >&2
   rm -f /tmp/sf-params.$$
   exit 1
 fi
 
-if [[ ! -s /tmp/sf-params.$$ ]]; then
-  echo "No parameters found under ${SSM_PATH}. Run 'bash deploy/secrets.sh push' from your machine first." >&2
+# JSON, parsed by a script, rather than tab-separated text parsed by the
+# shell. A value containing a newline splits a text record in two, which
+# turned seven parameters into eight settings and wrote a nameless line
+# the env file could not source. See deploy/write-env.py.
+if ! count=$(python3 "$APP_DIR/deploy/write-env.py" "$ENV_FILE" < /tmp/sf-params.$$); then
   rm -f /tmp/sf-params.$$
   exit 1
 fi
-
-# Name comes back as the full path; the variable is the last segment.
-# Values are written single-quoted so a key containing $ or a backtick is
-# not interpreted by the shell that sources this later.
-: > "$ENV_FILE"
-while IFS=$'\t' read -r name value; do
-  key=${name##*/}
-
-  # Trim surrounding whitespace.
-  #
-  # A value pasted into the console form carries whatever came with it,
-  # and an Enter key at the end of a paste is invisible there and
-  # invisible in the listing afterwards — PAYMENT_PROVIDER arrived seven
-  # characters long for a six-character word. Nothing here ever wants
-  # leading or trailing space, and an embedded newline makes the file
-  # itself look malformed to whoever reads it next.
-  value=$(printf '%s' "$value" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-
-  # Refuse a value this writer cannot quote safely, rather than escaping
-  # it subtly wrong and producing a file that looks fine and fails to
-  # parse three lines later. No key, URL or address contains one; if one
-  # ever does, it should be a loud stop rather than a broken deploy.
-  case $value in
-    *"'"*)
-      echo "Value for ${key} contains a single quote. Change it in Parameter Store." >&2
-      exit 1
-      ;;
-  esac
-
-  printf "%s='%s'\n" "$key" "$value" >> "$ENV_FILE"
-done < /tmp/sf-params.$$
 rm -f /tmp/sf-params.$$
 
 chmod 600 "$ENV_FILE"
-log "$(grep -c '=' "$ENV_FILE") settings loaded"
+log "${count} settings loaded"
 
 # Fail loudly and early if the three that matter are absent, rather than
 # building a site that renders "no database connection" to the world.
