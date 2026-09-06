@@ -26,19 +26,37 @@ on conflict (slug) do nothing;
 -- ---------------------------------------------------------------------
 -- Themes — the filter row on the Library page.
 -- ---------------------------------------------------------------------
+-- Themes — what a story is ABOUT.
+--
+-- Deliberately share no word with the shelves below. A shelf is the
+-- feeling a reader arrives carrying; a theme is the subject of the story
+-- they find. The first version of this list repeated six shelf names, so
+-- a story on the Grief shelf could be tagged "Grief" and say nothing.
+-- Migration 0026 separated them and put a trigger on both tables to keep
+-- them separate — which is why re-introducing a doorway word here would
+-- now fail loudly instead of quietly muddling the taxonomy.
 insert into themes (slug, label, sort_order) values
-  ('heartbreak',  'Heartbreak',  0),
-  ('healing',     'Healing',     1),
-  ('identity',    'Identity',    2),
-  ('grief',       'Grief',       3),
-  ('hope',        'Hope',        4),
-  ('forgiveness', 'Forgiveness', 5),
-  ('growth',      'Growth',      6),
-  ('self-worth',  'Self Worth',  7),
-  ('family',      'Family',      8),
-  ('love',        'Love',        9),
-  ('purpose',     'Purpose',    10),
-  ('nostalgia',   'Nostalgia',  11)
+  ('identity',    'Identity',    0),
+  ('self-worth',  'Self-worth',  1),
+  ('becoming',    'Becoming',    2),
+  ('belonging',   'Belonging',   3),
+  ('family',      'Family',      4),
+  ('motherhood',  'Motherhood',  5),
+  ('friendship',  'Friendship',  6),
+  ('marriage',    'Marriage',    7),
+  ('devotion',    'Devotion',    8),
+  ('betrayal',    'Betrayal',    9),
+  ('secrets',     'Secrets',    10),
+  ('silence',     'Silence',    11),
+  ('memory',      'Memory',     12),
+  ('nostalgia',   'Nostalgia',  13),
+  ('home',        'Home',       14),
+  ('leaving',     'Leaving',    15),
+  ('return',      'Return',     16),
+  ('regret',      'Regret',     17),
+  ('letting-go',  'Letting go', 18),
+  ('purpose',     'Purpose',    19),
+  ('faith',       'Faith',      20)
 on conflict (slug) do nothing;
 
 -- ---------------------------------------------------------------------

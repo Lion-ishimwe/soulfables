@@ -1,31 +1,50 @@
 /**
  * What a story is about, on a card.
  *
- * A shelf is where a story lives and a theme is what it is about, which
- * is why both exist and why only one of them belongs on the card twice
- * over. Two themes is the useful number: enough to tell a reader what
- * they are walking into, few enough that the card stays a card.
+ * A shelf is where a story lives — the feeling a reader arrives carrying
+ * — and a theme is what the story is about. The two vocabularies share no
+ * word, and a database trigger keeps it that way, because the first
+ * version of them overlapped on six and a story on the Grief shelf could
+ * be tagged "Grief" and say nothing.
+ *
+ * Two themes is the useful number: enough to tell a reader what they are
+ * walking into, few enough that the card stays a card.
  *
  * Colour is assigned per theme so the same subject reads the same way
- * everywhere — Grief is the same blue on the Library, on a shelf, and in
- * the admin. Themes the House adds later fall through to a deterministic
+ * everywhere — Memory is the same blue on the Library, on a shelf, and
+ * in the admin. Themes the House adds later fall through to a deterministic
  * hash rather than to grey, the same approach the drawn covers take: an
  * unknown theme should look considered, not unfinished.
  */
 
 const ACCENT: Record<string, string> = {
-  heartbreak: '#C4707F',
-  healing: '#6FAE84',
+  // Self
   identity: '#9B8AC4',
-  grief: '#7C93B8',
-  hope: '#D9A441',
-  forgiveness: '#6FA8A8',
-  growth: '#7FB069',
   'self-worth': '#D0A05C',
+  becoming: '#7FB069',
+  belonging: '#6FA8A8',
+  // People
   family: '#C08A5E',
-  love: '#C97B8E',
-  purpose: '#C9A227',
+  motherhood: '#C4849B',
+  friendship: '#D9A441',
+  marriage: '#C97B8E',
+  devotion: '#C4707F',
+  betrayal: '#A85A5A',
+  // What is unsaid
+  secrets: '#7C6FA8',
+  silence: '#8A8FA0',
+  // Time
+  memory: '#7C93B8',
   nostalgia: '#A88BB0',
+  regret: '#9A7B86',
+  // Place and movement
+  home: '#C9925E',
+  leaving: '#6F93AE',
+  return: '#6FAE84',
+  'letting-go': '#8FB0A8',
+  // Meaning
+  purpose: '#C9A227',
+  faith: '#D9C089',
 };
 
 /** The palette an unnamed theme draws from. Muted, so nothing shouts. */
