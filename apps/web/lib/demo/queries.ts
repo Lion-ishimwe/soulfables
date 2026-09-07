@@ -54,6 +54,7 @@ export async function demoEntries(
         moodEmoji: mood?.emoji ?? null,
         storySlug: e.storySlug,
         storyTitle: e.storySlug ? storyTitleFor(e.storySlug) : null,
+        sectionTitle: null,
       };
     });
 }

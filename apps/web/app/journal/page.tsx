@@ -1,9 +1,19 @@
 import type { Metadata } from 'next';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { getViewer } from '@/lib/auth';
-import { getMoods, getTodaysPrompt, getEntries } from '@/lib/journal';
+import {
+  getMoods,
+  getTodaysPrompt,
+  getEntries,
+  countEntries,
+  getSectionsFor,
+  type Entry,
+} from '@/lib/journal';
 import { getReading, getSavedStories } from '@/lib/library';
-import { JournalComposer } from '@/components/journal-composer';
+import { getStories } from '@/lib/content';
+import { JournalComposer, type StoryOption } from '@/components/journal-composer';
+import { KebabMenu } from '@/components/admin/kebab-menu';
 import { deleteEntry } from '@/app/actions/journal';
 
 export const metadata: Metadata = {
@@ -16,188 +26,344 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-function when(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+const RECENT = 12;
+
+const longDate = (d: Date) =>
+  d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+const monthOf = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+const monthShort = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+const dayOf = (iso: string) => String(new Date(iso).getDate()).padStart(2, '0');
+
+/** The first breath of an entry, cut at a word, for the list. */
+function excerpt(body: string, max = 180) {
+  const flat = body.replace(/\s+/g, ' ').trim();
+  if (flat.length <= max) return flat;
+  const cut = flat.slice(0, max);
+  return cut.slice(0, cut.lastIndexOf(' ')) + '…';
 }
 
-/**
+const CalendarMark = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+    <rect x="3.5" y="5" width="17" height="15" rx="2" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </svg>
+);
+const BookMark = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v16H6.5A2.5 2.5 0 0 0 4 21V5.5ZM20 5.5A2.5 2.5 0 0 0 17.5 3H12v16h5.5A2.5 2.5 0 0 1 20 21V5.5Z" />
+  </svg>
+);
+
+/*
  * The Reading Room.
  *
  * Signed out, this still renders: the question of the day is shown, the
  * shape of the room is visible, and the invitation is to sign in. Showing
  * someone an empty locked door is worse than showing them the room.
+ *
+ * Signed in, everything on the page is the reader's own — RLS scopes
+ * every read to them, and no policy lets staff in. The header counts
+ * their reflections, the composer offers their shelf, and the journal
+ * below is theirs alone.
  */
-export default async function JournalPage() {
+export default async function JournalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; all?: string }>;
+}) {
+  const { q, all } = await searchParams;
+  const offset = Math.max(0, Math.min(99, Number(q) || 0));
+  const showAll = all === '1';
+
   const viewer = await getViewer();
 
-  const [moods, prompt, entries, reading, saved] = await Promise.all([
+  const [moods, prompt, entries, total, reading, saved, catalogue] = await Promise.all([
     getMoods(),
-    getTodaysPrompt(),
-    viewer ? getEntries() : Promise.resolve([]),
+    getTodaysPrompt(offset),
+    viewer ? getEntries(showAll ? 500 : RECENT) : Promise.resolve([] as Entry[]),
+    viewer ? countEntries() : Promise.resolve(null),
     viewer ? getReading() : Promise.resolve({ inProgress: [], finished: [] }),
     viewer ? getSavedStories() : Promise.resolve([]),
+    getStories(),
   ]);
 
+  /*
+   * The reader's shelf, as things a reflection can be pinned to: what
+   * they are reading, have finished, or have saved — never the whole
+   * library. Ids come from the catalogue, because the shelf rows carry
+   * slugs and the journal stores ids.
+   */
+  const idOf = new Map(catalogue.filter((s) => s.id).map((s) => [s.slug, s.id as string]));
+  const seen = new Set<string>();
+  const shelf: StoryOption[] = [];
+  for (const row of [...reading.inProgress, ...reading.finished, ...saved]) {
+    if (!row || seen.has(row.slug)) continue;
+    const id = idOf.get(row.slug);
+    if (!id) continue;
+    seen.add(row.slug);
+    shelf.push({ id, slug: row.slug, title: row.title });
+  }
+
+  const sections = viewer ? await getSectionsFor(shelf.map((s) => s.id)) : [];
+
+  // Entries by month, newest first, for the eyebrow between groups.
+  const byMonth: { month: string; items: Entry[] }[] = [];
+  for (const e of entries) {
+    const m = monthOf(e.createdAt);
+    const last = byMonth[byMonth.length - 1];
+    if (last && last.month === m) last.items.push(e);
+    else byMonth.push({ month: m, items: [e] });
+  }
+
+  const today = new Date();
+
   return (
-    <div className="mx-auto max-w-content px-5 py-20 sm:px-8">
-      <header className="mb-14 text-center">
-        <p className="text-gold" aria-hidden="true">
-          ✦
-        </p>
+    <div className="mx-auto max-w-content px-5 py-16 sm:px-8 sm:py-20">
+      {/* ---- The door ------------------------------------------------ */}
+      <header className="mb-10 text-center">
+        <p className="text-gold" aria-hidden="true">✦</p>
         <h1 className="mt-5 font-display text-4xl font-light text-ivory sm:text-5xl">
           Your Reading Room
         </h1>
         <p className="mx-auto mt-4 max-w-measure font-display text-xl italic text-grey-muted">
           Every story leaves an echo. This is where you keep them.
         </p>
+
+        <p className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-ui text-sm text-grey-muted">
+          <span className="flex items-center gap-2">
+            <CalendarMark />
+            {longDate(today)}
+          </span>
+          {viewer && total !== null && (
+            <>
+              <span aria-hidden="true" className="hidden h-4 w-px bg-rule sm:block" />
+              <span className="flex items-center gap-2">
+                <BookMark />
+                {total.toLocaleString()} {total === 1 ? 'reflection' : 'reflections'}
+              </span>
+            </>
+          )}
+        </p>
       </header>
 
       <JournalComposer
         moods={moods}
         prompt={prompt}
+        anotherHref={`/journal?q=${offset + 1}`}
+        stories={shelf}
+        sections={sections}
         signedIn={Boolean(viewer)}
       />
 
       {viewer && (
         <>
-          {/* Recent reflections */}
-          <section className="mt-16">
-            <h2 className="sf-eyebrow mb-6">Recent reflections</h2>
+          {/* ---- The journal ------------------------------------------ */}
+          <section className="mt-16 border-t border-gold/25 pt-10">
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="font-display text-3xl font-light text-ivory">From Your Journal</h2>
+                <p className="mt-1 font-display text-base italic text-grey-muted">
+                  Stories of your journey.
+                </p>
+              </div>
+              {total !== null && total > entries.length && (
+                <Link
+                  href={'/journal?all=1' as Route}
+                  className="font-ui text-sm text-gold transition-colors hover:text-gold-soft"
+                >
+                  View all {total.toLocaleString()} entries →
+                </Link>
+              )}
+              {showAll && total !== null && total > RECENT && (
+                <Link
+                  href={'/journal' as Route}
+                  className="font-ui text-sm text-gold transition-colors hover:text-gold-soft"
+                >
+                  Show recent only
+                </Link>
+              )}
+            </div>
 
             {entries.length === 0 ? (
-              <div className="border border-rule px-8 py-12 text-center">
-                <p className="font-display text-2xl text-ivory">
-                  Your journal is waiting.
-                </p>
+              <div className="rounded-xl border border-rule px-8 py-14 text-center">
+                <p className="font-display text-2xl text-ivory">Your journal is waiting.</p>
                 <p className="mt-3 text-sm text-grey-muted">
                   The first page is always the hardest to write.
                 </p>
               </div>
             ) : (
-              <ul className="space-y-px bg-rule">
-                {entries.map((e) => (
-                  <li key={e.id} className="bg-ink p-7">
-                    <div className="flex flex-wrap items-baseline justify-between gap-3">
-                      <p className="font-ui text-xs text-grey-muted">
-                        {when(e.createdAt)}
-                        {e.moodLabel && (
-                          <span className="ml-3">
-                            {e.moodEmoji} {e.moodLabel}
-                          </span>
-                        )}
-                      </p>
-                      <form action={deleteEntry}>
-                        <input type="hidden" name="id" value={e.id} />
-                        <button
-                          type="submit"
-                          className="font-ui text-xs text-grey-muted transition-colors hover:text-state-danger"
-                        >
-                          Delete
-                        </button>
-                      </form>
-                    </div>
+              byMonth.map((group) => (
+                <div key={group.month} className="mb-8">
+                  <p className="mb-4 font-ui text-micro uppercase tracking-[0.18em] text-grey-muted">
+                    {group.month}
+                  </p>
+                  <ul className="space-y-3">
+                    {group.items.map((e) => (
+                      <li
+                        key={e.id}
+                        className="relative rounded-lg border border-rule bg-ink-raised/50 transition-colors hover:border-rule-strong"
+                      >
+                        {/*
+                          The row opens in place. There is no entry page —
+                          a reflection is read where it was written — so
+                          the chevron expands rather than navigates.
+                        */}
+                        <details className="group">
+                          <summary className="flex cursor-pointer list-none items-stretch gap-0 pr-24 [&::-webkit-details-marker]:hidden">
+                            <span className="flex w-20 shrink-0 flex-col items-center justify-center border-r border-rule py-5 text-center">
+                              <span className="font-ui text-micro uppercase tracking-[0.18em] text-grey-muted">
+                                {monthShort(e.createdAt)}
+                              </span>
+                              <span className="mt-0.5 font-display text-3xl font-light leading-none text-ivory">
+                                {dayOf(e.createdAt)}
+                              </span>
+                            </span>
 
-                    {e.title && (
-                      <h3 className="mt-3 font-display text-2xl text-ivory">
-                        {e.title}
-                      </h3>
-                    )}
+                            <span className="min-w-0 flex-1 px-5 py-4">
+                              {e.moodLabel && (
+                                <span className="flex items-center gap-2 font-ui text-sm text-ivory">
+                                  <span aria-hidden="true">{e.moodEmoji}</span>
+                                  {e.moodLabel}
+                                </span>
+                              )}
+                              <span className="mt-1.5 block font-display text-lg italic leading-snug text-grey group-open:hidden">
+                                &ldquo;{excerpt(e.body)}&rdquo;
+                              </span>
+                              {(e.storyTitle || e.title) && (
+                                <span className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-ui text-xs text-grey-muted group-open:hidden">
+                                  {e.title && <span className="text-ivory">{e.title}</span>}
+                                  {e.storyTitle && <span>{e.storyTitle}</span>}
+                                  {e.sectionTitle && (
+                                    <>
+                                      <span aria-hidden="true">•</span>
+                                      <span>{e.sectionTitle}</span>
+                                    </>
+                                  )}
+                                </span>
+                              )}
+                            </span>
 
-                    <p className="mt-3 whitespace-pre-wrap font-reading text-base leading-relaxed text-grey">
-                      {e.body}
-                    </p>
+                            <span
+                              aria-hidden="true"
+                              className="absolute right-5 top-1/2 -translate-y-1/2 text-grey-faint transition-transform group-open:rotate-90"
+                            >
+                              ›
+                            </span>
+                          </summary>
 
-                    {e.storySlug && (
-                      <p className="mt-4 text-xs text-grey-muted">
-                        After reading{' '}
+                          <div className="border-t border-rule px-5 py-5 sm:pl-[6.25rem]">
+                            {e.title && (
+                              <h3 className="mb-3 font-display text-2xl text-ivory">{e.title}</h3>
+                            )}
+                            <p className="whitespace-pre-wrap font-reading text-base leading-relaxed text-grey">
+                              {e.body}
+                            </p>
+                            {e.storySlug && (
+                              <p className="mt-4 font-ui text-xs text-grey-muted">
+                                After reading{' '}
+                                <Link
+                                  href={`/story/${e.storySlug}` as Route}
+                                  className="text-gold transition-colors hover:text-gold-soft"
+                                >
+                                  {e.storyTitle}
+                                </Link>
+                                {e.sectionTitle && <> — {e.sectionTitle}</>}
+                              </p>
+                            )}
+                          </div>
+                        </details>
+
+                        {/* Outside the summary, so opening the menu does
+                            not also open the entry. */}
+                        <span className="absolute right-11 top-1/2 -translate-y-1/2">
+                          <KebabMenu
+                            label={`Reflection from ${longDate(new Date(e.createdAt))}`}
+                            items={[
+                              {
+                                kind: 'action',
+                                label: 'Delete reflection',
+                                action: deleteEntry,
+                                fields: { id: e.id },
+                                danger: true,
+                                confirm: 'Delete this reflection?',
+                                confirmBody: 'It is yours alone, and it cannot be recovered.',
+                                confirmLabel: 'Delete',
+                              },
+                            ]}
+                          />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </section>
+
+          {/* ---- The shelf -------------------------------------------- */}
+          <section className="mt-16 border-t border-rule pt-10">
+            <h2 className="font-display text-2xl font-light text-ivory">Your shelf</h2>
+            <p className="mt-1 font-display text-base italic text-grey-muted">
+              What you have read, and what stayed.
+            </p>
+
+            <div className="mt-6 grid gap-8 sm:grid-cols-2">
+              <div>
+                <p className="mb-3 font-ui text-micro uppercase tracking-[0.18em] text-grey-muted">
+                  Reading
+                </p>
+                {reading.inProgress.length === 0 && reading.finished.length === 0 ? (
+                  <p className="text-sm text-grey-muted">
+                    You haven&rsquo;t wandered into a story yet.{' '}
+                    <Link href={'/library' as Route} className="text-gold hover:text-gold-soft">
+                      The shelves are waiting.
+                    </Link>
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-rule rounded-lg border border-rule">
+                    {[...reading.inProgress, ...reading.finished].map((r) => (
+                      <li key={r.slug}>
                         <Link
-                          href={`/story/${e.storySlug}`}
-                          className="text-gold transition-colors hover:text-gold-soft"
+                          href={`/story/${r.slug}` as Route}
+                          className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-ink-raised"
                         >
-                          {e.storyTitle}
+                          <span className="min-w-0 truncate font-display text-lg text-ivory">{r.title}</span>
+                          <span className="shrink-0 font-ui text-xs text-grey-muted">
+                            {r.completedAt ? 'Finished' : `${Math.round(r.percent * 100)}%`}
+                          </span>
                         </Link>
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* Reading history */}
-          <section className="mt-16">
-            <h2 className="sf-eyebrow mb-6">Reading history</h2>
-            {reading.inProgress.length === 0 && reading.finished.length === 0 ? (
-              <div className="border border-rule px-8 py-12 text-center">
-                <p className="font-display text-2xl text-ivory">
-                  The House remembers.
-                </p>
-                <p className="mt-3 text-sm text-grey-muted">
-                  You haven&rsquo;t wandered into a story yet. The shelves are
-                  waiting.
-                </p>
-                <Link
-                  href="/library"
-                  className="mt-6 inline-block border border-gold/50 px-6 py-2.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all hover:bg-gold hover:text-ink"
-                >
-                  Enter the library
-                </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ) : (
-              <ul className="divide-y divide-rule border border-rule">
-                {[...reading.inProgress, ...reading.finished].map((r) => (
-                  <li key={r.slug}>
-                    <Link
-                      href={`/story/${r.slug}`}
-                      className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-ink-raised"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-display text-xl text-ivory">
-                          {r.title}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-grey-muted">
-                          {r.completedAt
-                            ? 'Finished'
-                            : `${Math.round(r.percent * 100)}% through`}
-                        </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
 
-          {/* Favourites */}
-          <section className="mt-16">
-            <h2 className="sf-eyebrow mb-6">Favourite stories</h2>
-            {saved.length === 0 ? (
-              <div className="border border-rule px-8 py-12 text-center">
-                <p className="font-display text-2xl text-ivory">
-                  A shelf of the ones that stayed.
+              <div>
+                <p className="mb-3 font-ui text-micro uppercase tracking-[0.18em] text-grey-muted">
+                  The ones that stayed
                 </p>
-                <p className="mt-3 text-sm text-grey-muted">
-                  When one stays with you, it will rest here.
-                </p>
+                {saved.length === 0 ? (
+                  <p className="text-sm text-grey-muted">
+                    When a story stays with you, it will rest here.
+                  </p>
+                ) : (
+                  <ul className="flex flex-wrap gap-2.5">
+                    {saved.map((s) => (
+                      <li key={s!.slug}>
+                        <Link
+                          href={`/story/${s!.slug}` as Route}
+                          className="inline-block rounded-full border border-rule px-4 py-2 font-ui text-sm text-grey-muted transition-colors hover:border-gold/40 hover:text-ivory"
+                        >
+                          {s!.title}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ) : (
-              <ul className="flex flex-wrap gap-2.5">
-                {saved.map((s) => (
-                  <li key={s!.slug}>
-                    <Link
-                      href={`/story/${s!.slug}`}
-                      className="inline-block border border-rule px-4 py-2 font-ui text-sm text-grey-muted transition-colors hover:border-gold/40 hover:text-ivory"
-                    >
-                      {s!.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
+            </div>
           </section>
         </>
       )}

@@ -25,7 +25,12 @@ export type Entry = {
   moodEmoji: string | null;
   storySlug: string | null;
   storyTitle: string | null;
+  /** Where in the story, when the entry was pinned to a section. */
+  sectionTitle: string | null;
 };
+
+/** A section a reflection can be pinned to. Only some stories have them. */
+export type SectionOption = { id: string; storyId: string; title: string };
 
 const configured = () => !isDemoMode();
 
@@ -64,9 +69,9 @@ export async function getMoods(): Promise<Mood[]> {
  * all day for everyone, and changes at midnight. A prompt that flickered
  * on every page load would not feel like being asked something.
  */
-export async function getTodaysPrompt(): Promise<Prompt | null> {
+export async function getTodaysPrompt(offset = 0): Promise<Prompt | null> {
   const today = new Date();
-  const dayIndex = Math.floor(today.getTime() / 86_400_000);
+  const dayIndex = Math.floor(today.getTime() / 86_400_000) + offset;
 
   if (!configured()) {
     const body = FALLBACK_PROMPTS[dayIndex % FALLBACK_PROMPTS.length];
@@ -76,14 +81,23 @@ export async function getTodaysPrompt(): Promise<Prompt | null> {
   const supabase = await createClient();
   const iso = today.toISOString().slice(0, 10);
 
-  const { data: scheduled } = await supabase
-    .from('journal_prompts')
-    .select('id, body')
-    .eq('scheduled_on', iso)
-    .eq('is_active', true)
-    .maybeSingle();
+  /*
+   * "Another question" is a link carrying an offset, not a client-side
+   * shuffle: the page stays server-rendered, the question is reachable
+   * by URL, and it works before any JavaScript has loaded. A scheduled
+   * prompt is only the first answer — asking for another steps into the
+   * pool.
+   */
+  if (offset === 0) {
+    const { data: scheduled } = await supabase
+      .from('journal_prompts')
+      .select('id, body')
+      .eq('scheduled_on', iso)
+      .eq('is_active', true)
+      .maybeSingle();
 
-  if (scheduled) return { id: scheduled.id, body: scheduled.body };
+    if (scheduled) return { id: scheduled.id, body: scheduled.body };
+  }
 
   const { data: pool } = await supabase
     .from('journal_prompts')
@@ -113,7 +127,7 @@ export async function getEntries(limit = 30): Promise<Entry[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('journal_entries')
-    .select('id, title, body, created_at, moods(label, emoji), stories(slug, title)')
+    .select('id, title, body, created_at, moods(label, emoji), stories(slug, title), story_sections(title)')
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -125,6 +139,7 @@ export async function getEntries(limit = 30): Promise<Entry[]> {
   return (data ?? []).map((e: Record<string, unknown>) => {
     const mood = e.moods as { label?: string; emoji?: string } | null;
     const story = e.stories as { slug?: string; title?: string } | null;
+    const section = e.story_sections as { title?: string } | null;
     return {
       id: e.id as string,
       title: (e.title as string) ?? null,
@@ -134,6 +149,7 @@ export async function getEntries(limit = 30): Promise<Entry[]> {
       moodEmoji: mood?.emoji ?? null,
       storySlug: story?.slug ?? null,
       storyTitle: story?.title ?? null,
+      sectionTitle: section?.title ?? null,
     };
   });
 }
@@ -168,6 +184,58 @@ export async function searchEntries(query: string): Promise<Entry[]> {
       moodEmoji: mood?.emoji ?? null,
       storySlug: story?.slug ?? null,
       storyTitle: story?.title ?? null,
+      sectionTitle: null,
     };
   });
+}
+
+/**
+ * How many reflections the reader has kept, in total.
+ *
+ * Null rather than zero when the count cannot be read: a refused query
+ * and an empty journal are different answers, and "0 reflections" over a
+ * journal that has twelve is the kind of lie a header should not tell.
+ */
+export async function countEntries(): Promise<number | null> {
+  if (!configured()) return (await getEntries(1000)).length;
+
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from('journal_entries')
+    .select('id', { count: 'exact', head: true });
+
+  if (error) {
+    console.error('[journal] countEntries', error.message);
+    return null;
+  }
+  return count ?? 0;
+}
+
+/**
+ * The sections of the stories a reflection could be pinned to.
+ *
+ * Fetched for the reader's whole shelf at once — a few stories, a
+ * handful of sections each — so the composer can switch the "where in
+ * the story" list without a round trip when a different story is chosen.
+ */
+export async function getSectionsFor(storyIds: string[]): Promise<SectionOption[]> {
+  if (!configured() || storyIds.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('story_sections')
+    .select('id, story_id, title, position')
+    .in('story_id', storyIds)
+    .order('position');
+
+  if (error) {
+    console.error('[journal] getSectionsFor', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    storyId: r.story_id as string,
+    title: (r.title as string) ?? '',
+  }));
 }

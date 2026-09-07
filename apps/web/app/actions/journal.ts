@@ -39,16 +39,28 @@ const ref = z.string().trim().max(64).optional().or(z.literal(''));
 const isUuid = (v: string | undefined) =>
   Boolean(v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v));
 
+const WORD_LIMIT = 2000;
+const countWords = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+
 const entrySchema = z.object({
   body: z
     .string()
     .trim()
     .min(1, 'Write something first — even one line.')
-    .max(20000, 'That entry is longer than the journal can hold.'),
+    .max(20000, 'That entry is longer than the journal can hold.')
+    // The composer counts words and says 2,000; the server agrees, so
+    // the number on screen is a rule and not a suggestion.
+    .refine((t) => countWords(t) <= WORD_LIMIT, {
+      message: `One quiet page is ${WORD_LIMIT.toLocaleString()} words. This one is longer.`,
+    }),
   title: z.string().trim().max(200).optional().or(z.literal('')),
   moodId: ref,
   storyId: ref,
+  sectionId: ref,
   promptId: ref,
+  /* A line worth remembering. Kept as a saved passage against the story,
+     which is where the House keeps lines — not inside the entry. */
+  quote: z.string().trim().max(2000).optional().or(z.literal('')),
   aiOptIn: z.boolean().default(false),
 });
 
@@ -63,7 +75,9 @@ export async function saveEntry(
     title: field(formData, 'title'),
     moodId: field(formData, 'moodId'),
     storyId: field(formData, 'storyId'),
+    sectionId: field(formData, 'sectionId'),
     promptId: field(formData, 'promptId'),
+    quote: field(formData, 'quote'),
     aiOptIn: checkbox(formData, 'aiOptIn'),
   });
 
@@ -96,6 +110,7 @@ export async function saveEntry(
     // here, so it is dropped rather than sent to Postgres to be rejected.
     mood_id: isUuid(d.moodId) ? d.moodId : null,
     story_id: isUuid(d.storyId) ? d.storyId : null,
+    section_id: isUuid(d.sectionId) ? d.sectionId : null,
     prompt_id: isUuid(d.promptId) ? d.promptId : null,
     // Explicit opt-in only. Absent checkbox means false, never "keep
     // whatever it was" — a reader unticking it must actually revoke.
@@ -124,8 +139,31 @@ export async function saveEntry(
 
   if (error) return { error: error.message };
 
+  /*
+   * The line to remember goes where lines live: saved_passages, against
+   * the story. It needs a story — a passage belongs to one — so without a
+   * story chosen the composer never offers the field. Failure here is
+   * reported, not swallowed: the reflection is safe, and the reader
+   * should know the line was not.
+   */
+  let kept = 'Kept.';
+  if (d.quote && row.story_id) {
+    const { error: passageError } = await supabase.from('saved_passages').insert({
+      user_id: viewer.id,
+      story_id: row.story_id,
+      section_id: row.section_id,
+      quote: d.quote,
+    });
+    if (passageError) {
+      console.error('[journal] saved_passages', passageError.message);
+      kept = 'Kept — but the line could not be saved to your library.';
+    } else {
+      revalidatePath('/account/library');
+    }
+  }
+
   revalidatePath('/journal');
-  return { message: 'Kept.', id: data.id };
+  return { message: kept, id: data.id };
 }
 
 export async function deleteEntry(formData: FormData): Promise<void> {
