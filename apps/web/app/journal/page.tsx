@@ -11,7 +11,7 @@ import {
   type Entry,
 } from '@/lib/journal';
 import { getReading, getSavedStories } from '@/lib/library';
-import { getStories } from '@/lib/content';
+import { getStories, getShelves } from '@/lib/content';
 import { JournalComposer, type StoryOption } from '@/components/journal-composer';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import { deleteEntry } from '@/app/actions/journal';
@@ -79,7 +79,7 @@ export default async function JournalPage({
 
   const viewer = await getViewer();
 
-  const [moods, prompt, entries, total, reading, saved, catalogue] = await Promise.all([
+  const [moods, prompt, entries, total, reading, saved, catalogue, shelves] = await Promise.all([
     getMoods(),
     getTodaysPrompt(offset),
     viewer ? getEntries(showAll ? 500 : RECENT) : Promise.resolve([] as Entry[]),
@@ -87,6 +87,7 @@ export default async function JournalPage({
     viewer ? getReading() : Promise.resolve({ inProgress: [], finished: [] }),
     viewer ? getSavedStories() : Promise.resolve([]),
     getStories(),
+    getShelves(),
   ]);
 
   /*
@@ -106,7 +107,18 @@ export default async function JournalPage({
     shelf.push({ id, slug: row.slug, title: row.title });
   }
 
-  const sections = viewer ? await getSectionsFor(shelf.map((s) => s.id)) : [];
+  /*
+   * The whole library, with each story's shelf, so the composer can add
+   * a shelf's stories when a feeling is chosen — Healing brings the
+   * Healing shelf. Sections are fetched for all of it rather than just
+   * the reader's shelf: a few stories, a handful of sections each, and
+   * it means switching stories never waits on a round trip.
+   */
+  const library: StoryOption[] = catalogue
+    .filter((s) => s.id)
+    .map((s) => ({ id: s.id as string, slug: s.slug, title: s.title, shelf: s.shelf }));
+
+  const sections = viewer ? await getSectionsFor(library.map((s) => s.id)) : [];
 
   // Entries by month, newest first, for the eyebrow between groups.
   const byMonth: { month: string; items: Entry[] }[] = [];
@@ -153,6 +165,8 @@ export default async function JournalPage({
         prompt={prompt}
         anotherHref={`/journal?q=${offset + 1}`}
         stories={shelf}
+        library={library}
+        shelves={shelves.map((s) => ({ slug: s.slug, label: s.label }))}
         sections={sections}
         signedIn={Boolean(viewer)}
       />

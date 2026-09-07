@@ -9,8 +9,8 @@ import type { Mood, Prompt, SectionOption } from '@/lib/journal';
 
 const WORD_LIMIT = 2000;
 
-/** A story the reader can pin a reflection to: something on their shelf. */
-export type StoryOption = { id: string; slug: string; title: string };
+/** A story a reflection can be pinned to. `shelf` is the slug it lives on. */
+export type StoryOption = { id: string; slug: string; title: string; shelf?: string };
 
 function countWords(t: string) {
   return t.trim().split(/\s+/).filter(Boolean).length;
@@ -79,13 +79,19 @@ export function JournalComposer({
   prompt,
   anotherHref,
   stories,
+  library,
+  shelves,
   sections,
   signedIn,
 }: {
   moods: Mood[];
   prompt: Prompt | null;
   anotherHref: string;
+  /** The reader's own shelf: reading, finished, saved. */
   stories: StoryOption[];
+  /** Everything published, with shelves — for the feeling's shelf. */
+  library: StoryOption[];
+  shelves: { slug: string; label: string }[];
   sections: SectionOption[];
   signedIn: boolean;
 }) {
@@ -101,6 +107,34 @@ export function JournalComposer({
     () => sections.filter((s) => s.storyId === storyId),
     [sections, storyId],
   );
+
+  /*
+   * A feeling is a doorway to a shelf — that is what the moods table
+   * says, and what the Library is browsed by. So choosing Grieving also
+   * offers the Grief shelf's stories, in their own group beneath the
+   * reader's own, without repeating anything already on their shelf.
+   */
+  const moodShelf = moods.find((m) => m.id === mood)?.shelfSlug ?? null;
+  const shelfLabel = shelves.find((s) => s.slug === moodShelf)?.label ?? null;
+  const mine = useMemo(() => new Set(stories.map((s) => s.id)), [stories]);
+  const fromShelf = useMemo(
+    () => (moodShelf ? library.filter((s) => s.shelf === moodShelf && !mine.has(s.id)) : []),
+    [library, moodShelf, mine],
+  );
+
+  /* Changing the feeling can remove the chosen story from the list. A
+     controlled select whose value is no longer an option goes blank
+     while the state still holds the id, so the choice is cleared. */
+  const chooseMood = (next: string) => {
+    setMood(next);
+    if (!storyId || mine.has(storyId)) return;
+    const nextShelf = moods.find((m) => m.id === next)?.shelfSlug ?? null;
+    const stillOffered = library.some((s) => s.id === storyId && s.shelf === nextShelf);
+    if (!stillOffered) {
+      setStoryId('');
+      setSectionId('');
+    }
+  };
 
   if (!signedIn) {
     return (
@@ -174,7 +208,7 @@ export function JournalComposer({
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setMood(active ? '' : m.id)}
+                onClick={() => chooseMood(active ? '' : m.id)}
                 aria-pressed={active}
                 className={`flex items-center gap-2.5 rounded-full border px-5 py-2.5 transition-all duration-base ease-house ${
                   active
@@ -239,18 +273,40 @@ export function JournalComposer({
           className={`${field} appearance-none pl-11 pr-10`}
         >
           <option value="" className="bg-ink not-italic">
-            {stories.length ? 'Select a story from your shelf' : 'Nothing on your shelf yet — read something first'}
+            {stories.length || fromShelf.length
+              ? 'Select a story'
+              : 'Nothing on your shelf yet — choose a feeling, or read something first'}
           </option>
-          {stories.map((s) => (
-            <option key={s.id} value={s.id} className="bg-ink not-italic">
-              {s.title}
-            </option>
-          ))}
+          {stories.length > 0 && (
+            <optgroup label="From your shelf" className="bg-ink not-italic">
+              {stories.map((s) => (
+                <option key={s.id} value={s.id} className="bg-ink not-italic">
+                  {s.title}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {fromShelf.length > 0 && (
+            <optgroup label={`On the ${shelfLabel ?? ''} shelf`} className="bg-ink not-italic">
+              {fromShelf.map((s) => (
+                <option key={s.id} value={s.id} className="bg-ink not-italic">
+                  {s.title}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
         <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-grey-muted">
           ⌄
         </span>
       </div>
+      {moodShelf && shelfLabel && (
+        <p className="mt-1.5 font-ui text-micro text-grey-faint">
+          {fromShelf.length > 0
+            ? `Also offering the ${fromShelf.length} ${fromShelf.length === 1 ? 'story' : 'stories'} on the ${shelfLabel} shelf, because that is where this feeling lives.`
+            : `Everything on the ${shelfLabel} shelf is already on yours.`}
+        </p>
+      )}
 
       <div className={`mt-5 grid gap-5 ${storySections.length ? 'sm:grid-cols-2' : ''}`}>
         {storySections.length > 0 && (
