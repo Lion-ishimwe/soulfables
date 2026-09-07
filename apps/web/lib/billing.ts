@@ -27,9 +27,18 @@ export type SpendReport = {
   totals: { calls: number; failed: number; inputTokens: number; outputTokens: number; costMicros: number };
   lifetime: { calls: number; costMicros: number; firstCall: string | null };
   byJob: { job: string; calls: number; costMicros: number; outputTokens: number }[];
-  byStory: { slug: string; title: string; calls: number; costMicros: number }[];
-  byAuthor: { email: string; calls: number; costMicros: number }[];
+  byStory: {
+    slug: string; title: string; coverImage: string | null;
+    calls: number; failed: number; outputTokens: number; costMicros: number;
+  }[];
+  byAuthor: { email: string; calls: number; outputTokens: number; costMicros: number }[];
   byDay: { day: string; costMicros: number }[];
+  /** The last few calls, newest first, whatever the window. */
+  recent: {
+    at: string; job: string; storySlug: string | null; storyTitle: string | null;
+    email: string | null; costMicros: number; outputTokens: number;
+    ok: boolean; failureKind: string | null;
+  }[];
   lastFailure: { at: string; kind: string | null; error: string | null; job: string } | null;
   lastSuccess: { at: string; model: string } | null;
 };
@@ -39,7 +48,7 @@ const EMPTY: SpendReport = {
   since: null,
   totals: { calls: 0, failed: 0, inputTokens: 0, outputTokens: 0, costMicros: 0 },
   lifetime: { calls: 0, costMicros: 0, firstCall: null },
-  byJob: [], byStory: [], byAuthor: [], byDay: [],
+  byJob: [], byStory: [], byAuthor: [], byDay: [], recent: [],
   lastFailure: null, lastSuccess: null,
 };
 
@@ -80,10 +89,21 @@ export async function getSpendReport(days = 30): Promise<SpendReport> {
     })),
     byStory: ((d.by_story ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
       slug: String(r.slug), title: String(r.title),
-      calls: n(r.calls), costMicros: n(r.cost_micros),
+      coverImage: (r.cover_image as string) ?? null,
+      calls: n(r.calls), failed: n(r.failed),
+      outputTokens: n(r.output_tokens), costMicros: n(r.cost_micros),
     })),
     byAuthor: ((d.by_author ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
-      email: String(r.email), calls: n(r.calls), costMicros: n(r.cost_micros),
+      email: String(r.email), calls: n(r.calls),
+      outputTokens: n(r.output_tokens), costMicros: n(r.cost_micros),
+    })),
+    recent: ((d.recent ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      at: String(r.at), job: String(r.job ?? 'unknown'),
+      storySlug: (r.story_slug as string) ?? null,
+      storyTitle: (r.story_title as string) ?? null,
+      email: (r.email as string) ?? null,
+      costMicros: n(r.cost_micros), outputTokens: n(r.output_tokens),
+      ok: Boolean(r.ok), failureKind: (r.failure_kind as string) ?? null,
     })),
     byDay: ((d.by_day ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
       day: String(r.day), costMicros: n(r.cost_micros),

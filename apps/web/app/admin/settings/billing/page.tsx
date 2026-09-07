@@ -4,50 +4,56 @@ import Link from 'next/link';
 import { requireStaff } from '@/lib/auth';
 import { getSpendReport, getKeyHealth } from '@/lib/billing';
 import { formatMicros } from '@/lib/ai/pricing';
-import { AdminPageHeader, Panel, PanelEmpty, StatusDot } from '@/components/admin/dashboard';
+import { AdminPageHeader, Panel, Icon } from '@/components/admin/dashboard';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
-import { AreaChart } from '@/components/admin/charts';
+import { SpendChart } from '@/components/admin/billing-chart';
+import { Avatar } from '@/components/admin/avatar';
+import { Thumb } from '@/components/admin/thumb';
 import { formatDate } from '@/lib/format';
 
 export const metadata: Metadata = { title: 'Billing' };
 export const dynamic = 'force-dynamic';
 
-/*
- * platform.claude.com, not console.anthropic.com.
- *
- * The old address still works but answers 301, so every click paid for a
- * redirect — and landed somewhere whose name did not match the link that
- * sent you there, which is its own small confusion.
- *
- * Their cost page is linked separately below: it is the authoritative
- * figure, and this page's estimate should always be one click from the
- * number it is estimating.
- */
 const CONSOLE_BILLING = 'https://platform.claude.com/settings/billing';
 const CONSOLE_COST = 'https://platform.claude.com/cost';
 
-/** What each job is, said once, in the House's words rather than the code's. */
-const JOB_LABEL: Record<string, string> = {
-  draft: 'Starting a draft',
-  continue: 'Carrying on',
-  titles: 'Naming it',
-  companion: 'The Librarian',
-  unknown: 'Unattributed',
+/*
+ * The features that spend money, in the House's words, with the icon each
+ * one wears. Only these three exist. The Librarian is rule-based and never
+ * reaches the model, so it is not here — listing it at $0.00 would suggest
+ * a cost that is waiting to happen, when there is no such cost.
+ */
+const JOBS: Record<string, { label: string; icon: string }> = {
+  draft: { label: 'Starting a draft', icon: 'spark' },
+  continue: { label: 'Carrying on', icon: 'draft' },
+  titles: { label: 'Naming it', icon: 'book' },
+};
+
+const FAILURE_LABEL: Record<string, string> = {
+  auth: 'Key rejected',
+  credit: 'No credit',
+  rate_limit: 'Rate limited',
+  overloaded: 'Overloaded',
+  timeout: 'Timed out',
+  unreachable: 'Unreachable',
+  refused: 'Refused',
 };
 
 /*
- * What the writing assistant costs.
+ * Billing.
  *
- * The provider's console holds the authoritative total and the card
- * details, and nothing here tries to replace either — there is no API to
- * buy credit with, so topping up will always be a trip to Anthropic. What
- * this page does is answer the questions that make somebody take that
- * trip, and the ones the console cannot answer at all: which feature the
- * money went on, which story ran away with it, and whether the key is
- * working right now.
+ * The design this follows had two things on it that cannot be true. A
+ * "credit balance" card — Anthropic exposes no way to read the balance,
+ * so any figure there would be invented. And a "billing history" of
+ * top-ups — same problem: their console knows what was paid in, and we
+ * do not. Both are replaced with what is actually known: what has been
+ * spent to date, and the calls themselves. A page with the word billing
+ * on it is believed, so it is held to what it can prove.
  *
- * The last of those used to be discoverable only by trying to write
- * something and reading a red sentence in a form.
+ * Everything else is the House's own ledger: every call, what it was
+ * for, which story, who asked, and what it cost at the published rates.
+ * Anthropic's console has the authoritative total and has never heard of
+ * a story, which is the whole reason this page exists.
  */
 export default async function BillingPage({
   searchParams,
@@ -62,19 +68,60 @@ export default async function BillingPage({
   const report = await getSpendReport(days);
   const health = await getKeyHealth(report);
 
-  const tone =
+  const words = (tokens: number) => Math.round(tokens * 0.75);
+  const rangeHref = (d: number) =>
+    (d === 30 ? '/admin/settings/billing' : `/admin/settings/billing?days=${d}`) as Route;
+
+  const attention = health.state !== 'working';
+  const bannerTone =
+    health.state === 'rejected' || health.state === 'unreachable'
+      ? 'border-state-danger/40 bg-state-danger/5'
+      : attention
+        ? 'border-gold/40 bg-gold/5'
+        : 'border-rule bg-ink-raised';
+  const bannerIcon =
     health.state === 'working'
-      ? 'active'
-      : health.state === 'missing'
-        ? 'none'
-        : 'danger';
+      ? 'bg-state-success/10 text-state-success'
+      : health.state === 'rejected' || health.state === 'unreachable'
+        ? 'bg-state-danger/10 text-state-danger'
+        : 'bg-gold/10 text-gold';
 
   const stats = [
-    { label: `Spent, last ${days} days`, value: formatMicros(report.totals.costMicros), hint: 'Estimated from published rates' },
-    { label: 'Since the first call', value: formatMicros(report.lifetime.costMicros), hint: report.lifetime.firstCall ? `From ${formatDate(report.lifetime.firstCall)}` : 'Nothing yet' },
-    { label: 'Calls', value: report.totals.calls.toLocaleString(), hint: `${report.totals.failed} failed` },
-    { label: 'Words written', value: Math.round(report.totals.outputTokens * 0.75).toLocaleString(), hint: `${report.totals.outputTokens.toLocaleString()} output tokens` },
+    {
+      key: 'lifetime',
+      icon: 'card',
+      label: 'Spent to date',
+      value: formatMicros(report.lifetime.costMicros),
+      hint: report.lifetime.firstCall
+        ? `Since ${formatDate(report.lifetime.firstCall)}`
+        : 'The balance itself lives at Anthropic',
+    },
+    {
+      key: 'period',
+      icon: 'calendar',
+      label: `Last ${days} days`,
+      value: formatMicros(report.totals.costMicros),
+      hint: 'Estimated usage',
+    },
+    {
+      key: 'calls',
+      icon: 'activity',
+      label: 'API calls',
+      value: report.totals.calls.toLocaleString(),
+      hint: report.totals.failed > 0 ? `${report.totals.failed} failed` : 'None failed',
+      danger: report.totals.failed > 0,
+    },
+    {
+      key: 'tokens',
+      icon: 'layers',
+      label: 'Output tokens',
+      value: report.totals.outputTokens.toLocaleString(),
+      hint: `≈ ${words(report.totals.outputTokens).toLocaleString()} words generated`,
+    },
   ];
+
+  const th = 'px-4 py-2.5 text-left font-ui text-micro font-normal uppercase tracking-[0.12em] text-grey-faint';
+  const tdNum = 'px-4 py-3 text-right font-ui text-sm tabular-nums';
 
   return (
     <>
@@ -84,196 +131,346 @@ export default async function BillingPage({
       />
       <SettingsTabs />
 
+      <div className="mb-6">
+        <h2 className="font-display text-3xl font-light leading-tight text-ivory">Billing</h2>
+        <p className="mt-1.5 font-ui text-sm text-grey-muted">
+          Manage your credit, AI usage and spending.
+        </p>
+      </div>
+
       {/* ---- Is it working? ------------------------------------------ */}
-      <div
-        className={`mb-6 rounded-lg border px-5 py-5 ${
-          health.state === 'working'
-            ? 'border-rule bg-ink-raised'
-            : 'border-state-danger/40 bg-state-danger/5'
-        }`}
-      >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <StatusDot tone={tone} label={health.headline} />
-              {health.keyTail && (
-                <span className="font-mono text-xs text-grey-faint">
-                  key {health.keyTail}
-                </span>
-              )}
+      <section className={`mb-6 rounded-lg border px-5 py-5 ${bannerTone}`}>
+        <div className="flex flex-wrap items-center justify-between gap-5">
+          <div className="flex min-w-0 flex-1 items-start gap-4">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${bannerIcon}`}>
+              <Icon name={health.state === 'working' ? 'spark' : 'alert'} className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-ui text-base font-medium text-ivory">{health.headline}</p>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-grey-muted">{health.detail}</p>
+              <p className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-ui text-xs text-grey-faint">
+                <span>Using <span className="text-grey-muted">{health.model}</span></span>
+                <span aria-hidden="true">•</span>
+                <span>${health.rate.input} / 1M input tokens</span>
+                <span aria-hidden="true">•</span>
+                <span>${health.rate.output} / 1M output tokens</span>
+                {health.keyTail && (
+                  <>
+                    <span aria-hidden="true">•</span>
+                    <span className="font-mono">key {health.keyTail}</span>
+                  </>
+                )}
+              </p>
             </div>
-            <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-grey-muted">
-              {health.detail}
-            </p>
           </div>
 
           <a
             href={CONSOLE_BILLING}
             target="_blank"
             rel="noreferrer noopener"
-            className="shrink-0 rounded-lg border border-gold/50 px-5 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink"
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-gold px-5 py-3 font-ui text-sm font-medium text-ink transition-colors hover:bg-gold-soft"
           >
-            {health.state === 'no_credit' ? 'Top up credit ↗' : 'Anthropic billing ↗'}
+            <span aria-hidden="true" className="text-base leading-none">+</span>
+            {health.state === 'no_credit' ? 'Top up credit' : 'Manage at Anthropic'}
           </a>
         </div>
-
-        <p className="mt-4 border-t border-rule pt-3.5 font-ui text-micro leading-relaxed text-grey-faint">
-          Writing with <span className="text-grey-muted">{health.model}</span> at
-          ${health.rate.input}/M in, ${health.rate.output}/M out
-          {!health.rate.known && ' — rates unknown for this model, estimated at Opus prices'}.
-          Anthropic has no API for buying credit, so topping up is always a trip
-          to their console; everything else about the assistant lives here.
-        </p>
-      </div>
+      </section>
 
       {/* ---- The numbers --------------------------------------------- */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1">
-          {[7, 30, 90].map((d) => (
-            <Link
-              key={d}
-              href={(d === 30 ? '/admin/settings/billing' : `/admin/settings/billing?days=${d}`) as Route}
-              aria-current={d === days ? 'page' : undefined}
-              className={`rounded-lg border px-3.5 py-2 font-ui text-xs transition-colors ${
-                d === days
-                  ? 'border-gold/50 bg-gold-dim text-gold'
-                  : 'border-rule text-grey-muted hover:border-gold/40 hover:text-ivory'
-              }`}
-            >
-              {d} days
-            </Link>
-          ))}
-        </div>
-      </div>
-
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-lg border border-rule bg-ink-raised p-4 sm:p-5">
-            <p className="font-ui text-xs text-grey-muted">{s.label}</p>
-            <p className="mt-2 font-display text-3xl leading-none text-ivory">{s.value}</p>
-            <p className="mt-2 font-ui text-xs text-grey-faint">{s.hint}</p>
+          <div key={s.key} className="rounded-lg border border-rule bg-ink-raised p-4 sm:p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gold/10 text-gold">
+                <Icon name={s.icon} className="h-[18px] w-[18px]" />
+              </span>
+              <span className="font-ui text-xs text-grey-muted">{s.label}</span>
+            </div>
+            <p className="font-display text-3xl leading-none text-ivory sm:text-[2.5rem]">{s.value}</p>
+            <p className={`mt-3 flex items-center gap-1.5 font-ui text-xs ${s.danger ? 'text-grey-muted' : 'text-grey-muted'}`}>
+              {s.danger && <span className="h-2 w-2 rounded-full border border-state-danger" aria-hidden="true" />}
+              {s.hint}
+            </p>
           </div>
         ))}
       </div>
 
-      {report.byDay.length > 1 && (
-        <div className="mb-6">
-          <Panel title="Spend by day" hint={`Last ${days} days`}>
+      {/* ---- Usage, by time, feature and person ---------------------- */}
+      <div className="mb-6 grid gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-6">
+          <Panel
+            title="Usage"
+            hint="Your spending over time"
+            aside={
+              <div className="flex gap-1">
+                {[7, 30, 90].map((d) => (
+                  <Link
+                    key={d}
+                    href={rangeHref(d)}
+                    aria-current={d === days ? 'page' : undefined}
+                    className={`rounded-md px-3 py-1.5 font-ui text-xs transition-colors ${
+                      d === days
+                        ? 'bg-gold/15 text-gold'
+                        : 'text-grey-muted hover:text-ivory'
+                    }`}
+                  >
+                    {d} days
+                  </Link>
+                ))}
+              </div>
+            }
+          >
             <div className="px-5 pb-5 pt-6">
-              <AreaChart
-                id="billing-daily"
-                points={report.byDay.map((d) => ({
-                  date: d.day,
-                  value: Math.round(d.costMicros / 1000),
-                }))}
-                metricLabel="Thousandths of a cent"
-              />
+              <SpendChart id="billing-daily" days={days} byDay={report.byDay} />
             </div>
           </Panel>
         </div>
-      )}
 
-      {/* ---- Where it went ------------------------------------------- */}
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <Panel title="By feature" hint="What the money was spent doing">
-          {report.byJob.length === 0 ? (
-            <PanelEmpty>
-              Nothing written with the assistant in this window.
-            </PanelEmpty>
-          ) : (
-            <ul className="divide-y divide-rule">
-              {report.byJob.map((j) => (
-                <li key={j.job} className="flex items-center justify-between gap-4 px-5 py-3.5">
-                  <span className="min-w-0">
-                    <span className="block text-sm text-ivory">
-                      {JOB_LABEL[j.job] ?? j.job}
-                    </span>
-                    <span className="font-ui text-xs text-grey-faint">
-                      {j.calls} {j.calls === 1 ? 'call' : 'calls'}
-                    </span>
-                  </span>
-                  <span className="shrink-0 font-ui text-sm tabular-nums text-ivory">
-                    {formatMicros(j.costMicros)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel title="By person" hint="Who asked for it">
-          {report.byAuthor.length === 0 ? (
-            <PanelEmpty>Nobody has used it in this window.</PanelEmpty>
-          ) : (
-            <ul className="divide-y divide-rule">
-              {report.byAuthor.map((a) => (
-                <li key={a.email} className="flex items-center justify-between gap-4 px-5 py-3.5">
-                  <span className="min-w-0 truncate text-sm text-ivory">{a.email}</span>
-                  <span className="shrink-0 font-ui text-sm tabular-nums text-ivory">
-                    {formatMicros(a.costMicros)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </div>
-
-      <Panel
-        title="By story"
-        hint="Which stories the assistant was used on"
-      >
-        {report.byStory.length === 0 ? (
-          <PanelEmpty>
-            No spend is attributed to a story yet. Anything written from the
-            Writing Room with a story open is counted here.
-          </PanelEmpty>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem]">
+        <div className="xl:col-span-3">
+          <Panel title="Usage by feature" hint="What the money went on">
+            <table className="w-full">
               <thead>
-                <tr className="border-b border-rule text-left font-ui text-micro uppercase tracking-[0.14em] text-grey-faint">
-                  <th className="px-5 py-3 font-normal">Story</th>
-                  <th className="w-24 px-5 py-3 font-normal">Calls</th>
-                  <th className="w-28 px-5 py-3 text-right font-normal">Cost</th>
+                <tr className="border-b border-rule">
+                  <th className={th}>Feature</th>
+                  <th className={`${th} text-right`}>Calls</th>
+                  <th className={`${th} text-right`}>Tokens</th>
+                  <th className={`${th} text-right`}>Cost</th>
                 </tr>
               </thead>
-              <tbody>
-                {report.byStory.map((s) => (
-                  <tr key={s.slug} className="border-b border-rule/60 last:border-0 hover:bg-ink-hover">
-                    <td className="px-5 py-3">
-                      <Link
-                        href={`/admin/stories/${s.slug}` as Route}
-                        className="font-ui text-sm text-ivory transition-colors hover:text-gold"
-                      >
-                        {s.title}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3 font-ui text-sm tabular-nums text-grey-muted">
-                      {s.calls}
-                    </td>
-                    <td className="px-5 py-3 text-right font-ui text-sm tabular-nums text-ivory">
-                      {formatMicros(s.costMicros)}
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-rule/60">
+                {Object.entries(JOBS).map(([job, meta]) => {
+                  const row = report.byJob.find((j) => j.job === job);
+                  return (
+                    <tr key={job}>
+                      <td className="px-4 py-3">
+                        <span className="flex items-center gap-2.5">
+                          <Icon name={meta.icon} className="h-4 w-4 shrink-0 text-gold" />
+                          <span className="font-ui text-sm text-ivory">{meta.label}</span>
+                        </span>
+                      </td>
+                      <td className={`${tdNum} text-grey-muted`}>{row?.calls ?? 0}</td>
+                      <td className={`${tdNum} text-grey-muted`}>{(row?.outputTokens ?? 0).toLocaleString()}</td>
+                      <td className={`${tdNum} text-ivory`}>{formatMicros(row?.costMicros ?? 0)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          </div>
-        )}
+          </Panel>
+        </div>
+
+        <div className="xl:col-span-3">
+          <Panel title="Usage by person" hint="Who asked for it">
+            {report.byAuthor.length === 0 ? (
+              <p className="px-5 py-10 text-center font-ui text-xs leading-relaxed text-grey-muted">
+                Nobody has used the assistant in this window.
+              </p>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-rule">
+                    <th className={th}>User</th>
+                    <th className={`${th} text-right`}>Calls</th>
+                    <th className={`${th} text-right`}>Tokens</th>
+                    <th className={`${th} text-right`}>Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-rule/60">
+                  {report.byAuthor.map((a) => (
+                    <tr key={a.email}>
+                      <td className="px-4 py-3">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <Avatar src={null} name={a.email} size={26} />
+                          <span className="truncate font-ui text-xs text-ivory">{a.email}</span>
+                        </span>
+                      </td>
+                      <td className={`${tdNum} text-grey-muted`}>{a.calls}</td>
+                      <td className={`${tdNum} text-grey-muted`}>{a.outputTokens.toLocaleString()}</td>
+                      <td className={`${tdNum} text-ivory`}>{formatMicros(a.costMicros)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      {/* ---- Stories, and the calls themselves ----------------------- */}
+      <div className="mb-6 grid gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-7">
+          <Panel title="Story usage" hint="Which stories the assistant was used on">
+            {report.byStory.length === 0 ? (
+              <p className="px-5 py-10 text-center font-ui text-xs leading-relaxed text-grey-muted">
+                Nothing is attributed to a story yet. Anything asked for from the
+                Writing Room with a story open is counted here.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[32rem]">
+                  <thead>
+                    <tr className="border-b border-rule">
+                      <th className={th}>Story</th>
+                      <th className={`${th} text-right`}>Calls</th>
+                      <th className={`${th} text-right`}>Tokens</th>
+                      <th className={`${th} text-right`}>Cost</th>
+                      <th className={th}>Status</th>
+                      <th className={th}><span className="sr-only">Open</span></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rule/60">
+                    {report.byStory.map((s) => {
+                      const allFailed = s.failed > 0 && s.failed === s.calls;
+                      const someFailed = s.failed > 0 && !allFailed;
+                      return (
+                        <tr key={s.slug} className="hover:bg-ink-hover">
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-3">
+                              <Thumb src={s.coverImage} title={s.title} />
+                              <Link
+                                href={`/admin/stories/${s.slug}` as Route}
+                                className="font-ui text-sm text-ivory transition-colors hover:text-gold"
+                              >
+                                {s.title}
+                              </Link>
+                            </span>
+                          </td>
+                          <td className={`${tdNum} text-grey-muted`}>{s.calls}</td>
+                          <td className={`${tdNum} text-grey-muted`}>{s.outputTokens.toLocaleString()}</td>
+                          <td className={`${tdNum} text-ivory`}>{formatMicros(s.costMicros)}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-block rounded px-2 py-0.5 font-ui text-micro uppercase tracking-[0.12em] ${
+                                allFailed
+                                  ? 'bg-state-danger/15 text-state-danger'
+                                  : someFailed
+                                    ? 'bg-gold/15 text-gold'
+                                    : 'bg-state-success/15 text-state-success'
+                              }`}
+                            >
+                              {allFailed ? 'Failed' : someFailed ? 'Partly failed' : 'OK'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              href={`/admin/stories/${s.slug}` as Route}
+                              aria-label={`Open ${s.title}`}
+                              className="inline-flex text-grey-faint transition-colors hover:text-ivory"
+                            >
+                              <Icon name="chevron" className="h-4 w-4" />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <div className="xl:col-span-5">
+          <Panel
+            title="Recent activity"
+            hint="The last few calls, newest first"
+            action={{ href: '/admin/settings/audit', label: 'Audit log' }}
+          >
+            {report.recent.length === 0 ? (
+              <p className="px-5 py-10 text-center font-ui text-xs leading-relaxed text-grey-muted">
+                No calls yet.
+              </p>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-rule">
+                    <th className={th}>Date</th>
+                    <th className={th}>What</th>
+                    <th className={`${th} text-right`}>Cost</th>
+                    <th className={th}>Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-rule/60">
+                  {report.recent.map((r, i) => (
+                    <tr key={`${r.at}-${i}`}>
+                      <td className="whitespace-nowrap px-4 py-3 font-ui text-xs text-grey-muted">
+                        {formatDate(r.at)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="block font-ui text-sm text-ivory">
+                          {JOBS[r.job]?.label ?? r.job}
+                        </span>
+                        {r.storyTitle && (
+                          <span className="block truncate font-ui text-micro text-grey-faint">
+                            {r.storyTitle}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`${tdNum} text-ivory`}>{formatMicros(r.costMicros)}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-block whitespace-nowrap rounded px-2 py-0.5 font-ui text-micro uppercase tracking-[0.12em] ${
+                            r.ok
+                              ? 'bg-state-success/15 text-state-success'
+                              : 'bg-state-danger/15 text-state-danger'
+                          }`}
+                        >
+                          {r.ok ? 'OK' : FAILURE_LABEL[r.failureKind ?? ''] ?? 'Failed'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      {/* ---- Developer information ----------------------------------- */}
+      <details className="group rounded-lg border border-rule bg-ink-raised">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-3">
+            <Icon name="code" className="h-4 w-4 text-gold" />
+            <span>
+              <span className="block font-ui text-sm text-ivory">Developer information</span>
+              <span className="block font-ui text-micro text-grey-faint">Technical details about the AI integration</span>
+            </span>
+          </span>
+          <Icon name="chevron" className="h-4 w-4 text-grey-faint transition-transform group-open:rotate-90" />
+        </summary>
+
+        <dl className="grid gap-x-8 gap-y-3 border-t border-rule px-5 py-5 font-ui text-sm sm:grid-cols-2">
+          <Row k="Provider" v="Anthropic, over the Messages API — no SDK" />
+          <Row k="Model" v={health.model} mono />
+          <Row k="Key" v={health.keyTail ?? 'not set'} mono />
+          <Row k="Key source" v="Parameter Store /soulfables/production/AI_API_KEY on the server; .env.local locally" />
+          <Row k="Rates used" v={`$${health.rate.input} in / $${health.rate.output} out per 1M tokens${health.rate.known ? '' : ' (model unknown — Opus rates assumed)'}`} />
+          <Row k="Per-call timeout" v="60 seconds" />
+          <Row k="What is recorded" v="Every call: feature, model, story, who asked, tokens in and out, duration, and the provider's error verbatim on failure" />
+          <Row k="Health check" v="GET /v1/models — authenticates the key, spends no tokens, cannot see the balance" />
+        </dl>
 
         <p className="border-t border-rule px-5 py-4 font-ui text-micro leading-relaxed text-grey-faint">
-          These figures are the House's own, counted from what the model
-          reported on each call and priced from Anthropic's published rates.
-          They are an estimate and will differ from the invoice — caching and
-          rate changes both move it.{' '}
+          Figures here are the House's own estimate from published rates and
+          will differ from the invoice — caching and rate changes both move it.{' '}
           <a href={CONSOLE_COST} target="_blank" rel="noreferrer noopener" className="text-gold transition-colors hover:text-gold-soft">
             Anthropic's cost page
           </a>{' '}
-          is what is actually owed. Reader payments are a different thing
-          entirely and are not built yet.
+          is what is actually owed. Anthropic has no API for buying credit or
+          reading the balance, so topping up is always a trip to their console.
+          Reader payments are a separate thing and are not built.
         </p>
-      </Panel>
+      </details>
     </>
+  );
+}
+
+function Row({ k, v, mono = false }: { k: string; v: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="font-ui text-micro uppercase tracking-[0.12em] text-grey-faint">{k}</dt>
+      <dd className={`mt-0.5 break-words text-grey ${mono ? 'font-mono text-xs' : ''}`}>{v}</dd>
+    </div>
   );
 }

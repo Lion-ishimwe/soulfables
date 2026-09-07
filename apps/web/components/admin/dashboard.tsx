@@ -6,9 +6,9 @@ import type { StatCardData, Trend } from '@/lib/admin-dashboard';
  * The dashboard's furniture: a card, a panel, a trend arrow, and the
  * small icons that sit beside them.
  *
- * Icons are inline SVG rather than a font or a package. There are nine of
- * them, they never change, and a dependency for nine paths is a
- * dependency to update forever.
+ * Icons are inline SVG rather than a font or a package. There are a
+ * handful of them, they never change, and a dependency for a handful of
+ * paths is a dependency to update forever.
  */
 
 const ICONS: Record<string, string> = {
@@ -22,6 +22,15 @@ const ICONS: Record<string, string> = {
   clock: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm1 3h-2v6l5 3 1-1.7-4-2.3V7Z',
   spark: 'M12 2 9.6 9.6 2 12l7.6 2.4L12 22l2.4-7.6L22 12l-7.6-2.4L12 2Z',
   gear: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm-1.6-8h3.2l.4 2.5c.5.2 1 .4 1.4.7l2.3-1.1 1.6 2.8-1.9 1.6c0 .3.1.6.1.9s0 .6-.1.9l1.9 1.6-1.6 2.8-2.3-1.1c-.4.3-.9.5-1.4.7l-.4 2.5h-3.2l-.4-2.5c-.5-.2-1-.4-1.4-.7l-2.3 1.1-1.6-2.8 1.9-1.6c0-.3-.1-.6-.1-.9s0-.6.1-.9L3.7 6.9l1.6-2.8 2.3 1.1c.4-.3.9-.5 1.4-.7L10.4 2Z',
+  // Added with the Billing page.
+  card: 'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6Zm2 0v2h16V6H4Zm0 5v7h16v-7H4Zm2 3h5v1.5H6V14Z',
+  calendar: 'M7 2h2v2h6V2h2v2h3v18H4V4h3V2Zm-1 7v11h12V9H6Zm2 2h3v3H8v-3Z',
+  activity: 'M3 12h3.5l2.5-6 4 12 2.5-6H21v-1.5h-6.5l-1.5 3.6-4-12L6.5 10.5H3V12Z',
+  trend: 'M3 17l6-6 4 4 8-8v4h1.5V4.5H15V6h4l-6 6-4-4-7 7L3 17Z',
+  grid: 'M3 3h8v8H3V3Zm10 0h8v8h-8V3ZM3 13h8v8H3v-8Zm10 0h8v8h-8v-8Zm-8-8v4h4V5H5Zm10 0v4h4V5h-4ZM5 15v4h4v-4H5Zm10 0v4h4v-4h-4Z',
+  code: 'M8.5 6 3 12l5.5 6 1.1-1.1L5.2 12l4.4-4.9L8.5 6Zm7 0-1.1 1.1L18.8 12l-4.4 4.9L15.5 18 21 12l-5.5-6Z',
+  alert: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm-1 3h2v6h-2V7Zm0 8h2v2h-2v-2Z',
+  chevron: 'M9 6l6 6-6 6-1.4-1.4L12.2 12 7.6 7.4 9 6Z',
 };
 
 export function Icon({ name, className = 'h-4 w-4' }: { name: keyof typeof ICONS | string; className?: string }) {
