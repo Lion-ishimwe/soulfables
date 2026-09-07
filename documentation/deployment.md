@@ -100,6 +100,8 @@ ssh -i ~/Downloads/soulfables.pem ubuntu@YOUR-ELASTIC-IP
 ```
 
 If it hangs, the security group's SSH rule is not your current address.
+That will keep happening — see **Getting in without a port** below for
+the way that stops it.
 
 ---
 
@@ -208,6 +210,82 @@ node database/scripts/remote.mjs --apply   # apply it
 
 ---
 
+## Getting in without a port — Session Manager
+
+The SSH rule in the security group is pinned to one IP address, and
+yours changes: every time it does, you are locked out until you edit the
+rule. Session Manager removes the rule altogether. The instance's SSM
+agent (already installed and running on Ubuntu) makes an *outbound*
+connection to AWS; you connect through that. Nothing listens on the
+internet, so there is nothing to pin to an address.
+
+Two console steps, then a laptop install.
+
+### 1. Let the instance talk to Systems Manager
+
+IAM → Roles → `SoulfablesInstanceRole` → **Add permissions → Attach
+policies** → tick **`AmazonSSMManagedInstanceCore`** → Add.
+
+That is an AWS-managed policy: the agent's registration, heartbeat and
+session channel, and nothing about the parameters — those stay covered by
+`SoulfablesReadSettings`. Within a few minutes the instance appears under
+**Systems Manager → Fleet Manager**, and **EC2 → Instance → Connect →
+Session Manager** opens a shell in the browser. That alone ends the
+lockouts: a browser shell needs no key, no port and no IP rule.
+
+### 2. Let *you* open sessions from this machine
+
+Deploys send the code from your laptop over SSH, so the laptop needs to
+open sessions too. That means an IAM user with an access key — the one
+thing on this page that is a credential, so it gets its own narrow
+policy:
+
+IAM → Policies → Create policy → JSON → paste
+[`deploy/iam-session-policy.json`](../deploy/iam-session-policy.json) →
+name it `SoulfablesOpenSession`. Then IAM → Users → Create user →
+`soulfables-deployer` → attach `SoulfablesOpenSession` directly → create.
+Open the user → **Security credentials → Create access key → Command
+Line Interface** → keep the two values for the next step.
+
+The policy lets that user start a session on this one instance, and end
+its own sessions, and nothing else. It cannot read the parameters,
+change the instance, or see any other resource.
+
+### 3. On your machine
+
+```bash
+winget install -e --id Amazon.AWSCLI
+winget install -e --id Amazon.SessionManagerPlugin
+```
+
+Open a new terminal so both are on the path, then:
+
+```bash
+aws configure
+```
+
+It asks for the access key id, the secret, a region (`eu-north-1`) and an
+output format (`json`). Type the key values yourself — they belong in
+`~/.aws/credentials`, which this command writes, and nowhere else.
+
+`~/.ssh/config` already has a `soulfables` host that goes through Session
+Manager instead of a public port. From then on:
+
+```bash
+ssh soulfables
+HOST=soulfables bash deploy/upload.sh
+```
+
+Same key, same user, same scripts. Only the road is different.
+
+### 4. Close the port
+
+Once `ssh soulfables` works: EC2 → Security Groups → the instance's
+group → **Inbound rules → Edit → delete the SSH (22) rule**. Nothing now
+needs it, and the address it was pinned to is out of date anyway.
+
+---
+
 ## When something is wrong
 
 | Symptom | Cause |
@@ -217,6 +295,9 @@ node database/scripts/remote.mjs --apply   # apply it
 | Site loads but the admin says "no database connection" | It was built before the settings existed. Re-run `deploy.sh`. |
 | Sign-in sends you to `localhost` | `NEXT_PUBLIC_SITE_URL` is wrong. Push the right one and **rebuild** — it is baked in, so a restart will not do it. |
 | `502 Bad Gateway` | Node is not up. `journalctl -u soulfables -n 50`. |
+| The instance never shows in Fleet Manager | The agent retries every half hour. Hurry it: `sudo snap restart amazon-ssm-agent`, then `sudo journalctl -u snap.amazon-ssm-agent.amazon-ssm-agent -n 20`. A `400` there means the role still lacks `AmazonSSMManagedInstanceCore`. |
+| `ssh soulfables` says `TargetNotConnected` | Same thing from the other side — the agent is not registered yet. |
+| `ssh soulfables` says `aws: command not found` | The CLI is not on the path of the shell that ssh spawns. Open a new terminal; on Git Bash check `which aws`. |
 
 ---
 
@@ -231,6 +312,8 @@ Stated plainly, because each is a decision rather than an oversight:
   The fix is a domain (below).
 - **One instance, no redundancy.** If it stops, the site is down.
 - **No automated deploys.** Every release is the two commands above.
+- **SSH on a public port, pinned to one address** — until the Session
+  Manager steps above are done, after which the port is closed.
 - **No backups configured here.** The data lives in Supabase, which has
   its own; nothing on this box is precious.
 - **No monitoring or alerting.**
