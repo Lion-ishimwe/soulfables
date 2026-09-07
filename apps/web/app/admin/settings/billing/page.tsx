@@ -12,7 +12,19 @@ import { formatDate } from '@/lib/format';
 export const metadata: Metadata = { title: 'Billing' };
 export const dynamic = 'force-dynamic';
 
-const CONSOLE = 'https://console.anthropic.com/settings/billing';
+/*
+ * platform.claude.com, not console.anthropic.com.
+ *
+ * The old address still works but answers 301, so every click paid for a
+ * redirect — and landed somewhere whose name did not match the link that
+ * sent you there, which is its own small confusion.
+ *
+ * Their cost page is linked separately below: it is the authoritative
+ * figure, and this page's estimate should always be one click from the
+ * number it is estimating.
+ */
+const CONSOLE_BILLING = 'https://platform.claude.com/settings/billing';
+const CONSOLE_COST = 'https://platform.claude.com/cost';
 
 /** What each job is, said once, in the House's words rather than the code's. */
 const JOB_LABEL: Record<string, string> = {
@@ -96,7 +108,7 @@ export default async function BillingPage({
           </div>
 
           <a
-            href={CONSOLE}
+            href={CONSOLE_BILLING}
             target="_blank"
             rel="noreferrer noopener"
             className="shrink-0 rounded-lg border border-gold/50 px-5 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink"
@@ -255,8 +267,8 @@ export default async function BillingPage({
           reported on each call and priced from Anthropic's published rates.
           They are an estimate and will differ from the invoice — caching and
           rate changes both move it.{' '}
-          <a href={CONSOLE} target="_blank" rel="noreferrer noopener" className="text-gold transition-colors hover:text-gold-soft">
-            Anthropic's console
+          <a href={CONSOLE_COST} target="_blank" rel="noreferrer noopener" className="text-gold transition-colors hover:text-gold-soft">
+            Anthropic's cost page
           </a>{' '}
           is what is actually owed. Reader payments are a different thing
           entirely and are not built yet.
