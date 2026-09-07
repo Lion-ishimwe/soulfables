@@ -132,7 +132,9 @@ export async function demoRecordProgress(
 
   s.progress.set(slug, {
     storySlug: slug,
-    percent,
+    // The furthest point reached, not the current scroll position —
+    // the same rule the reading_progress trigger keeps in the database.
+    percent: Math.max(percent, existing?.percent ?? 0),
     lastReadAt: new Date().toISOString(),
     // Finishing is not undone by scrolling back up to reread the opening.
     completedAt:

@@ -25,7 +25,20 @@ import {
  */
 
 const PROGRESS_INTERVAL_MS = 10_000;
-const COMPLETE_AT = 0.92;
+
+/*
+ * Progress is measured against the prose, not the page. The page has a
+ * header above the story and a footer below it, so "92% of the page"
+ * was standing in for "the end of the story" and standing in badly: a
+ * reader on the last line could show as 85%, and 92% was a guess at
+ * where the footer starts. Against the prose, 1 means the last line has
+ * been on screen, and finishing is that — not a threshold.
+ *
+ * The number is also a high-water mark. Where the reader is standing
+ * when they leave is not how far they have got, and the leaving beacon
+ * fires last.
+ */
+const COMPLETE_AT = 0.995;
 
 type Section = { slug: string; title: string };
 
@@ -50,6 +63,7 @@ export function ReaderToolkit({
   const [selection, setSelection] = useState<string | null>(null);
 
   const lastSent = useRef(0);
+  const furthest = useRef(0);
   const pathname = usePathname();
 
   // The server knows about both real sessions and demo ones, and whether
@@ -80,23 +94,41 @@ export function ReaderToolkit({
   useEffect(() => {
     if (!signedIn) return;
 
+    // How much of the prose has passed the bottom of the window: the
+    // share of the story whose last visible line has been on screen.
     function percentRead(): number {
-      const doc = document.documentElement;
-      const scrollable = doc.scrollHeight - window.innerHeight;
-      if (scrollable <= 0) return 1;
-      return Math.min(1, Math.max(0, window.scrollY / scrollable));
+      const prose = document.querySelector<HTMLElement>('.sf-prose');
+      if (!prose) {
+        const doc = document.documentElement;
+        const scrollable = doc.scrollHeight - window.innerHeight;
+        if (scrollable <= 0) return 1;
+        return Math.min(1, Math.max(0, window.scrollY / scrollable));
+      }
+      const rect = prose.getBoundingClientRect();
+      if (rect.height <= 0) return 1;
+      const seen = window.innerHeight - rect.top;
+      return Math.min(1, Math.max(0, seen / rect.height));
     }
 
     function maybeSend(force = false) {
       const now = Date.now();
       if (!force && now - lastSent.current < PROGRESS_INTERVAL_MS) return;
       lastSent.current = now;
-      const p = percentRead();
+      furthest.current = Math.max(furthest.current, percentRead());
+      const p = furthest.current;
       void recordProgress({ storyId, percent: p, completed: p >= COMPLETE_AT });
     }
 
-    const onScroll = () => maybeSend();
+    // The high-water mark is tracked on every scroll, not only when a
+    // beacon is due: a reader who reaches the end and scrolls back up
+    // within the ten-second window has still reached the end.
+    const onScroll = () => {
+      furthest.current = Math.max(furthest.current, percentRead());
+      maybeSend();
+    };
     const onLeave = () => maybeSend(true);
+
+    furthest.current = percentRead();
 
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('pagehide', onLeave);

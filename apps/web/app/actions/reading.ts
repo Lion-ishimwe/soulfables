@@ -119,6 +119,9 @@ export async function recordProgress(input: {
     {
       user_id: viewer.id,
       story_id: d.storyId,
+      // The database keeps this as a high-water mark (0030): a lower
+      // value than the row already holds is ignored there, so a reader
+      // leaving from the top of a story they finished stays finished.
       percent: d.percent,
       section_id: d.sectionId ?? null,
       char_offset: d.charOffset ?? null,
