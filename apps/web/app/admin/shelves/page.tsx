@@ -144,12 +144,6 @@ export default async function ShelvesPage({
                             fields: { slug: s.slug },
                             danger: true,
                             confirm: `Delete the ${s.label} shelf?`,
-                            confirmBody:
-                              s.storyCount === 0
-                                ? 'Nothing stands on it, so nothing else changes.'
-                                : s.storyCount === 1
-                                  ? 'One story sits here and would lose its shelf. It stays published, but readers arriving by feeling will not find it.'
-                                  : `${s.storyCount} stories sit here and would lose their shelf. They stay published, but readers arriving by feeling will not find them.`,
                             confirmWord: 'delete',
                           },
                         ]}
