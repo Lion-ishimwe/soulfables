@@ -7,7 +7,7 @@ import { formatMicros } from '@/lib/ai/pricing';
 import { AdminPageHeader, Panel, Icon } from '@/components/admin/dashboard';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
 import { SpendChart } from '@/components/admin/billing-chart';
-import { Avatar } from '@/components/admin/avatar';
+import { UsageBreakdown } from '@/components/admin/usage-breakdown';
 import { Thumb } from '@/components/admin/thumb';
 import { formatDate } from '@/lib/format';
 
@@ -195,9 +195,9 @@ export default async function BillingPage({
         ))}
       </div>
 
-      {/* ---- Usage, by time, feature and person ---------------------- */}
+      {/* ---- Usage, over time and by feature or person --------------- */}
       <div className="mb-6 grid gap-6 xl:grid-cols-12">
-        <div className="xl:col-span-6">
+        <div className="xl:col-span-7">
           <Panel
             title="Usage"
             hint="Your spending over time"
@@ -226,73 +226,33 @@ export default async function BillingPage({
           </Panel>
         </div>
 
-        <div className="xl:col-span-3">
-          <Panel title="Usage by feature" hint="What the money went on">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-rule">
-                  <th className={th}>Feature</th>
-                  <th className={`${th} text-right`}>Calls</th>
-                  <th className={`${th} text-right`}>Tokens</th>
-                  <th className={`${th} text-right`}>Cost</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule/60">
-                {Object.entries(JOBS).map(([job, meta]) => {
-                  const row = report.byJob.find((j) => j.job === job);
-                  return (
-                    <tr key={job}>
-                      <td className="px-4 py-3">
-                        <span className="flex items-center gap-2.5">
-                          <Icon name={meta.icon} className="h-4 w-4 shrink-0 text-gold" />
-                          <span className="font-ui text-sm text-ivory">{meta.label}</span>
-                        </span>
-                      </td>
-                      <td className={`${tdNum} text-grey-muted`}>{row?.calls ?? 0}</td>
-                      <td className={`${tdNum} text-grey-muted`}>{(row?.outputTokens ?? 0).toLocaleString()}</td>
-                      <td className={`${tdNum} text-ivory`}>{formatMicros(row?.costMicros ?? 0)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Panel>
-        </div>
-
-        <div className="xl:col-span-3">
-          <Panel title="Usage by person" hint="Who asked for it">
-            {report.byAuthor.length === 0 ? (
-              <p className="px-5 py-10 text-center font-ui text-xs leading-relaxed text-grey-muted">
-                Nobody has used the assistant in this window.
-              </p>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-rule">
-                    <th className={th}>User</th>
-                    <th className={`${th} text-right`}>Calls</th>
-                    <th className={`${th} text-right`}>Tokens</th>
-                    <th className={`${th} text-right`}>Cost</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-rule/60">
-                  {report.byAuthor.map((a) => (
-                    <tr key={a.email}>
-                      <td className="px-4 py-3">
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <Avatar src={null} name={a.email} size={26} />
-                          <span className="truncate font-ui text-xs text-ivory">{a.email}</span>
-                        </span>
-                      </td>
-                      <td className={`${tdNum} text-grey-muted`}>{a.calls}</td>
-                      <td className={`${tdNum} text-grey-muted`}>{a.outputTokens.toLocaleString()}</td>
-                      <td className={`${tdNum} text-ivory`}>{formatMicros(a.costMicros)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Panel>
+        {/*
+          One table, wide enough for its four columns, with a select to
+          choose the grouping. Two tables side by side each got a third of
+          the row, and four columns do not fit in a third of a row.
+        */}
+        <div className="xl:col-span-5">
+          <UsageBreakdown
+            features={Object.entries(JOBS).map(([job, meta]) => {
+              const row = report.byJob.find((j) => j.job === job);
+              return {
+                key: job,
+                label: meta.label,
+                icon: meta.icon,
+                calls: row?.calls ?? 0,
+                tokens: row?.outputTokens ?? 0,
+                cost: formatMicros(row?.costMicros ?? 0),
+              };
+            })}
+            people={report.byAuthor.map((a) => ({
+              key: a.email,
+              label: a.email,
+              avatarName: a.email,
+              calls: a.calls,
+              tokens: a.outputTokens,
+              cost: formatMicros(a.costMicros),
+            }))}
+          />
         </div>
       </div>
 
