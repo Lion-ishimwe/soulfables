@@ -97,7 +97,10 @@ export default async function EditStoryPage({
                 action: discardStory,
                 fields: { slug: story.slug },
                 danger: true,
-                confirm: `Delete “${story.title}”? This cannot be undone.`,
+                confirm: `Delete “${story.title}”?`,
+                confirmBody:
+                  'The story, its chapters and everything readers saved against it go with it. This cannot be undone.',
+                confirmWord: 'delete',
               },
             ]}
           />

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useEffect, useRef, useState } from 'react';
+import { ConfirmDialog } from './confirm-dialog';
 
 /**
  * The ⋮ menu.
@@ -13,9 +14,10 @@ import { useEffect, useRef, useState } from 'react';
  *
  * Two behaviours worth naming:
  *
- *   Destructive items ask first. A confirm() is unglamorous, but it is
- *   the one dialogue every browser renders correctly and nobody has to
- *   learn — and this is a demo where a mis-click costs someone's work.
+ *   Destructive items ask first, in the House's own dialogue rather than
+ *   the browser's. Deletions ask harder: `confirmWord` keeps the button
+ *   dead until the word is typed, so removing a shelf that eleven stories
+ *   stand on cannot happen by mis-aimed click.
  *
  *   The menu closes on Escape, on an outside click, and on choosing
  *   something. A menu you cannot dismiss is its own small trap.
@@ -29,9 +31,17 @@ export type KebabItem =
       action: (formData: FormData) => void | Promise<void>;
       fields?: Record<string, string>;
       danger?: boolean;
-      /** Shown in the confirm dialogue. Presence implies destructive. */
+      /** Heading of the dialogue. Presence implies destructive. */
       confirm?: string;
+      /** Sentence under the heading: what this costs, in plain terms. */
+      confirmBody?: string;
+      /** Require this typed before the button works. Deletions use it. */
+      confirmWord?: string;
+      /** Verb on the button. Defaults to the menu item's own label. */
+      confirmLabel?: string;
     };
+
+type ActionItem = Extract<KebabItem, { kind: 'action' }>;
 
 export function KebabMenu({
   items,
@@ -41,7 +51,18 @@ export function KebabMenu({
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [asking, setAsking] = useState<ActionItem | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * The guarded action gets its own form, rendered outside the menu.
+   *
+   * It cannot live inside the menu: asking the question closes the menu,
+   * which unmounts everything in it, and a form that no longer exists
+   * cannot be submitted. So the item that is being confirmed is copied
+   * out here for as long as the dialogue is up.
+   */
+  const armedRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -62,6 +83,11 @@ export function KebabMenu({
   }, [open]);
 
   if (items.length === 0) return null;
+
+  const itemClass = (danger?: boolean) =>
+    `block w-full px-4 py-2.5 text-left font-ui text-sm transition-colors hover:bg-ink-raised ${
+      danger ? 'text-state-danger hover:text-state-danger' : 'text-grey hover:text-ivory'
+    }`;
 
   return (
     <div ref={wrapRef} className="relative flex justify-end">
@@ -99,36 +125,56 @@ export function KebabMenu({
               >
                 {item.label}
               </Link>
-            ) : (
-              <form
+            ) : item.confirm ? (
+              // Guarded: opens the question, submits nothing yet.
+              <button
                 key={i}
-                action={item.action}
-                onSubmit={(e) => {
-                  if (item.confirm && !window.confirm(item.confirm)) {
-                    e.preventDefault();
-                    return;
-                  }
+                type="button"
+                role="menuitem"
+                onClick={() => {
                   setOpen(false);
+                  setAsking(item);
                 }}
+                className={itemClass(item.danger)}
               >
+                {item.label}
+              </button>
+            ) : (
+              <form key={i} action={item.action} onSubmit={() => setOpen(false)}>
                 {Object.entries(item.fields ?? {}).map(([k, v]) => (
                   <input key={k} type="hidden" name={k} value={v} />
                 ))}
-                <button
-                  type="submit"
-                  role="menuitem"
-                  className={`block w-full px-4 py-2.5 text-left font-ui text-sm transition-colors hover:bg-ink-raised ${
-                    item.danger
-                      ? 'text-state-danger hover:text-state-danger'
-                      : 'text-grey hover:text-ivory'
-                  }`}
-                >
+                <button type="submit" role="menuitem" className={itemClass(item.danger)}>
                   {item.label}
                 </button>
               </form>
             ),
           )}
         </div>
+      )}
+
+      {asking && (
+        <>
+          <form ref={armedRef} action={asking.action} className="hidden">
+            {Object.entries(asking.fields ?? {}).map(([k, v]) => (
+              <input key={k} type="hidden" name={k} value={v} />
+            ))}
+          </form>
+
+          <ConfirmDialog
+            open
+            title={asking.confirm ?? 'Are you sure?'}
+            body={asking.confirmBody}
+            word={asking.confirmWord}
+            confirmLabel={asking.confirmLabel ?? asking.label}
+            onCancel={() => setAsking(null)}
+            onConfirm={() => {
+              // Submit before clearing: clearing unmounts the form.
+              armedRef.current?.requestSubmit();
+              setAsking(null);
+            }}
+          />
+        </>
       )}
     </div>
   );

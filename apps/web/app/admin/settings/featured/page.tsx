@@ -193,8 +193,13 @@ export default async function FeaturedPage({
                               action: deleteFeatured,
                               fields: { id: s.id },
                               danger: true,
-                              confirm:
-                                'Remove this placement? The slot falls back to whatever the page chooses on its own.',
+                              // No typed word here: a placement is put
+                              // back in two clicks, so the friction would
+                              // cost more than the mistake.
+                              confirm: 'Remove this placement?',
+                              confirmBody:
+                                'The slot falls back to whatever the page chooses on its own. Nothing is deleted — you can place it again whenever you like.',
+                              confirmLabel: 'Remove',
                             },
                           ]}
                         />

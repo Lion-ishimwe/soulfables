@@ -181,7 +181,10 @@ export default async function AuthorsPage({
                                   action: revokeAuthorAccount,
                                   fields: { authorSlug: a.slug, email: account.email },
                                   danger: true,
-                                  confirm: `Revoke ${a.name}'s account? They keep their byline and their published work, but can no longer sign in.`,
+                                  confirm: `Revoke ${a.name}'s account?`,
+                                  confirmBody:
+                                    'They keep their byline and their published work, and can be invited again later. They simply cannot sign in.',
+                                  confirmLabel: 'Revoke',
                                 },
                               ]
                             : []),
@@ -191,7 +194,10 @@ export default async function AuthorsPage({
                             action: deleteAuthor,
                             fields: { slug: a.slug },
                             danger: true,
-                            confirm: `Remove ${a.name}? Their ${a.storyCount} stories stay published and simply lose the byline.`,
+                            confirm: `Remove ${a.name}?`,
+                            confirmBody: `Their ${a.storyCount} ${a.storyCount === 1 ? 'story stays' : 'stories stay'} published and simply lose the byline.`,
+                            confirmWord: 'delete',
+                            confirmLabel: 'Remove',
                           },
                         ]}
                       />

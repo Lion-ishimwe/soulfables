@@ -192,7 +192,9 @@ export function StudioEditor({
                         action: removeChapter,
                         fields: { storySlug: story.slug, id: c.id },
                         danger: true,
-                        confirm: `Delete chapter ${c.number}, “${c.title}”? This cannot be undone.`,
+                        confirm: `Delete chapter ${c.number}?`,
+                        confirmBody: `“${c.title}” and everything in it. This cannot be undone.`,
+                        confirmWord: 'delete',
                       },
                     ]}
                   />

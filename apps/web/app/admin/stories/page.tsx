@@ -182,7 +182,10 @@ export default async function StoriesPage({
       action: discardStory,
       fields: { slug: s.slug },
       danger: true,
-      confirm: `Delete “${s.title}”? This cannot be undone.`,
+      confirm: `Delete “${s.title}”?`,
+      confirmBody:
+        'The story, its chapters and everything readers saved against it go with it. This cannot be undone.',
+      confirmWord: 'delete',
     },
   ];
 
