@@ -56,7 +56,7 @@ function Save({ blocked }: { blocked: boolean }) {
 
 const eyebrow = 'font-ui text-micro uppercase tracking-[0.18em] text-grey-muted';
 const field =
-  'w-full rounded-lg border border-rule bg-ink px-4 py-3 font-display text-base italic text-ivory outline-none transition-colors placeholder:text-grey-faint focus:border-gold/50 disabled:opacity-40';
+  'w-full rounded-lg border border-rule-strong bg-ink-hover px-4 py-3 font-display text-base italic text-ivory outline-none transition-colors placeholder:text-grey-muted focus:border-gold/50 disabled:opacity-40';
 
 /**
  * One quiet page. No pressure.
@@ -239,8 +239,8 @@ export function JournalComposer({
           onChange={(e) => setBody(e.target.value)}
           placeholder="Write freely…"
           aria-describedby="j-count"
-          className={`w-full resize-y rounded-lg border bg-ink px-5 py-4 pb-9 font-display text-lg italic leading-relaxed text-ivory outline-none transition-colors placeholder:text-grey-faint focus:border-gold/50 ${
-            over ? 'border-state-danger/60' : 'border-rule'
+          className={`w-full resize-y rounded-lg border bg-ink-hover px-5 py-4 pb-9 font-display text-lg italic leading-relaxed text-ivory outline-none transition-colors placeholder:text-grey-muted focus:border-gold/50 ${
+            over ? 'border-state-danger/60' : 'border-rule-strong'
           }`}
         />
         <span
