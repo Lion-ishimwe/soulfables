@@ -29,7 +29,7 @@ export async function assistDraft(
   formData: FormData,
 ): Promise<AssistResult> {
   if (!writingAvailable()) {
-    return { error: 'No AI provider is connected. Settings → Connections shows what is missing.' };
+    return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
 
   const slug = field(formData, 'storySlug');
@@ -45,7 +45,7 @@ export async function assistDraft(
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const result = await draftStory(parsed.data);
+  const result = await draftStory({ ...parsed.data, storySlug: slug || undefined });
   return result.ok ? { text: result.text } : { error: result.error };
 }
 
@@ -54,7 +54,7 @@ export async function assistContinue(
   formData: FormData,
 ): Promise<AssistResult> {
   if (!writingAvailable()) {
-    return { error: 'No AI provider is connected. Settings → Connections shows what is missing.' };
+    return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
 
   const slug = field(formData, 'storySlug');
@@ -71,6 +71,7 @@ export async function assistContinue(
     existing,
     shelfSlug: field(formData, 'shelfSlug') || undefined,
     note: field(formData, 'note') || undefined,
+    storySlug: slug || undefined,
   });
 
   return result.ok ? { text: result.text } : { error: result.error };
@@ -81,7 +82,7 @@ export async function assistTitles(
   formData: FormData,
 ): Promise<AssistResult> {
   if (!writingAvailable()) {
-    return { error: 'No AI provider is connected. Settings → Connections shows what is missing.' };
+    return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
 
   const slug = field(formData, 'storySlug');
@@ -97,6 +98,7 @@ export async function assistTitles(
   const result = await suggestTitles({
     body,
     shelfSlug: field(formData, 'shelfSlug') || undefined,
+    storySlug: slug || undefined,
   });
 
   return result.ok ? { text: result.text } : { error: result.error };

@@ -251,7 +251,10 @@ export function StatusDot({
   tone,
   label,
 }: {
-  tone: 'active' | 'idle' | 'none';
+  // 'danger' arrived with the Billing page: a key that has been rejected
+  // or run out of credit is not idle, and showing it grey said the
+  // assistant was merely unused rather than broken.
+  tone: 'active' | 'idle' | 'danger' | 'none';
   label: string;
 }) {
   const colour =
@@ -259,7 +262,9 @@ export function StatusDot({
       ? 'bg-state-success'
       : tone === 'idle'
         ? 'bg-gold'
-        : 'bg-grey-faint';
+        : tone === 'danger'
+          ? 'bg-state-danger'
+          : 'bg-grey-faint';
 
   return (
     <span className="flex items-center gap-2 font-ui text-xs text-ivory">

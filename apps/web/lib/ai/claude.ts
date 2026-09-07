@@ -1,4 +1,5 @@
 import 'server-only';
+import { recordUsage, type FailureKind } from './record';
 
 /**
  * Claude, behind the adapter.
@@ -32,6 +33,15 @@ export type AskOptions = {
   maxTokens?: number;
   /** Lower for structure, higher for prose. */
   temperature?: number;
+  /*
+   * What this call is for, and what it is for. Both are only used to
+   * attribute the spend on the Billing page — the model never sees
+   * them — but without them the meter can say what the House spent and
+   * not what it spent it on, which is the only thing the provider's own
+   * console already tells us.
+   */
+  job?: string;
+  storySlug?: string;
 };
 
 export type AskResult =
@@ -43,9 +53,32 @@ export function claudeConfigured(): boolean {
 }
 
 export async function ask(options: AskOptions): Promise<AskResult> {
+  const model = process.env.AI_MODEL || DEFAULT_MODEL;
+  const job = options.job ?? 'unknown';
+  const started = Date.now();
+
+  /* Every exit from this function goes through one of these two, so no
+     call can be made without the meter turning. */
+  const fail = async (
+    error: string,
+    failureKind: FailureKind,
+  ): Promise<AskResult> => {
+    await recordUsage({
+      job, model, ok: false, error, failureKind,
+      durationMs: Date.now() - started,
+      storySlug: options.storySlug,
+    });
+    return { ok: false, error };
+  };
+
   const key = process.env.AI_API_KEY;
   if (!key) {
-    return { ok: false, error: 'No AI key is configured. Settings → Connections shows what is missing.' };
+    // Not recorded: nothing was attempted and nothing was spent. A row
+    // here would put "no key configured" in a table of model calls.
+    return {
+      ok: false,
+      error: 'No AI key is configured. Settings → Billing shows what is missing.',
+    };
   }
 
   /*
@@ -66,7 +99,7 @@ export async function ask(options: AskOptions): Promise<AskResult> {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: process.env.AI_MODEL || DEFAULT_MODEL,
+        model,
         max_tokens: options.maxTokens ?? 2000,
         temperature: options.temperature ?? 1,
         system: options.system,
@@ -86,18 +119,33 @@ export async function ask(options: AskOptions): Promise<AskResult> {
       }
 
       /*
-       * The three failures worth naming, because each has a different
-       * fix and "the model refused" sends somebody to the wrong one.
+       * The failures worth naming, because each has a different fix and
+       * "the model refused" sends somebody to the wrong one.
+       *
+       * Running out of credit is the one that matters most and the one
+       * the status code hides: it arrives as a 400, indistinguishable
+       * from a malformed request until you read the prose. The Billing
+       * page exists largely to catch this, so it is matched explicitly
+       * rather than swept into "bad request".
        */
-      if (response.status === 401) {
-        message = 'The AI key was rejected. Check AI_API_KEY.';
+      let kind: FailureKind = 'refused';
+
+      if (/credit balance is too low|insufficient.*credit|billing/i.test(message)) {
+        kind = 'credit';
+        message =
+          'The Anthropic account has run out of credit. Settings → Billing has the link to top it up.';
+      } else if (response.status === 401 || response.status === 403) {
+        kind = 'auth';
+        message = 'The AI key was rejected. Check AI_API_KEY in Settings → Billing.';
       } else if (response.status === 429) {
+        kind = 'rate_limit';
         message = 'Rate limited by the model. Wait a moment and try again.';
       } else if (response.status === 529 || response.status >= 500) {
+        kind = 'overloaded';
         message = 'The model is overloaded. This usually clears in a minute.';
       }
 
-      return { ok: false, error: message };
+      return fail(message, kind);
     }
 
     const data = (await response.json()) as {
@@ -111,18 +159,35 @@ export async function ask(options: AskOptions): Promise<AskResult> {
       .join('')
       .trim();
 
-    if (!text) return { ok: false, error: 'The model returned nothing.' };
+    const inputTokens = data.usage?.input_tokens ?? 0;
+    const outputTokens = data.usage?.output_tokens ?? 0;
 
-    return {
+    if (!text) {
+      // Billable: the tokens were spent whether or not they said
+      // anything, so this is recorded as a failure that still cost.
+      await recordUsage({
+        job, model, inputTokens, outputTokens,
+        ok: false,
+        error: 'The model returned nothing.',
+        failureKind: 'refused',
+        durationMs: Date.now() - started,
+        storySlug: options.storySlug,
+      });
+      return { ok: false, error: 'The model returned nothing.' };
+    }
+
+    await recordUsage({
+      job, model, inputTokens, outputTokens,
       ok: true,
-      text,
-      inputTokens: data.usage?.input_tokens ?? 0,
-      outputTokens: data.usage?.output_tokens ?? 0,
-    };
+      durationMs: Date.now() - started,
+      storySlug: options.storySlug,
+    });
+
+    return { ok: true, text, inputTokens, outputTokens };
   } catch (error) {
     if (error instanceof Error && error.name === 'TimeoutError') {
-      return { ok: false, error: 'The model took too long. Try a shorter brief.' };
+      return fail('The model took too long. Try a shorter brief.', 'timeout');
     }
-    return { ok: false, error: 'Could not reach the model.' };
+    return fail('Could not reach the model.', 'unreachable');
   }
 }

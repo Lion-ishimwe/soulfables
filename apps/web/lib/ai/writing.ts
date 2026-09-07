@@ -87,15 +87,18 @@ export async function draftStory(opts: {
   brief: string;
   shelfSlug?: string;
   title?: string;
+  storySlug?: string;
 }): Promise<WritingResult> {
   if (!writingAvailable()) {
-    return { ok: false, error: 'No AI provider is connected. Settings → Connections.' };
+    return { ok: false, error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
 
   const system = await houseVoice(opts.shelfSlug);
 
   const result = await ask({
     system,
+    job: 'draft',
+    storySlug: opts.storySlug,
     maxTokens: 3000,
     prompt: [
       opts.title ? `Working title: ${opts.title}` : '',
@@ -116,9 +119,10 @@ export async function continueWriting(opts: {
   existing: string;
   shelfSlug?: string;
   note?: string;
+  storySlug?: string;
 }): Promise<WritingResult> {
   if (!writingAvailable()) {
-    return { ok: false, error: 'No AI provider is connected. Settings → Connections.' };
+    return { ok: false, error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
 
   const system = await houseVoice(opts.shelfSlug);
@@ -132,6 +136,8 @@ export async function continueWriting(opts: {
 
   const result = await ask({
     system,
+    job: 'continue',
+    storySlug: opts.storySlug,
     maxTokens: 1500,
     prompt: [
       'Here is where the writing stopped. Continue it — do not summarise, do not restate, do not start again. Pick up mid-breath and carry on.',
@@ -153,9 +159,10 @@ export async function continueWriting(opts: {
 export async function suggestTitles(opts: {
   body: string;
   shelfSlug?: string;
+  storySlug?: string;
 }): Promise<WritingResult> {
   if (!writingAvailable()) {
-    return { ok: false, error: 'No AI provider is connected. Settings → Connections.' };
+    return { ok: false, error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
 
   const system = await houseVoice(opts.shelfSlug);
@@ -163,6 +170,8 @@ export async function suggestTitles(opts: {
 
   const result = await ask({
     system,
+    job: 'titles',
+    storySlug: opts.storySlug,
     maxTokens: 700,
     // Lower, because this is a shape rather than prose. A creative
     // temperature here produces five titles and one list of adjectives.
