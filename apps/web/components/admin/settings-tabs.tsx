@@ -33,7 +33,16 @@ export function SettingsTabs() {
   return (
     <nav
       aria-label="Settings sections"
-      className="mb-6 flex gap-1 overflow-x-auto border-b border-rule"
+      /*
+        overflow-x-auto is here so six tabs can scroll on a phone. It has a
+        side effect: overflow-y computes to auto as well, and the links used
+        to carry -mb-px so the active tab's gold line would sit over the
+        nav's grey one — one pixel of vertical overflow, and Windows drew
+        a full vertical scrollbar for it. The margin is gone (the gold
+        line now sits just above the grey one, which is fine) and the
+        scrollbar is hidden the way the admin's other tab rows hide it.
+      */
+      className="mb-6 flex gap-1 overflow-x-auto border-b border-rule [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {TABS.map((t) => {
         const on = t.exact ? pathname === t.href : pathname.startsWith(t.href);
@@ -42,7 +51,7 @@ export function SettingsTabs() {
             key={t.href}
             href={t.href as Route}
             aria-current={on ? 'page' : undefined}
-            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-3 font-ui text-sm transition-colors ${
+            className={`whitespace-nowrap border-b-2 px-4 py-3 font-ui text-sm transition-colors ${
               on
                 ? 'border-gold text-gold'
                 : 'border-transparent text-grey-muted hover:text-ivory'
