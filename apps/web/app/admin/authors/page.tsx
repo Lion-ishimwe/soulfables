@@ -195,7 +195,12 @@ export default async function AuthorsPage({
                             fields: { slug: a.slug },
                             danger: true,
                             confirm: `Remove ${a.name}?`,
-                            confirmBody: `Their ${a.storyCount} ${a.storyCount === 1 ? 'story stays' : 'stories stay'} published and simply lose the byline.`,
+                            confirmBody:
+                              a.storyCount === 0
+                                ? 'They have no stories, so nothing else changes.'
+                                : a.storyCount === 1
+                                  ? 'Their one story stays published and simply loses the byline.'
+                                  : `Their ${a.storyCount} stories stay published and simply lose the byline.`,
                             confirmWord: 'delete',
                             confirmLabel: 'Remove',
                           },
