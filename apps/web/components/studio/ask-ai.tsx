@@ -1,16 +1,25 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type Turn = { role: 'user' | 'assistant'; content: string };
 
 /**
  * Ask AI.
  *
- * A button, and behind it a chat panel that sits over the corner of the
- * page rather than in its flow. A writer asking "does this opening
- * work?" wants the opening in view while the answer comes, so the panel
- * does not take the page — it shares it.
+ * A button, and hanging from it a card: the conversation so far above,
+ * the place to type below. It opens where the button is — under it,
+ * aligned to its right edge — so it reads as the button's own, and on a
+ * phone it takes the width of the screen beneath the header instead. A
+ * writer asking "does this opening work?" wants the opening in view
+ * while the answer comes, so the card does not take the page.
+ *
+ * The card is rendered at the end of the document and placed by
+ * measuring the button, not nested under it. Nested, a fixed card inside
+ * a header with a backdrop blur is positioned against the header rather
+ * than the screen — the blur makes the header a containing block — and
+ * lands a hundred pixels adrift. Measured, it lands under the button.
  *
  * The conversation lives in this component and nowhere else. Close the
  * panel and it stays; leave the page and it is gone. Nothing said here
@@ -35,6 +44,39 @@ export function AskAI({
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Where the card goes: just under the button, its right edge on the
+   * button's right edge. On a phone there is no room to hang a card from
+   * anything, so it becomes a sheet across the screen at the same height.
+   * Re-measured on resize and scroll, since the header the button sits in
+   * may or may not stay put.
+   */
+  const [place, setPlace] = useState<{ top: number; right: number; sheet: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPlace({
+        top: Math.round(rect.bottom + 10),
+        // clientWidth, not innerWidth: the latter counts the scrollbar,
+        // and a fixed right edge is measured from inside it.
+        right: Math.round(document.documentElement.clientWidth - rect.right),
+        sheet: window.innerWidth < 640,
+      });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -42,12 +84,22 @@ export function AskAI({
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [open, turns, thinking]);
 
-  // Escape closes it, as it closes everything else in the House.
+  // Escape closes it, as it closes everything else in the House; so does
+  // a click anywhere else, the way the account menu closes. The
+  // conversation is kept either way — closing is not clearing.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const onPointer = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!wrapRef.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
   }, [open]);
 
   async function send() {
@@ -81,7 +133,7 @@ export function AskAI({
   }
 
   return (
-    <>
+    <div ref={wrapRef} className="relative inline-block">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -96,13 +148,29 @@ export function AskAI({
         <span aria-hidden="true">✦</span> Ask AI
       </button>
 
-      {open && (
+      {open && place && createPortal(
         <div
           id="ask-ai-panel"
+          ref={panelRef}
           role="dialog"
           aria-label={storyTitle ? `Ask AI about ${storyTitle}` : 'Ask AI'}
-          className="fixed bottom-4 right-4 z-50 flex max-h-[min(40rem,calc(100vh-2rem))] w-[min(26rem,calc(100vw-2rem))] flex-col border border-rule-strong bg-ink shadow-2xl shadow-black/60"
+          className="fixed z-50 flex flex-col rounded-md border border-rule-strong bg-ink shadow-2xl shadow-black/70"
+          style={{
+            top: place.top,
+            right: place.sheet ? 12 : place.right,
+            left: place.sheet ? 12 : 'auto',
+            width: place.sheet ? 'auto' : 'min(26rem, calc(100vw - 1.5rem))',
+            maxHeight: `min(34rem, calc(100dvh - ${place.top + 12}px))`,
+          }}
         >
+          {/* The notch that ties the card to its button. */}
+          {!place.sheet && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1.5 right-7 h-3 w-3 rotate-45 border-l border-t border-rule-strong bg-ink"
+            />
+          )}
+
           <header className="flex items-start justify-between gap-4 border-b border-rule px-5 py-4">
             <div className="min-w-0">
               <p className="font-ui text-sm text-ivory">
@@ -141,7 +209,7 @@ export function AskAI({
             </div>
           </header>
 
-          <div className="min-h-[12rem] flex-1 overflow-y-auto px-5 py-4">
+          <div className="min-h-[10rem] flex-1 overflow-y-auto px-5 py-4">
             {turns.length === 0 && !thinking && (
               <p className="font-reading text-sm italic leading-relaxed text-grey-muted">
                 Ask about an opening, a title, where a scene should go, or what a
@@ -218,8 +286,9 @@ export function AskAI({
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
-    </>
+    </div>
   );
 }

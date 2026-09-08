@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace=@soulfables/web"],
       "port": 3000
+    },
+    {
+      "name": "web-demo",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NEXT_PUBLIC_DEMO_MODE=true&& npm run dev --workspace=@soulfables/web"],
+      "port": 3000
     }
   ]
 }
