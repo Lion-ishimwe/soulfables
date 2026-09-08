@@ -21,9 +21,12 @@ type Turn = { role: 'user' | 'assistant'; content: string };
 export function AskAI({
   storySlug,
   storyTitle,
+  compact = false,
 }: {
   storySlug?: string;
   storyTitle?: string;
+  /** In a header: smaller, and quieter until hovered. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -84,7 +87,11 @@ export function AskAI({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="ask-ai-panel"
-        className="inline-flex items-center gap-2 border border-gold/50 px-4 py-2 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink"
+        className={
+          compact
+            ? 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm border border-gold/40 px-3 py-1.5 font-ui text-xs text-gold transition-all hover:bg-gold hover:text-ink'
+            : 'inline-flex items-center gap-2 border border-gold/50 px-4 py-2 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink'
+        }
       >
         <span aria-hidden="true">✦</span> Ask AI
       </button>
@@ -94,7 +101,7 @@ export function AskAI({
           id="ask-ai-panel"
           role="dialog"
           aria-label={storyTitle ? `Ask AI about ${storyTitle}` : 'Ask AI'}
-          className="fixed bottom-4 right-4 z-40 flex max-h-[min(40rem,calc(100vh-2rem))] w-[min(26rem,calc(100vw-2rem))] flex-col border border-rule-strong bg-ink shadow-2xl shadow-black/60"
+          className="fixed bottom-4 right-4 z-50 flex max-h-[min(40rem,calc(100vh-2rem))] w-[min(26rem,calc(100vw-2rem))] flex-col border border-rule-strong bg-ink shadow-2xl shadow-black/60"
         >
           <header className="flex items-start justify-between gap-4 border-b border-rule px-5 py-4">
             <div className="min-w-0">
@@ -102,7 +109,11 @@ export function AskAI({
                 <span className="text-gold" aria-hidden="true">✦</span> Ask AI
               </p>
               <p className="mt-1 truncate font-ui text-xs text-grey-muted">
-                {storyTitle ? `About “${storyTitle}”` : 'About whatever you are working on'}
+                {storyTitle
+                  ? `About “${storyTitle}”`
+                  : storySlug
+                    ? 'About the story open on your desk'
+                    : 'About whatever you are working on'}
                 {' · '}nothing here is saved
               </p>
             </div>
@@ -135,7 +146,7 @@ export function AskAI({
               <p className="font-reading text-sm italic leading-relaxed text-grey-muted">
                 Ask about an opening, a title, where a scene should go, or what a
                 shelf wants from a story. It answers in the House&rsquo;s voice and
-                knows {storyTitle ? 'this story' : 'the library'}.
+                knows {storySlug ? 'this story' : 'the library'}.
               </p>
             )}
 
@@ -193,7 +204,7 @@ export function AskAI({
               }}
               rows={2}
               maxLength={4000}
-              placeholder={storyTitle ? 'Is the opening earning its length?' : 'What does the Grief shelf want from a story?'}
+              placeholder={storySlug ? 'Is the opening earning its length?' : 'What does the Grief shelf want from a story?'}
               className="w-full resize-none border border-rule-strong bg-ink-hover px-3.5 py-2.5 font-ui text-sm text-ivory outline-none placeholder:text-grey-muted focus:border-gold/50"
             />
             <div className="mt-3 flex items-center justify-between gap-4">

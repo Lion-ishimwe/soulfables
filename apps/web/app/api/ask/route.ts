@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getViewer, isStaff } from '@/lib/auth';
-import { canEditStory, viewerAuthorSlug } from '@/lib/can-edit';
+import { getViewer } from '@/lib/auth';
+import { canEditStory } from '@/lib/can-edit';
+import { canUseAI } from '@/lib/ai/access';
 import { getWorkStory } from '@/lib/admin-data';
 import { askWriter, writingAvailable } from '@/lib/ai/writing';
 
@@ -38,9 +39,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'sign-in-required' }, { status: 401 });
   }
 
-  const writer = isStaff(viewer.role) || Boolean(await viewerAuthorSlug());
-  if (!writer) {
-    return NextResponse.json({ error: 'The Writing Room is for the House’s writers.' }, { status: 403 });
+  if (!(await canUseAI())) {
+    return NextResponse.json(
+      { error: 'The House has not switched the writing assistant on for your desk.' },
+      { status: 403 },
+    );
   }
 
   if (!writingAvailable()) {

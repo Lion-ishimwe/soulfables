@@ -584,3 +584,46 @@ export async function moveFeatured(formData: FormData): Promise<void> {
   revalidatePath('/shop');
   revalidatePath('/admin/settings/featured');
 }
+
+// =====================================================================
+// Access — who may use the writing assistant
+// =====================================================================
+
+/**
+ * Switch the assistant on or off for one author.
+ *
+ * Staff only, by the same guard as everything else here, and RLS would
+ * refuse the update anyway. The flag is read back by writing_ai_allowed()
+ * on every call the assistant takes, so withdrawing it is immediate —
+ * there is no session to expire.
+ */
+export async function setAuthorAiAccess(formData: FormData): Promise<void> {
+  await requireStaff();
+  const slug = field(formData, 'slug');
+  const allow = field(formData, 'allow') === '1';
+  if (!slug) return;
+
+  // The demo has no flag; the page says so and disables the button.
+  if (isDemoMode()) return;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('authors')
+    .update({ ai_access: allow })
+    .eq('slug', slug)
+    .select('name')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[access] setAuthorAiAccess', error.message);
+    return;
+  }
+
+  await audit(allow ? 'author.ai_access.allow' : 'author.ai_access.withdraw', 'author', slug, { ai_access: allow });
+
+  revalidatePath('/admin/settings/access');
+  revalidatePath('/studio', 'layout');
+  redirect(
+    `/admin/settings/access?changed=${encodeURIComponent((data?.name as string) ?? slug)}&to=${allow ? 'on' : 'off'}` as Route,
+  );
+}

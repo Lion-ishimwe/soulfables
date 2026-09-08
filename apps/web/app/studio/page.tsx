@@ -10,8 +10,8 @@ import {
 import { StatusPill } from '@/components/admin/ui';
 import { TemplatePanel } from '@/components/studio/template-panel';
 import { ConceptPanel } from '@/components/studio/concept-panel';
-import { AskAI } from '@/components/studio/ask-ai';
 import { getShelves } from '@/lib/content';
+import { canUseAI } from '@/lib/ai/access';
 import { formatDate } from '@/lib/format';
 import { AccountPanel } from '@/components/studio/account-panel';
 import { myAuthor } from '@/lib/author-accounts';
@@ -55,6 +55,8 @@ export default async function StudioPage() {
   const house = await getHouseSettings();
   const unread = notes.filter((n) => !n.readAt);
   const shelves = (await getShelves()).map((s) => ({ slug: s.slug, label: s.label, tagline: s.tagline }));
+  // Staff always; an author only once Settings → Access says so.
+  const aiAllowed = await canUseAI();
 
   const drafts = mine.filter((s) => s.status === 'draft');
   const waiting = mine.filter((s) => s.status === 'in_review');
@@ -100,17 +102,14 @@ export default async function StudioPage() {
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-5">
-          {staff && (
-            <Link
-              href="/admin/submissions"
-              className="font-ui text-sm text-gold transition-colors hover:text-gold-soft"
-            >
-              Review submissions →
-            </Link>
-          )}
-          <AskAI />
-        </div>
+        {staff && (
+          <Link
+            href="/admin/submissions"
+            className="font-ui text-sm text-gold transition-colors hover:text-gold-soft"
+          >
+            Review submissions →
+          </Link>
+        )}
       </header>
 
       {myProfile && (
@@ -153,10 +152,12 @@ export default async function StudioPage() {
       {/* Start something. */}
       <section className="mb-12">
         <h2 className="sf-eyebrow mb-4">Begin</h2>
-        <ConceptPanel shelves={shelves} />
-        <div className="mt-px">
-          <TemplatePanel />
-        </div>
+        {aiAllowed && (
+          <div className="mb-px">
+            <ConceptPanel shelves={shelves} />
+          </div>
+        )}
+        <TemplatePanel />
       </section>
 
       {/* In progress. */}

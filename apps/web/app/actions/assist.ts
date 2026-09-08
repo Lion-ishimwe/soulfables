@@ -2,8 +2,8 @@
 
 import { z } from 'zod';
 import { field } from '@/lib/form';
-import { canEditStory, viewerAuthorSlug } from '@/lib/can-edit';
-import { getViewer, isStaff } from '@/lib/auth';
+import { canEditStory } from '@/lib/can-edit';
+import { canUseAI } from '@/lib/ai/access';
 import {
   draftStory,
   continueWriting,
@@ -16,13 +16,7 @@ import {
 export type AssistResult = { text?: string; error?: string };
 export type ConceptsResult = { concepts?: Concept[]; error?: string };
 
-/** Staff, or anyone with a desk in the Writing Room. */
-async function canWrite(): Promise<boolean> {
-  const viewer = await getViewer();
-  if (!viewer) return false;
-  if (isStaff(viewer.role)) return true;
-  return Boolean(await viewerAuthorSlug());
-}
+const NOT_ALLOWED = 'The House has not switched the writing assistant on for your desk.';
 
 const conceptSchema = z.object({
   title: z.string().trim().min(1, 'Give it a title first, even a working one.').max(200),
@@ -59,6 +53,8 @@ export async function assistDraft(
     return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
 
+  if (!(await canUseAI())) return { error: NOT_ALLOWED };
+
   const slug = field(formData, 'storySlug');
   if (slug && !(await canEditStory(slug))) {
     return { error: 'That story is not yours to write.' };
@@ -83,6 +79,8 @@ export async function assistContinue(
   if (!writingAvailable()) {
     return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
+
+  if (!(await canUseAI())) return { error: NOT_ALLOWED };
 
   const slug = field(formData, 'storySlug');
   if (slug && !(await canEditStory(slug))) {
@@ -111,6 +109,8 @@ export async function assistTitles(
   if (!writingAvailable()) {
     return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
+
+  if (!(await canUseAI())) return { error: NOT_ALLOWED };
 
   const slug = field(formData, 'storySlug');
   if (slug && !(await canEditStory(slug))) {
@@ -146,9 +146,7 @@ export async function assistConcepts(
   if (!writingAvailable()) {
     return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
-  if (!(await canWrite())) {
-    return { error: 'The Writing Room is for the House\'s writers.' };
-  }
+  if (!(await canUseAI())) return { error: NOT_ALLOWED };
 
   const parsed = conceptSchema.safeParse({
     title: field(formData, 'title'),

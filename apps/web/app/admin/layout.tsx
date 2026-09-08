@@ -8,6 +8,7 @@ import { SidebarToggle } from '@/components/admin/sidebar-toggle';
 import { MobileTabs } from '@/components/admin/mobile-tabs';
 import { Icon } from '@/components/admin/dashboard';
 import { signOut } from '@/app/actions/auth';
+import { HeaderAskAI } from '@/components/header-ask-ai';
 
 export const metadata: Metadata = {
   title: { default: 'Admin', template: '%s · Soulfables Admin' },
@@ -107,6 +108,7 @@ export default async function AdminLayout({
             </Link>
 
             <div className="ml-auto flex items-center gap-5">
+              <HeaderAskAI />
               <Link
                 href={'/studio' as Route}
                 className="hidden font-ui text-xs text-grey-muted transition-colors hover:text-ivory sm:inline"

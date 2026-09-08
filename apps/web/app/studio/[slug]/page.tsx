@@ -5,7 +5,7 @@ import { requireViewer, isStaff } from '@/lib/auth';
 import { accountForEmail, getWorkStory } from '@/lib/admin-data';
 import { StatusPill } from '@/components/admin/ui';
 import { StudioEditor } from '@/components/studio/studio-editor';
-import { AskAI } from '@/components/studio/ask-ai';
+import { canUseAI } from '@/lib/ai/access';
 
 export const metadata: Metadata = {
   title: 'Writing',
@@ -21,9 +21,10 @@ export default async function StudioStoryPage({
 }) {
   const { slug } = await params;
   const viewer = await requireViewer(`/studio/${slug}`);
-  const [story, account] = await Promise.all([
+  const [story, account, aiAllowed] = await Promise.all([
     getWorkStory(slug),
     accountForEmail(viewer.email),
+    canUseAI(),
   ]);
 
   if (!story) notFound();
@@ -68,10 +69,7 @@ export default async function StudioStoryPage({
             {handedOn && <span>Begun by {story.authorName}</span>}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <AskAI storySlug={story.slug} storyTitle={story.title} />
-          <StatusPill status={story.status} />
-        </div>
+        <StatusPill status={story.status} />
       </header>
 
       {/* What the House said when it came back. */}
@@ -110,7 +108,7 @@ export default async function StudioStoryPage({
         </div>
       )}
 
-      <StudioEditor story={story} canPublish={staff} />
+      <StudioEditor story={story} canPublish={staff} aiAllowed={aiAllowed} />
     </div>
   );
 }

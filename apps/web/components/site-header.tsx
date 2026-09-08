@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { AccountMenu } from '@/components/account-menu';
+import { HeaderAskAI } from '@/components/header-ask-ai';
 
 /**
  * The House navigation. Order matches the live site exactly — readers
@@ -61,6 +62,8 @@ export function SiteHeader() {
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
           </Link>
+
+          <HeaderAskAI />
 
           <AccountMenu />
 

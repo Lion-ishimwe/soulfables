@@ -53,9 +53,12 @@ function Button({
 export function StudioEditor({
   story,
   canPublish,
+  aiAllowed,
 }: {
   story: WorkStory;
   canPublish: boolean;
+  /** Whether the House has switched the assistant on for this writer. */
+  aiAllowed: boolean;
 }) {
   const [submitState, submitAction] = useActionState<WorkflowResult, FormData>(
     submitStory,
@@ -78,13 +81,15 @@ export function StudioEditor({
 
   return (
     <>
-      {/* Chapters, for a serialised story. */}
-      <Assistant
-        storySlug={story.slug}
-        shelfSlug={story.shelfSlug}
-        title={story.title}
-        body={story.bodyMdx}
-      />
+      {/* A hand with the writing — only for those the House has given it to. */}
+      {aiAllowed && (
+        <Assistant
+          storySlug={story.slug}
+          shelfSlug={story.shelfSlug}
+          title={story.title}
+          body={story.bodyMdx}
+        />
+      )}
 
       {/*
         The cover, for whoever is carrying the story.

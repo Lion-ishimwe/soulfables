@@ -654,10 +654,11 @@ export async function listAuthorAccounts(): Promise<AuthorAccount[]> {
   const { data, error } = await supabase.rpc('author_accounts');
   if (error) return [];
 
-  return ((data ?? []) as Record<string, string>[]).map((r) => ({
-    authorSlug: r.author_slug,
-    email: r.email,
-    invitedAt: r.invited_at,
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    authorSlug: r.author_slug as string,
+    email: r.email as string,
+    invitedAt: r.invited_at as string,
+    aiAccess: r.ai_access === true,
   }));
 }
 

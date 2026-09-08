@@ -84,6 +84,8 @@ export type AuthorAccount = {
   email: string;
   authorSlug: string;
   invitedAt: string;
+  /** Whether the writing assistant is switched on for them. See 0031. */
+  aiAccess?: boolean;
 };
 
 export type Notification = {

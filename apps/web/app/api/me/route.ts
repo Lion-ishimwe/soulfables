@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getViewer, isStaff } from '@/lib/auth';
 import { getSavedStories } from '@/lib/library';
+import { canUseAI } from '@/lib/ai/access';
 
 /**
  * Who the browser is, from the server's point of view.
@@ -31,7 +32,7 @@ export async function GET() {
     );
   }
 
-  const saved = await getSavedStories();
+  const [saved, aiAccess] = await Promise.all([getSavedStories(), canUseAI()]);
 
   return NextResponse.json(
     {
@@ -39,6 +40,9 @@ export async function GET() {
       displayName: viewer.displayName,
       role: viewer.role,
       isStaff: isStaff(viewer.role),
+      // Whether the header shows Ask AI. Staff always; authors when the
+      // House has switched it on for them (Settings → Access).
+      aiAccess,
       isDemo: Boolean(viewer.isDemo),
       savedSlugs: saved.map((s) => s!.slug),
     },
