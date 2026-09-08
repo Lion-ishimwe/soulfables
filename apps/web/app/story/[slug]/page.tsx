@@ -6,7 +6,7 @@ import { StoryBody } from '@/lib/story-body';
 import { ReaderControls } from '@/components/reader-controls';
 import { ReaderToolkit } from '@/components/reader-toolkit';
 import { AudioPlayer } from '@/components/audio-player';
-import { Cover } from '@/components/cover-art';
+import { StoryHero } from '@/components/story-hero';
 import { getListeningPosition } from '@/lib/library';
 import { track } from '@/lib/analytics';
 
@@ -131,37 +131,10 @@ export default async function StoryPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
+      {/* Full width, so the artwork can be the room the story is read in. */}
+      <StoryHero story={story} shelf={shelf} />
+
       <article className="mx-auto max-w-content px-5 sm:px-8">
-        <header className="pb-14 pt-20 text-center">
-          <div className="mx-auto mb-10 aspect-[2/3] w-40 overflow-hidden shadow-cover sm:w-48">
-            <Cover
-              src={story.coverImage}
-              title={story.title}
-              author={story.author}
-              shelf={story.shelf}
-              sizes="12rem"
-            />
-          </div>
-
-          {shelf && (
-            <Link
-              href={`/shelf/${shelf.slug}`}
-              className="sf-eyebrow transition-colors duration-base ease-house hover:text-gold"
-            >
-              {shelf.emoji} {shelf.label}
-            </Link>
-          )}
-          <h1 className="mt-6 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
-            {story.title}
-          </h1>
-          <p className="mx-auto mt-5 max-w-measure font-display text-xl italic leading-snug text-grey-muted">
-            {story.subtitle}
-          </p>
-          <p className="mt-8 font-ui text-sm text-grey-muted">
-            By {story.author} · ☕ {story.readingMinutes} min
-          </p>
-        </header>
-
         <ReaderControls />
 
         {story.audio && !story.locked && (

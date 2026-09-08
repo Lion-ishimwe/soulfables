@@ -212,6 +212,7 @@ export function Cover({
   shelf,
   className = '',
   sizes = '(min-width: 1024px) 20vw, 45vw',
+  priority = false,
 }: {
   src?: string | null;
   title: string;
@@ -219,6 +220,8 @@ export function Cover({
   shelf?: string | null;
   className?: string;
   sizes?: string;
+  /** Above the fold on its own page: fetch it first, not when scrolled to. */
+  priority?: boolean;
 }) {
   if (src) {
     return (
@@ -226,7 +229,8 @@ export function Cover({
       <img
         src={src}
         alt={`Cover for ${title}`}
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : 'auto'}
         decoding="async"
         sizes={sizes}
         className={`h-full w-full object-cover ${className}`}
