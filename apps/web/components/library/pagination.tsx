@@ -41,7 +41,7 @@ export function Pagination({
           ←
         </Link>
       ) : (
-        <span aria-hidden="true" className={`${box} border-rule/50 text-grey-faint opacity-40`}>
+        <span aria-hidden="true" className={`${box} border-rule text-grey-faint opacity-40`}>
           ←
         </span>
       )}
@@ -79,7 +79,7 @@ export function Pagination({
           →
         </Link>
       ) : (
-        <span aria-hidden="true" className={`${box} border-rule/50 text-grey-faint opacity-40`}>
+        <span aria-hidden="true" className={`${box} border-rule text-grey-faint opacity-40`}>
           →
         </span>
       )}

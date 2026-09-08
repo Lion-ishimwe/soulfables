@@ -39,9 +39,9 @@ export function LibraryBackdrop() {
         <defs>
           {/* The room falls away at the edges and into the floor. */}
           <radialGradient id="lb-vignette" cx="42%" cy="34%" r="78%">
-            <stop offset="0%" stopColor="#0B0B0B" stopOpacity="0" />
-            <stop offset="62%" stopColor="#0B0B0B" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#0B0B0B" stopOpacity="1" />
+            <stop offset="0%" style={{ stopColor: 'rgb(var(--c-ink))' }} stopOpacity="0" />
+            <stop offset="62%" style={{ stopColor: 'rgb(var(--c-ink))' }} stopOpacity="0.55" />
+            <stop offset="100%" style={{ stopColor: 'rgb(var(--c-ink))' }} stopOpacity="1" />
           </radialGradient>
 
           {/* The lamp by the door. */}
@@ -52,9 +52,9 @@ export function LibraryBackdrop() {
           </radialGradient>
 
           <linearGradient id="lb-wall" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#141210" />
-            <stop offset="70%" stopColor="#0D0C0B" />
-            <stop offset="100%" stopColor="#080808" />
+            <stop offset="0%" style={{ stopColor: 'rgb(var(--c-ink-raised))' }} />
+            <stop offset="70%" style={{ stopColor: 'rgb(var(--c-ink))' }} />
+            <stop offset="100%" style={{ stopColor: 'rgb(var(--c-ink))' }} />
           </linearGradient>
         </defs>
 
@@ -76,7 +76,7 @@ export function LibraryBackdrop() {
                   y={shelfY + 6.2}
                   width={bay.w}
                   height="0.5"
-                  fill="#F4ECDC"
+                  style={{ fill: 'rgb(var(--c-ivory))' }}
                   fillOpacity="0.09"
                 />
 
@@ -93,7 +93,7 @@ export function LibraryBackdrop() {
                       y={shelfY + 6.2 - h}
                       width={Math.max(0.4, w - 0.24)}
                       height={h}
-                      fill={warm ? '#C89528' : '#F4ECDC'}
+                      style={{ fill: warm ? 'rgb(var(--c-gold))' : 'rgb(var(--c-ivory))' }}
                       fillOpacity={warm ? 0.16 : 0.05 + (seed % 4) * 0.012}
                     />
                   );

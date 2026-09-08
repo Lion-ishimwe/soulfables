@@ -238,7 +238,7 @@ export default async function LibraryPage({
             */}
             {current === pages && (
               <li>
-                <div className="flex h-full flex-col items-center justify-center rounded-lg border border-gold/25 bg-gold-dim/40 px-6 py-10 text-center">
+                <div className="flex h-full flex-col items-center justify-center rounded-lg border border-gold/25 bg-gold-dim px-6 py-10 text-center">
                   <span aria-hidden="true" className="text-lg text-gold">
                     ✦
                   </span>

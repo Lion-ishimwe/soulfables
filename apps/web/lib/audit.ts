@@ -21,6 +21,8 @@ export type AuditEntry = {
   at: string;
   /** Which fields changed, derived from the before/after snapshots. */
   changed: string[];
+  /** What the row is called, if it is called anything: a title, a name, an address. */
+  label: string | null;
 };
 
 export type AuditFilters = {
@@ -72,6 +74,20 @@ function instant(date: string | undefined, time: string | undefined, edge: 'star
   return new Date(`${date}T${clock}${seconds}`).toISOString();
 }
 
+/*
+ * The row's own name, for the Detail column. Tables name their rows
+ * differently — a story has a title, a shelf a label, a reader an email
+ * — so this tries each in turn and settles for the slug.
+ */
+function labelOf(before: unknown, after: unknown): string | null {
+  const row = ((after ?? before) ?? {}) as Record<string, unknown>;
+  for (const key of ['title', 'name', 'label', 'display_name', 'email', 'subject', 'slug']) {
+    const v = row[key];
+    if (typeof v === 'string' && v.trim()) return v.trim().slice(0, 120);
+  }
+  return null;
+}
+
 export async function listAuditEntries(
   filters: AuditFilters,
   page = 0,
@@ -108,6 +124,7 @@ export async function listAuditEntries(
       actor: (r.actor_email as string) ?? null,
       at: r.created_at as string,
       changed: changedFields(r.before, r.after),
+      label: labelOf(r.before, r.after),
     })),
   };
 }

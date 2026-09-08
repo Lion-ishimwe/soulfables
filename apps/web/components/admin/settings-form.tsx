@@ -146,6 +146,45 @@ export function SettingsForm({ settings }: { settings: HouseSettings }) {
           </p>
         </div>
 
+        {/*
+          One switch, everyone. A theme that each person could set for
+          themselves would be a preference; this is the House deciding
+          what it looks like, which is why it lives here and not under
+          Account.
+        */}
+        <fieldset className="mt-6 border-t border-rule pt-5">
+          <legend className="sr-only">Appearance</legend>
+          <p className={label}>Appearance</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                { value: 'dark', title: 'Night', note: 'Deep black, warm ivory, lamp-lit gold. The House as it was built.' },
+                { value: 'light', title: 'Day', note: 'Ivory paper, near-black text, the same gold a shade deeper.' },
+              ] as const
+            ).map((opt) => (
+              <label
+                key={opt.value}
+                className="flex cursor-pointer items-start gap-3 rounded border border-rule bg-ink px-4 py-3.5 transition-colors has-[:checked]:border-gold/60 has-[:checked]:bg-gold-dim"
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value={opt.value}
+                  defaultChecked={settings.theme === opt.value}
+                  className="mt-1 h-3.5 w-3.5 flex-none accent-[#C89528]"
+                />
+                <span className="min-w-0">
+                  <span className="block font-ui text-sm text-ivory">{opt.title}</span>
+                  <span className="mt-0.5 block font-ui text-xs leading-relaxed text-grey-muted">{opt.note}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className={hint}>
+            Applies to the whole site, for everyone — readers, writers and this admin. Dark is the default.
+          </p>
+        </fieldset>
+
         <div className="mt-6 flex justify-end border-t border-rule pt-5">
           <Save />
         </div>

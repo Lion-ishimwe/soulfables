@@ -4,6 +4,7 @@ import { DemoBanner } from '@/components/demo-banner';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { PublicChrome } from '@/components/public-chrome';
+import { getHouseSettings } from '@/lib/settings';
 import './globals.css';
 
 /*
@@ -68,15 +69,30 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
-export const viewport: Viewport = {
-  themeColor: '#0B0B0B',
-  colorScheme: 'dark',
-};
+/*
+ * The browser chrome follows the House: the address bar tint and the
+ * colour-scheme hint match whichever palette is on. Both come from the
+ * same cached settings row the layout reads.
+ */
+export async function generateViewport(): Promise<Viewport> {
+  const { theme } = await getHouseSettings();
+  return theme === 'light'
+    ? { themeColor: '#F7F3EA', colorScheme: 'light' }
+    : { themeColor: '#0B0B0B', colorScheme: 'dark' };
+}
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  /*
+   * The palette is one attribute on <html>; globals.css does the rest.
+   * Reading it here means every page — public, admin, Writing Room —
+   * wears the same face, and switching it is one save in Settings.
+   */
+  const { theme } = await getHouseSettings();
+
   return (
     <html
       lang="en"
+      data-theme={theme}
       className={`${display.variable} ${reading.variable} ${ui.variable}`}
     >
       <body className="min-h-screen bg-ink font-ui text-grey antialiased">

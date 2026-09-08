@@ -85,7 +85,7 @@ export function UsageBreakdown({
               <th className={`${th} w-0 whitespace-nowrap text-right`}>Cost</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-rule/60">
+          <tbody className="divide-y divide-rule">
             {rows.map((r) => (
               <tr key={r.key}>
                 {/*

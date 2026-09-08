@@ -3,23 +3,64 @@
 @tailwind utilities;
 
 /*
- * The House runs night-first. The reader can switch the *reader* to ivory
- * paper (brief §7), but the site around it stays dark — that is the brand,
- * not a preference.
+ * The House runs night-first. The whole site can be switched to a
+ * daylight palette from Settings → The House — one switch, everyone —
+ * and that arrives here as data-theme on <html>. The palettes are the
+ * same names in two lightings: ink is always the ground, ivory always
+ * the strongest text, gold always gold. Every utility class reads these,
+ * so nothing else in the app knows which face the House is wearing.
+ *
+ * The reader's own ivory-paper mode (brief §7) is separate and stays.
  */
 
 @layer base {
   :root {
-    --sf-ink: #0b0b0b;
-    --sf-ivory: #f4ecdc;
-    --sf-gold: #c89528;
-    --sf-grey: #cfcfcf;
-    --sf-grey-muted: #8a8a8a;
-    --sf-rule: rgba(244, 236, 220, 0.1);
+    /* Night. Channels, so Tailwind can add its own alpha. */
+    --c-ink: 11 11 11;
+    --c-ink-raised: 20 20 20;
+    --c-ink-hover: 28 28 28;
+    --c-ivory: 244 236 220;
+    --c-gold: 200 149 40;
+    --c-gold-soft: 217 174 85;
+    --c-gold-dim: rgba(200, 149, 40, 0.16);
+    --c-grey: 207 207 207;
+    --c-grey-muted: 138 138 138;
+    --c-grey-faint: rgba(138, 138, 138, 0.5);
+    --c-rule: rgba(244, 236, 220, 0.1);
+    --c-rule-strong: rgba(244, 236, 220, 0.18);
+    color-scheme: dark;
+
+    --sf-ink: rgb(var(--c-ink));
+    --sf-ivory: rgb(var(--c-ivory));
+    --sf-gold: rgb(var(--c-gold));
+    --sf-grey: rgb(var(--c-grey));
+    --sf-grey-muted: rgb(var(--c-grey-muted));
+    --sf-rule: var(--c-rule);
 
     /* Reader preferences, overridden inline from user_settings. */
     --reader-scale: 1;
     --reader-leading: 1.75;
+  }
+
+  /*
+   * Day. Paper for the ground, near-black for the strongest text, and a
+   * gold a shade deeper so it still reads against paper. The hairlines
+   * are the ink at the same alphas the ivory had.
+   */
+  :root[data-theme='light'] {
+    --c-ink: 247 243 234;
+    --c-ink-raised: 255 252 246;
+    --c-ink-hover: 238 232 219;
+    --c-ivory: 26 23 20;
+    --c-gold: 168 122 28;
+    --c-gold-soft: 200 149 40;
+    --c-gold-dim: rgba(168, 122, 28, 0.14);
+    --c-grey: 58 52 46;
+    --c-grey-muted: 107 98 89;
+    --c-grey-faint: rgba(107, 98, 89, 0.55);
+    --c-rule: rgba(26, 23, 20, 0.1);
+    --c-rule-strong: rgba(26, 23, 20, 0.2);
+    color-scheme: light;
   }
 
   html {
@@ -45,7 +86,7 @@
   }
 
   ::selection {
-    background: rgba(200, 149, 40, 0.28);
+    background: rgb(var(--c-gold) / 0.28);
     color: var(--sf-ivory);
   }
 

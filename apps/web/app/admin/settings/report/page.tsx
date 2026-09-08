@@ -120,7 +120,7 @@ export default async function ReportPage() {
                   {report.topStories.map((s) => (
                     <tr
                       key={s.slug}
-                      className="border-b border-rule/60 last:border-0 hover:bg-ink-hover"
+                      className="border-b border-rule last:border-0 hover:bg-ink-hover"
                     >
                       <td className="px-5 py-3 font-ui text-sm text-ivory">{s.title}</td>
                       <td className="px-5 py-3 font-ui text-sm tabular-nums text-ivory">
@@ -167,7 +167,7 @@ export default async function ReportPage() {
                 {report.readers.map((r) => (
                   <tr
                     key={r.id}
-                    className="border-b border-rule/60 last:border-0 hover:bg-ink-hover"
+                    className="border-b border-rule last:border-0 hover:bg-ink-hover"
                   >
                     <td className="px-5 py-3 font-ui text-sm text-ivory">
                       {r.displayName ?? <span className="text-grey-faint">—</span>}

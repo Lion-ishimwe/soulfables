@@ -2,9 +2,57 @@ import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth';
-import { listAuditEntries, AUDIT_PAGE_SIZE, type AuditFilters } from '@/lib/audit';
-import { AdminPageHeader, Panel, PanelEmpty, relativeTime } from '@/components/admin/dashboard';
+import { listAuditEntries, AUDIT_PAGE_SIZE, type AuditEntry, type AuditFilters } from '@/lib/audit';
+import { AdminPageHeader, Panel, PanelEmpty } from '@/components/admin/dashboard';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
+import { LocalTime } from '@/components/admin/local-time';
+
+/*
+ * The action, as a pill, coloured by what kind of thing it was: green
+ * for something made, gold for something changed, red for something
+ * removed. The word inside is the action as recorded — "stories.update",
+ * "entitlement.granted" — because that is the thing to search for.
+ */
+function actionTone(action: string): string {
+  if (/\.(insert|create|created|granted|published|save)$/.test(action)) {
+    return 'border-state-success/40 bg-state-success/15 text-state-success';
+  }
+  if (/\.(delete|revoked|archived|withdraw)$/.test(action)) {
+    return 'border-state-danger/40 bg-state-danger/15 text-state-danger';
+  }
+  return 'border-gold/40 bg-gold-dim text-gold';
+}
+
+/* "stories" → "Stories", "story_shelves" → "Story shelves". */
+function where(entityType: string | null): string {
+  if (!entityType) return '—';
+  const words = entityType.replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/*
+ * A sentence for the Detail column: what happened, to what, and which
+ * fields moved. "Updated “The Voice in the River” · title, subtitle" is
+ * what somebody scanning the log is looking for; the JSON behind it is
+ * not.
+ */
+function detail(e: AuditEntry): string {
+  const verb = e.action.split('.').pop() ?? e.action;
+  const past: Record<string, string> = {
+    insert: 'Created', create: 'Created', created: 'Created',
+    update: 'Updated', save: 'Saved', updated: 'Updated',
+    delete: 'Deleted', granted: 'Granted', revoked: 'Revoked',
+    published: 'Published', returned: 'Returned', assigned: 'Assigned',
+    allow: 'Allowed the assistant for', withdraw: 'Withdrew the assistant from',
+  };
+  const head = past[verb] ?? verb.charAt(0).toUpperCase() + verb.slice(1);
+  const what = e.label ? `“${e.label}”` : e.entityId ? `#${e.entityId.slice(0, 8)}` : '';
+  const fields =
+    e.changed.length > 0
+      ? ` · ${e.changed.slice(0, 5).join(', ')}${e.changed.length > 5 ? ` +${e.changed.length - 5}` : ''}`
+      : '';
+  return `${head} ${what}${fields}`.replace(/\s+/g, ' ').trim();
+}
 
 export const metadata: Metadata = { title: 'Audit log' };
 export const dynamic = 'force-dynamic';
@@ -119,7 +167,7 @@ export default async function AuditPage({
       </form>
 
       {/* ---- Entries ------------------------------------------------ */}
-      <Panel title="Changes" hint="Newest first. Times are this browser's.">
+      <Panel title="Changes" hint="Newest first. Times are this browser's own.">
         {!live ? (
           <PanelEmpty>
             Demo mode records nothing. Connect a database and every change is
@@ -133,41 +181,29 @@ export default async function AuditPage({
           </PanelEmpty>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[46rem]">
+            <table className="w-full min-w-[54rem]">
               <thead>
                 <tr className="border-b border-rule text-left font-ui text-micro uppercase tracking-[0.14em] text-grey-faint">
-                  <th className="px-5 py-3 font-normal">Action</th>
-                  <th className="px-5 py-3 font-normal">Table</th>
-                  <th className="px-5 py-3 font-normal">Fields changed</th>
-                  <th className="px-5 py-3 font-normal">Who</th>
-                  <th className="w-40 px-5 py-3 font-normal">When</th>
+                  <th className="w-52 px-5 py-3 font-normal">When</th>
+                  <th className="w-36 px-5 py-3 font-normal">Where</th>
+                  <th className="w-56 px-5 py-3 font-normal">Who</th>
+                  <th className="w-44 px-5 py-3 font-normal">Action</th>
+                  <th className="px-5 py-3 font-normal">Detail</th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
                   <tr
                     key={e.id}
-                    className="border-b border-rule/60 transition-colors last:border-0 hover:bg-ink-hover"
+                    className="border-b border-rule transition-colors last:border-0 hover:bg-ink-hover"
                   >
-                    <td className="px-5 py-3">
-                      <span className="font-ui text-sm text-ivory">
-                        {e.action.replace(/[._]/g, ' ')}
-                      </span>
+                    <td className="whitespace-nowrap px-5 py-3.5">
+                      <LocalTime iso={e.at} className="font-mono text-xs text-grey" />
                     </td>
-                    <td className="px-5 py-3 font-mono text-xs text-grey-muted">
-                      {e.entityType ?? '—'}
+                    <td className="whitespace-nowrap px-5 py-3.5 font-ui text-sm text-grey">
+                      {where(e.entityType)}
                     </td>
-                    <td className="max-w-sm px-5 py-3">
-                      {e.changed.length === 0 ? (
-                        <span className="font-ui text-xs text-grey-faint">—</span>
-                      ) : (
-                        <span className="font-mono text-xs leading-relaxed text-grey-muted">
-                          {e.changed.slice(0, 6).join(', ')}
-                          {e.changed.length > 6 ? ` +${e.changed.length - 6}` : ''}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 font-ui text-xs text-grey">
+                    <td className="max-w-[16rem] truncate px-5 py-3.5 font-ui text-sm text-ivory">
                       {/*
                         No actor means the change did not come from a
                         signed-in session — a migration, a seed, or a
@@ -176,18 +212,15 @@ export default async function AuditPage({
                       */}
                       {e.actor ?? <span className="text-grey-faint">system</span>}
                     </td>
-                    <td className="px-5 py-3">
-                      <span className="block font-ui text-xs text-ivory">
-                        {relativeTime(e.at)}
+                    <td className="whitespace-nowrap px-5 py-3.5">
+                      <span
+                        className={`inline-block rounded-full border px-2.5 py-1 font-mono text-xs leading-none ${actionTone(e.action)}`}
+                      >
+                        {e.action}
                       </span>
-                      <span className="block font-mono text-micro text-grey-faint">
-                        {new Date(e.at).toLocaleString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 font-ui text-sm leading-relaxed text-grey">
+                      {detail(e)}
                     </td>
                   </tr>
                 ))}

@@ -131,7 +131,7 @@ export function AreaChart({
                   x2={w}
                   y1={y}
                   y2={y}
-                  stroke="#242424"
+                  style={{ stroke: 'var(--c-rule-strong)' }}
                   strokeWidth="1"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -232,7 +232,7 @@ export function Donut({
       role="img"
       aria-label={total > 0 ? 'Revenue by product kind' : 'No revenue yet'}
     >
-      <circle cx={c} cy={c} r={r} fill="none" stroke="#242424" strokeWidth="16" />
+      <circle cx={c} cy={c} r={r} fill="none" style={{ stroke: 'var(--c-rule-strong)' }} strokeWidth="16" />
 
       {total > 0 &&
         slices.map((s, i) => {

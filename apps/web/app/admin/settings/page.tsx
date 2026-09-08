@@ -82,7 +82,7 @@ export default async function SettingsPage() {
         title="Connections"
         hint="Read-only. Set in the environment, not here."
       >
-        <ul className="divide-y divide-rule/60">
+        <ul className="divide-y divide-rule">
           {integrations.map((i) => (
             <li
               key={i.name}

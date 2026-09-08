@@ -229,7 +229,7 @@ export default async function AdminHome({
                     {top.map((s) => (
                       <tr
                         key={s.id}
-                        className="border-b border-rule/60 transition-colors last:border-0 hover:bg-ink-hover"
+                        className="border-b border-rule transition-colors last:border-0 hover:bg-ink-hover"
                       >
                         <td className="px-5 py-3">
                           <Link

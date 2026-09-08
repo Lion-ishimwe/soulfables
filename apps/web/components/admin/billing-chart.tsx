@@ -94,7 +94,7 @@ export function SpendChart({
                 x2={w}
                 y1={h - (t / top) * h}
                 y2={h - (t / top) * h}
-                stroke="#F4ECDC"
+                style={{ stroke: 'rgb(var(--c-ivory))' }}
                 strokeOpacity="0.07"
                 strokeDasharray="4 6"
                 vectorEffect="non-scaling-stroke"
@@ -111,7 +111,7 @@ export function SpendChart({
                 cx={c.x}
                 cy={c.y}
                 r="3"
-                fill="#0B0B0B"
+                style={{ fill: 'rgb(var(--c-ink))' }}
                 stroke="#C89528"
                 strokeWidth="1.5"
                 vectorEffect="non-scaling-stroke"

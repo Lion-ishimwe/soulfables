@@ -13,12 +13,16 @@ import { isDemoMode } from './demo/mode';
  * Cached with the rest of the content layer and busted the moment they
  * are saved, so an editor never sees a stale version of their own edit.
  */
+export type Theme = 'dark' | 'light';
+
 export type HouseSettings = {
   siteName: string;
   tagline: string;
   supportEmailGeneral: string;
   supportEmailShop: string;
   siteUrl: string | null;
+  /** The palette the whole site wears. Dark unless the House says otherwise. */
+  theme: Theme;
 };
 
 /*
@@ -33,6 +37,7 @@ export const DEFAULT_SETTINGS: HouseSettings = {
   supportEmailGeneral: 'hello@soulfables.co',
   supportEmailShop: 'support@soulfables.co',
   siteUrl: null,
+  theme: 'dark',
 };
 
 async function fetchHouseSettings(): Promise<HouseSettings> {
@@ -43,7 +48,7 @@ async function fetchHouseSettings(): Promise<HouseSettings> {
 
   const { data } = await supabase
     .from('house_settings')
-    .select('site_name, tagline, support_email_general, support_email_shop, site_url')
+    .select('site_name, tagline, support_email_general, support_email_shop, site_url, theme')
     .eq('id', 1)
     .maybeSingle();
 
@@ -57,6 +62,7 @@ async function fetchHouseSettings(): Promise<HouseSettings> {
     supportEmailShop:
       (data.support_email_shop as string) ?? DEFAULT_SETTINGS.supportEmailShop,
     siteUrl: (data.site_url as string) ?? null,
+    theme: data.theme === 'light' ? 'light' : 'dark',
   };
 }
 

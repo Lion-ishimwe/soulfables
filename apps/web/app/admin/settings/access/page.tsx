@@ -115,7 +115,7 @@ export default async function AccessSettingsPage({
               {rows.map(({ account, author }) => (
                 <tr
                   key={account.authorSlug}
-                  className="border-b border-rule/60 transition-colors last:border-0 hover:bg-ink-hover"
+                  className="border-b border-rule transition-colors last:border-0 hover:bg-ink-hover"
                 >
                   <td className="px-5 py-4">
                     <Link

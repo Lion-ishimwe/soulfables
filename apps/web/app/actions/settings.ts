@@ -28,6 +28,7 @@ const schema = z.object({
     .url('That is not a valid URL. Include https://')
     .or(z.literal(''))
     .optional(),
+  theme: z.enum(['dark', 'light']).default('dark'),
 });
 
 /**
@@ -52,6 +53,7 @@ export async function saveHouseSettings(
     supportEmailGeneral: field(formData, 'supportEmailGeneral'),
     supportEmailShop: field(formData, 'supportEmailShop'),
     siteUrl: field(formData, 'siteUrl'),
+    theme: field(formData, 'theme') || 'dark',
   });
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -74,6 +76,7 @@ export async function saveHouseSettings(
       support_email_general: d.supportEmailGeneral,
       support_email_shop: d.supportEmailShop,
       site_url: d.siteUrl || null,
+      theme: d.theme,
       // The column exists to answer "who changed the House's name".
       // Leaving it null makes that unanswerable.
       updated_by: viewer.id,
@@ -86,6 +89,9 @@ export async function saveHouseSettings(
   revalidateTag('content');
   revalidatePath('/support');
   revalidatePath('/admin/settings');
+  // The theme is an attribute on <html>, set by the root layout, so
+  // every page has to be drawn again for a change to show.
+  revalidatePath('/', 'layout');
 
   return { message: 'Saved. Readers see this everywhere it appears.' };
 }

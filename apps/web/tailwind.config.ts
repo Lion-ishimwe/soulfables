@@ -7,7 +7,14 @@ import {
  * Tailwind is configured entirely from the token file. Nothing here
  * invents a value — if a colour or size is needed, it goes in tokens.ts
  * first so the Flutter app inherits it too.
+ *
+ * Colours are one step removed: each utility reads a CSS variable that
+ * globals.css sets from the tokens, once for the night palette and once
+ * for the day one, so `bg-ink` is the ground whichever face the House is
+ * wearing. The names stay semantic — ink is the ground, ivory the
+ * strongest text — which is why the same class works on paper.
  */
+const channel = (name: string) => `rgb(var(--c-${name}) / <alpha-value>)`;
 export default {
   content: [
     './app/**/*.{ts,tsx}',
@@ -17,13 +24,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: { DEFAULT: colors.ink, raised: colors.inkRaised, hover: colors.inkHover },
-        ivory: colors.ivory,
-        gold: { DEFAULT: colors.gold, soft: colors.goldSoft, dim: colors.goldDim },
-        grey: { DEFAULT: colors.grey, muted: colors.greyMuted, faint: colors.greyFaint },
-        rule: { DEFAULT: colors.rule, strong: colors.ruleStrong },
+        ink: { DEFAULT: channel('ink'), raised: channel('ink-raised'), hover: channel('ink-hover') },
+        ivory: channel('ivory'),
+        gold: { DEFAULT: channel('gold'), soft: channel('gold-soft'), dim: 'var(--c-gold-dim)' },
+        grey: { DEFAULT: channel('grey'), muted: channel('grey-muted'), faint: 'var(--c-grey-faint)' },
+        rule: { DEFAULT: 'var(--c-rule)', strong: 'var(--c-rule-strong)' },
+        // The reader's paper mode is its own thing and does not follow the theme.
         paper: { DEFAULT: colors.paper, ink: colors.paperInk, muted: colors.paperMuted },
-        state: { success: colors.success, warning: colors.warning, danger: colors.danger },
+        state: { success: colors.success, warning: channel('gold'), danger: colors.danger },
       },
       fontFamily: {
         display: fonts.display.split(',').map((f) => f.trim()),

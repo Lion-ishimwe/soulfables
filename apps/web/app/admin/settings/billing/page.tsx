@@ -280,7 +280,7 @@ export default async function BillingPage({
                       <th className={th}><span className="sr-only">Open</span></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-rule/60">
+                  <tbody className="divide-y divide-rule">
                     {report.byStory.map((s) => {
                       const allFailed = s.failed > 0 && s.failed === s.calls;
                       const someFailed = s.failed > 0 && !allFailed;
@@ -352,7 +352,7 @@ export default async function BillingPage({
                     <th className={th}>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-rule/60">
+                <tbody className="divide-y divide-rule">
                   {report.recent.map((r, i) => (
                     <tr key={`${r.at}-${i}`}>
                       <td className="whitespace-nowrap px-4 py-3 font-ui text-xs text-grey-muted">
