@@ -26,13 +26,16 @@ const ENDPOINT = 'https://api.anthropic.com/v1/messages';
  */
 const DEFAULT_MODEL = 'claude-sonnet-5';
 
+export type Turn = { role: 'user' | 'assistant'; content: string };
+
 export type AskOptions = {
   system: string;
-  prompt: string;
+  /** One question. For a conversation, pass `messages` instead. */
+  prompt?: string;
+  /** The turns so far, oldest first, ending with the writer's. */
+  messages?: Turn[];
   /** Hard ceiling on the reply. Prose jobs need room; titles do not. */
   maxTokens?: number;
-  /** Lower for structure, higher for prose. */
-  temperature?: number;
   /*
    * What this call is for, and what it is for. Both are only used to
    * attribute the spend on the Billing page — the model never sees
@@ -98,12 +101,17 @@ export async function ask(options: AskOptions): Promise<AskResult> {
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
+      /*
+       * No temperature. The current models reject sampling parameters
+       * outright, so a request carrying one fails before it is read —
+       * and the old "lower for structure" setting was a request the
+       * model no longer takes. The prompt does that work now.
+       */
       body: JSON.stringify({
         model,
         max_tokens: options.maxTokens ?? 2000,
-        temperature: options.temperature ?? 1,
         system: options.system,
-        messages: [{ role: 'user', content: options.prompt }],
+        messages: options.messages ?? [{ role: 'user', content: options.prompt ?? '' }],
       }),
     });
 

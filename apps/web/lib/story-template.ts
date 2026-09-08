@@ -17,19 +17,62 @@ export const TEMPLATE_FILENAME = 'soulfables-story-template.md';
 
 export function buildTemplate(opts: {
   title?: string;
+  subtitle?: string;
   author?: string;
   shelf?: string;
+  release?: 'full' | 'serial';
+  /*
+   * A concept the writer chose, carried into the file as a comment so
+   * it is there when they sit down and gone when they upload. Sections
+   * become real :: markers below it, ready to be written under.
+   */
+  concept?: { premise: string; opening: string; sections: string[] };
   shelves: { slug: string; label: string }[];
 } = { shelves: [] }): string {
   const shelfList = opts.shelves.map((s) => s.slug).join(', ') || 'heartbreak, healing, grief';
 
+  const conceptBlock = opts.concept
+    ? `
+<!--
+  THE CONCEPT YOU CHOSE
+  ---------------------
+  ${opts.concept.premise.replace(/\n+/g, ' ')}
+
+  Suggested opening:
+  ${opts.concept.opening.replace(/\n+/g, ' ')}
+
+  Change any of it. It was a way in, not a plan.
+-->
+
+`
+    : '';
+
+  const body = opts.concept
+    ? `${opts.concept.opening.trim() || 'Begin here.'}
+
+${(opts.concept.sections.length ? opts.concept.sections : ['The First Section'])
+  .map((title) => `:: ${title}\n\n`)
+  .join('\n')}`
+    : `Begin here. The first paragraph is the one people decide on, so it is
+worth more of your evening than the rest.
+
+:: The First Section
+
+Sections are optional in a full story and become the chapters of a
+serial one.
+
+> A line worth remembering goes here.
+
+Carry on for as long as the story needs.
+`;
+
   return `---
 title: ${opts.title ?? 'Your title here'}
-subtitle: One line that goes under the title on every card.
+subtitle: ${opts.subtitle ?? 'One line that goes under the title on every card.'}
 author: ${opts.author ?? 'Your name'}
 shelf: ${opts.shelf ?? 'heartbreak'}
 access: free
-release: full
+release: ${opts.release ?? 'full'}
 ---
 
 <!--
@@ -71,19 +114,7 @@ release: full
 
   Delete this whole comment block if you like. It is ignored either way.
 -->
-
-Begin here. The first paragraph is the one people decide on, so it is
-worth more of your evening than the rest.
-
-:: The First Section
-
-Sections are optional in a full story and become the chapters of a
-serial one.
-
-> A line worth remembering goes here.
-
-Carry on for as long as the story needs.
-`;
+${conceptBlock}${body}`;
 }
 
 export type ParsedStory = {

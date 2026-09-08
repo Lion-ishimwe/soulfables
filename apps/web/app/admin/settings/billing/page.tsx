@@ -19,14 +19,16 @@ const CONSOLE_COST = 'https://platform.claude.com/cost';
 
 /*
  * The features that spend money, in the House's words, with the icon each
- * one wears. Only these three exist. The Librarian is rule-based and never
+ * one wears. Only these five exist. The Librarian is rule-based and never
  * reaches the model, so it is not here — listing it at $0.00 would suggest
  * a cost that is waiting to happen, when there is no such cost.
  */
 const JOBS: Record<string, { label: string; icon: string }> = {
+  concepts: { label: 'Proposing concepts', icon: 'spark' },
   draft: { label: 'Starting a draft', icon: 'spark' },
   continue: { label: 'Carrying on', icon: 'draft' },
   titles: { label: 'Naming it', icon: 'book' },
+  ask: { label: 'Ask AI', icon: 'activity' },
 };
 
 const FAILURE_LABEL: Record<string, string> = {

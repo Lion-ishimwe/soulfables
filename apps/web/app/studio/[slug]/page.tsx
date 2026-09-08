@@ -5,6 +5,7 @@ import { requireViewer, isStaff } from '@/lib/auth';
 import { accountForEmail, getWorkStory } from '@/lib/admin-data';
 import { StatusPill } from '@/components/admin/ui';
 import { StudioEditor } from '@/components/studio/studio-editor';
+import { AskAI } from '@/components/studio/ask-ai';
 
 export const metadata: Metadata = {
   title: 'Writing',
@@ -67,7 +68,10 @@ export default async function StudioStoryPage({
             {handedOn && <span>Begun by {story.authorName}</span>}
           </p>
         </div>
-        <StatusPill status={story.status} />
+        <div className="flex flex-wrap items-center gap-4">
+          <AskAI storySlug={story.slug} storyTitle={story.title} />
+          <StatusPill status={story.status} />
+        </div>
       </header>
 
       {/* What the House said when it came back. */}
