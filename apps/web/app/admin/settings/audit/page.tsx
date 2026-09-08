@@ -114,10 +114,6 @@ export default async function AuditPage({
       />
       <SettingsTabs />
 
-      <p className="mb-6 max-w-prose font-ui text-sm text-grey-muted">
-        Who changed what. Nobody can edit or remove an entry — not even an owner.
-      </p>
-
       {/* ---- Filters ------------------------------------------------ */}
       <form
         method="GET"
