@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { uploadImage } from '@/app/actions/media';
 import { Cover } from '@/components/cover-art';
 
+/** Eight megabytes, the same as uploadImage. */
+const MAX_BYTES = 8 * 1024 * 1024;
+
 /**
  * A story's cover, uploaded or pasted.
  *
@@ -37,14 +40,37 @@ export function CoverField({
 
   async function onFile(file: File) {
     setError(null);
+
+    /*
+     * The same ceiling the action enforces, checked here first: a file
+     * that is going to be refused should be refused before it travels,
+     * with the reason on screen rather than in a server log.
+     */
+    if (file.size > MAX_BYTES) {
+      setError(
+        `That is ${(file.size / 1024 / 1024).toFixed(1)}MB. Eight is the limit — an image that heavy makes the page slow to open.`,
+      );
+      return;
+    }
+
     setBusy(true);
-    const body = new FormData();
-    body.set('file', file);
-    body.set('folder', 'covers');
-    const result = await uploadImage(body);
-    setBusy(false);
-    if (result.error) setError(result.error);
-    else if (result.url) setUrl(result.url);
+    try {
+      const body = new FormData();
+      body.set('file', file);
+      body.set('folder', 'covers');
+      const result = await uploadImage(body);
+      if (result.error) setError(result.error);
+      else if (result.url) setUrl(result.url);
+    } catch {
+      /*
+       * A thrown action — a body the server refused, a dropped
+       * connection — used to leave "Uploading…" on screen for good,
+       * because nothing ever cleared it. Now it says what it can.
+       */
+      setError('The upload did not get through. Try a smaller image, or check the connection.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -82,6 +108,9 @@ export function CoverField({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void onFile(f);
+              // So choosing the same file again after a failure counts
+              // as a change, and fires again.
+              e.target.value = '';
             }}
             className="w-full cursor-pointer rounded border border-rule bg-ink px-3 py-2 font-ui text-xs text-grey file:mr-3 file:rounded file:border-0 file:bg-gold/15 file:px-3 file:py-1.5 file:font-ui file:text-xs file:text-gold"
           />

@@ -27,13 +27,19 @@ export function BackdropForm({ current }: { current: string | null }) {
   async function onFile(file: File) {
     setError(null);
     setUploading(true);
-    const body = new FormData();
-    body.set('file', file);
-    body.set('folder', 'backdrops');
-    const result = await uploadImage(body);
-    setUploading(false);
-    if (result.error) setError(result.error);
-    else if (result.url) setUrl(result.url);
+    try {
+      const body = new FormData();
+      body.set('file', file);
+      body.set('folder', 'backdrops');
+      const result = await uploadImage(body);
+      if (result.error) setError(result.error);
+      else if (result.url) setUrl(result.url);
+    } catch {
+      // A thrown action used to leave "Uploading…" on screen for good.
+      setError('The upload did not get through. Try a smaller image, or check the connection.');
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (

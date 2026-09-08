@@ -60,5 +60,15 @@ const nextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co' }],
   },
   typedRoutes: true,
+  /*
+   * Covers and backdrops arrive through a server action, and Next refuses
+   * any action body over 1 MB unless told otherwise. A phone photograph
+   * is three or four, so every real cover was being turned away with a
+   * 413 the form never saw. Ten matches nginx's client_max_body_size;
+   * the action itself still stops at eight.
+   */
+  experimental: {
+    serverActions: { bodySizeLimit: '10mb' },
+  },
 };
 export default nextConfig;
