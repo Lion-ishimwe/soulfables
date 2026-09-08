@@ -49,7 +49,7 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
 
   if (file.size > MAX_BYTES) {
     return {
-      error: `That is ${(file.size / 1024 / 1024).toFixed(1)}MB. Eight is the limit — an image that heavy makes the page slow to open.`,
+      error: `That image is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is ${MAX_BYTES / 1024 / 1024} MB — an image that heavy makes the page slow to open.`,
     };
   }
 

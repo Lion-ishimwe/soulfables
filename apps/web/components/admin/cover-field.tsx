@@ -48,7 +48,7 @@ export function CoverField({
      */
     if (file.size > MAX_BYTES) {
       setError(
-        `That is ${(file.size / 1024 / 1024).toFixed(1)}MB. Eight is the limit — an image that heavy makes the page slow to open.`,
+        `That image is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is ${MAX_BYTES / 1024 / 1024} MB — an image that heavy makes the page slow to open.`,
       );
       return;
     }
