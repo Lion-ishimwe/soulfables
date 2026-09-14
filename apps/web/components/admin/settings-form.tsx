@@ -147,6 +147,34 @@ export function SettingsForm({ settings }: { settings: HouseSettings }) {
         </div>
 
         {/*
+          Who the House is on paper. A receipt has to say who took the
+          money and a privacy page has to name the controller; until the
+          entity is registered these stay empty and the House signs as
+          itself.
+        */}
+        <fieldset className="mt-6 border-t border-rule pt-5">
+          <legend className="sr-only">The business</legend>
+          <p className={label}>The business, on paper</p>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="s-legal-name" className="sf-eyebrow mb-2 block">Registered name</label>
+              <input id="s-legal-name" name="legalName" maxLength={200} defaultValue={settings.legalName ?? ''} placeholder="Soulfables OÜ" className={field} />
+              <p className={hint}>On receipts and the privacy page. Empty means “Soulfables”.</p>
+            </div>
+            <div>
+              <label htmlFor="s-vat" className="sf-eyebrow mb-2 block">VAT number</label>
+              <input id="s-vat" name="vatNumber" maxLength={40} defaultValue={settings.vatNumber ?? ''} placeholder="EE123456789" className={field} />
+              <p className={hint}>Shown on receipts when set.</p>
+            </div>
+          </div>
+          <div className="mt-5">
+            <label htmlFor="s-address" className="sf-eyebrow mb-2 block">Registered address</label>
+            <textarea id="s-address" name="legalAddress" rows={3} maxLength={600} defaultValue={settings.legalAddress ?? ''} className={`${field} resize-y`} />
+            <p className={hint}>One line per line, as it should print.</p>
+          </div>
+        </fieldset>
+
+        {/*
           One switch, everyone. A theme that each person could set for
           themselves would be a preference; this is the House deciding
           what it looks like, which is why it lives here and not under

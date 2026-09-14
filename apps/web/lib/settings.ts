@@ -23,6 +23,10 @@ export type HouseSettings = {
   siteUrl: string | null;
   /** The palette the whole site wears. Dark unless the House says otherwise. */
   theme: Theme;
+  /** The registered business, for receipts and the privacy page. Null until registered. */
+  legalName: string | null;
+  legalAddress: string | null;
+  vatNumber: string | null;
 };
 
 /*
@@ -38,6 +42,9 @@ export const DEFAULT_SETTINGS: HouseSettings = {
   supportEmailShop: 'support@soulfables.co',
   siteUrl: null,
   theme: 'dark',
+  legalName: null,
+  legalAddress: null,
+  vatNumber: null,
 };
 
 async function fetchHouseSettings(): Promise<HouseSettings> {
@@ -48,7 +55,7 @@ async function fetchHouseSettings(): Promise<HouseSettings> {
 
   const { data } = await supabase
     .from('house_settings')
-    .select('site_name, tagline, support_email_general, support_email_shop, site_url, theme')
+    .select('site_name, tagline, support_email_general, support_email_shop, site_url, theme, legal_name, legal_address, vat_number')
     .eq('id', 1)
     .maybeSingle();
 
@@ -63,6 +70,9 @@ async function fetchHouseSettings(): Promise<HouseSettings> {
       (data.support_email_shop as string) ?? DEFAULT_SETTINGS.supportEmailShop,
     siteUrl: (data.site_url as string) ?? null,
     theme: data.theme === 'light' ? 'light' : 'dark',
+    legalName: (data.legal_name as string) || null,
+    legalAddress: (data.legal_address as string) || null,
+    vatNumber: (data.vat_number as string) || null,
   };
 }
 

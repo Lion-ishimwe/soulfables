@@ -2,6 +2,7 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
+import { redirect } from 'next/navigation';
 import { field } from '@/lib/form';
 import { requireViewer } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
@@ -122,4 +123,57 @@ export async function changeOwnPassword(
   if (error) return { error: error.message };
 
   return { message: 'Password changed. It takes effect the next time you sign in.' };
+}
+
+/**
+ * Leaving the House for good.
+ *
+ * The account row goes through the service role, because Supabase lets
+ * no session delete its own user, and everything keyed to it cascades:
+ * journal, shelf, reading history, bookmarks, passages, entitlements.
+ * Orders and downloads are keyed with "set null" instead — the receipts
+ * stay for the books, with no person attached to them — and that is
+ * what the privacy page says. Confirmed by the word typed, not a click.
+ */
+export async function deleteOwnAccount(
+  _prev: AccountResult,
+  formData: FormData,
+): Promise<AccountResult> {
+  const viewer = await requireViewer('/account/settings');
+  if ((field(formData, 'confirm') ?? '').trim().toLowerCase() !== 'delete') {
+    return { error: 'Type "delete" to confirm. Nothing has been removed.' };
+  }
+  if (isDemoMode()) return { error: 'The demo has no accounts to delete.' };
+
+  // Staff accounts are not self-service: the House would lose a key.
+  if (viewer.role !== 'reader' && viewer.role !== 'author') {
+    return { error: 'A staff account is removed by another member of staff, not from here.' };
+  }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const admin = createAdminClient();
+
+  // An author record keeps the byline and loses its login, exactly as
+  // when the House revokes an account.
+  await admin.from('authors').update({ user_id: null }).eq('user_id', viewer.id);
+
+  const { error } = await admin.auth.admin.deleteUser(viewer.id);
+  if (error) {
+    console.error('[account] delete failed', error.message);
+    return { error: 'The account could not be deleted just now. Nothing has changed; try again in a moment.' };
+  }
+
+  await admin.from('audit_log').insert({
+    action: 'account.deleted_by_owner',
+    entity_type: 'user',
+    entity_id: viewer.id,
+    actor_id: null,
+    actor_email: viewer.email,
+    after: { self_service: true },
+  }).then(() => undefined, () => undefined);
+
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath('/', 'layout');
+  redirect('/goodbye');
 }

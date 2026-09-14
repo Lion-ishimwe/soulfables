@@ -26,6 +26,8 @@ import { getPaymentProvider, isPaymentsConfigured } from '@/lib/payments/provide
 const checkoutSchema = z.object({
   slug: z.string().trim().min(1).max(120),
   email: z.string().trim().toLowerCase().email().optional().or(z.literal('')),
+  // Agreement to immediate delivery and the loss of the withdrawal right.
+  consent: z.literal(true, { errorMap: () => ({ message: 'Please confirm you want the book delivered straight away.' }) }),
 });
 
 export type CheckoutResult = { error?: string };
@@ -44,10 +46,11 @@ export async function startCheckout(
   const parsed = checkoutSchema.safeParse({
     slug: field(formData, 'slug'),
     email: field(formData, 'email'),
+    consent: checkbox(formData, 'consent'),
   });
 
   if (!parsed.success) {
-    return { error: 'That product could not be found.' };
+    return { error: parsed.error.issues[0]?.message ?? 'That product could not be found.' };
   }
 
   if (!isPaymentsConfigured()) {
@@ -115,6 +118,8 @@ export async function startCheckout(
       currency: price.currency,
       subtotal_amount: price.unit_amount,
       total_amount: price.unit_amount,
+      // The buyer's agreement to immediate delivery, kept with the order.
+      metadata: { consent_immediate_delivery_at: new Date().toISOString() },
     })
     .select('id, reference')
     .single();

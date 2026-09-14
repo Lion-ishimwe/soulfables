@@ -29,6 +29,9 @@ const schema = z.object({
     .or(z.literal(''))
     .optional(),
   theme: z.enum(['dark', 'light']).default('dark'),
+  legalName: z.string().trim().max(200).optional().or(z.literal('')),
+  legalAddress: z.string().trim().max(600).optional().or(z.literal('')),
+  vatNumber: z.string().trim().max(40).optional().or(z.literal('')),
 });
 
 /**
@@ -54,6 +57,9 @@ export async function saveHouseSettings(
     supportEmailShop: field(formData, 'supportEmailShop'),
     siteUrl: field(formData, 'siteUrl'),
     theme: field(formData, 'theme') || 'dark',
+    legalName: field(formData, 'legalName'),
+    legalAddress: field(formData, 'legalAddress'),
+    vatNumber: field(formData, 'vatNumber'),
   });
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -77,6 +83,9 @@ export async function saveHouseSettings(
       support_email_shop: d.supportEmailShop,
       site_url: d.siteUrl || null,
       theme: d.theme,
+      legal_name: d.legalName || null,
+      legal_address: d.legalAddress || null,
+      vat_number: d.vatNumber || null,
       // The column exists to answer "who changed the House's name".
       // Leaving it null makes that unanswerable.
       updated_by: viewer.id,

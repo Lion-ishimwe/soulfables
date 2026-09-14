@@ -170,3 +170,10 @@
   }
   .sf-reader-paper .sf-prose p:first-of-type::first-letter { color: #1a1714; }
 }
+
+/* A receipt prints as paper: no chrome, no dark ground. */
+@media print {
+  header, footer, nav, [data-no-print] { display: none !important; }
+  html, body { background: #fff !important; color: #111 !important; }
+  :root { color-scheme: light; --c-ink: 255 255 255; --c-ink-raised: 255 255 255; --c-ivory: 17 17 17; --c-grey: 40 40 40; --c-grey-muted: 90 90 90; --c-rule: rgba(0,0,0,0.15); --c-gold: 120 90 20; }
+}

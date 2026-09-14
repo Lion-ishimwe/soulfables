@@ -7,6 +7,7 @@ import { AccountForm } from '@/components/account/account-form';
 import { myAuthor } from '@/lib/author-accounts';
 import { createClient } from '@/lib/supabase/server';
 import { isDemoMode } from '@/lib/demo/mode';
+import { DeleteAccount } from '@/components/account/delete-account';
 
 export const metadata: Metadata = {
   title: 'Account',
@@ -141,8 +142,43 @@ export default async function AccountSettingsPage() {
           Your email, what you have read and kept, and whatever you write in
           the journal. Journal entries are private — no member of staff can
           read them, and no database policy grants that. Nothing is sold, and
-          you are not followed around other sites.
+          you are not followed around other sites. The{' '}
+          <Link href="/privacy" className="text-gold transition-colors hover:text-gold-soft">
+            privacy page
+          </Link>{' '}
+          says all of it.
         </p>
+      </section>
+
+      {/*
+        Your data, in your hands. A file of everything, and the door out.
+        Both are the reader's right; neither should need an email to us.
+      */}
+      <section className="mb-10">
+        <h2 className="sf-eyebrow mb-4">Your data</h2>
+        <div className="grid gap-px bg-rule sm:grid-cols-2">
+          <div className="bg-ink p-6">
+            <p className="font-display text-xl text-ivory">Take a copy</p>
+            <p className="mt-1 text-sm text-grey-muted">
+              Everything the House holds about you — orders, shelf, reading, journal — as one file.
+            </p>
+            <a
+              href="/api/account/export"
+              className="mt-4 inline-block border border-rule px-5 py-2 font-ui text-xs uppercase tracking-[0.16em] text-grey transition-all hover:border-gold/50 hover:text-gold"
+            >
+              Download my data
+            </a>
+          </div>
+          <div className="bg-ink p-6">
+            <p className="font-display text-xl text-ivory">Leave the House</p>
+            <p className="mt-1 text-sm text-grey-muted">
+              Delete the account and everything in it. Receipts stay, unattached to you.
+            </p>
+            <div className="mt-4">
+              <DeleteAccount email={viewer.email} />
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="border-t border-rule pt-8">
