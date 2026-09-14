@@ -94,6 +94,11 @@ export default async function ResidentsPage() {
           they appear, and never attributed.
         </p>
 
+        {voices.length === 0 && (
+          <p className="mx-auto max-w-measure border border-rule px-6 py-8 text-center font-ui text-sm leading-relaxed text-grey-muted">
+            Nobody has left a line yet. When readers do, the ones the House keeps will be here.
+          </p>
+        )}
         <ul className="space-y-px bg-rule">
           {voices.map((v) => (
             <li key={v.id} className="bg-ink px-7 py-6">

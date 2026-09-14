@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendDeliveryEmail } from '@/lib/email';
+import { formatMoney } from '@/lib/format';
 
 /**
  * Turning a verified payment into a paid order and a granted book.
@@ -94,6 +95,7 @@ export async function settlePaid(
     orderReference: order.reference,
     orderId: order.id,
     isGuest: !order.user_id,
+    amountLabel: formatMoney(order.total_amount, order.currency),
   });
 
   return { outcome: 'granted', orderId: order.id, granted: Number(granted ?? 0) };

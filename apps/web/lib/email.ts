@@ -118,8 +118,13 @@ export async function sendDeliveryEmail(opts: {
   /** The order row, when there is one. A manual grant has none. */
   orderId?: string;
   isGuest: boolean;
+  /** What was paid, already formatted, for the receipt line. */
+  amountLabel?: string;
 }): Promise<SendResult> {
   const subject = `Your Soulfables order ${opts.orderReference}`;
+  const receiptLine = opts.orderId
+    ? `<p style="color:#8A8A8A;font-size:13px">Order ${opts.orderReference}${opts.amountLabel ? ` · ${opts.amountLabel}` : ''} · <a href="${SITE}/account/orders/${encodeURIComponent(opts.orderReference)}" style="color:#C89528">receipt</a></p>`
+    : `<p style="color:#8A8A8A;font-size:13px">${opts.orderReference}</p>`;
 
   // A guest buyer has no account yet, so there is no library to link to.
   // Telling them to sign up with this exact address is what turns their
@@ -127,10 +132,10 @@ export async function sendDeliveryEmail(opts: {
   const body = opts.isGuest
     ? `<p>Thank you — your payment came through.</p>
        <p>Create an account using <strong>this same email address</strong> and everything you have bought will be waiting in your library, in every format it ships in.</p>
-       <p style="color:#8A8A8A;font-size:13px">Order ${opts.orderReference}</p>`
+       ${receiptLine}`
     : `<p>Thank you — your payment came through.</p>
        <p>Your book is in your library now, in every format it ships in. It stays there; you can come back for it whenever you like.</p>
-       <p style="color:#8A8A8A;font-size:13px">Order ${opts.orderReference}</p>`;
+       ${receiptLine}`;
 
   const cta = opts.isGuest
     ? { url: `${SITE}/signup`, label: 'Create your account' }
@@ -170,5 +175,64 @@ export async function sendWelcomeEmail(to: string, userId: string): Promise<Send
     error: result.sent ? undefined : result.error,
   });
 
+  return result;
+}
+
+/** Whether the House can write. The pages that promise an email check this first. */
+export function emailConfigured(): boolean {
+  return Boolean(process.env.EMAIL_PROVIDER_API_KEY);
+}
+
+/**
+ * A writer's invitation.
+ *
+ * Carries a link that lets them set their own password, made by the
+ * auth service for this address and this address only, rather than a
+ * temporary password in the body of an email. The temporary password
+ * is still shown on screen to whoever invited them, for the day the
+ * email does not arrive.
+ */
+export async function sendInvitationEmail(opts: {
+  to: string;
+  name: string;
+  invitedBy: string | null;
+  setPasswordUrl: string | null;
+}): Promise<SendResult> {
+  const subject = 'You have a desk at Soulfables';
+  const who = opts.invitedBy ? `${opts.invitedBy} has` : 'The House has';
+  const body = `<p>${who} given you a place to write in the Writing Room.</p>
+     <p>${opts.setPasswordUrl ? 'Choose a password with the button below, and your desk is ready.' : 'Sign in with the address this was sent to and the password you were given, then change it under Account.'}</p>
+     <p>Anything you write comes to the House before it goes out, and you will hear back either way.</p>`;
+  const cta = opts.setPasswordUrl
+    ? { url: opts.setPasswordUrl, label: 'Choose a password' }
+    : { url: `${SITE}/signin`, label: 'Sign in' };
+  const text = `${who} given you a place to write in the Writing Room.\n\n${opts.setPasswordUrl ?? `${SITE}/signin`}`;
+
+  const result = await deliver(opts.to, subject, shell('Come in and write.', body, cta), text);
+  await record('invitation', opts.to, result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed', {
+    messageId: result.messageId,
+    error: result.sent ? undefined : result.error,
+  });
+  return result;
+}
+
+/** The letter's confirmation: one link, and the address is on the list. */
+export async function sendLetterConfirmation(to: string, token: string): Promise<SendResult> {
+  const url = `${SITE}/letter/confirm?token=${encodeURIComponent(token)}`;
+  const result = await deliver(
+    to,
+    'One more step for the weekly letter',
+    shell(
+      'Is this you?',
+      `<p>Somebody — we hope you — asked for the weekly letter at this address.</p>
+       <p>Confirm with the button and the next letter will find you. If it was not you, do nothing and nothing will arrive.</p>`,
+      { url, label: 'Yes, that was me' },
+    ),
+    `Confirm the weekly letter: ${url}`,
+  );
+  await record('letter_confirm', to, result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed', {
+    messageId: result.messageId,
+    error: result.sent ? undefined : result.error,
+  });
   return result;
 }

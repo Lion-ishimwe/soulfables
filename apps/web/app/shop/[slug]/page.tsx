@@ -8,6 +8,7 @@ import { isPaymentsConfigured } from '@/lib/payments/provider';
 import { BuyForm } from '@/components/buy-form';
 import { Cover } from '@/components/cover-art';
 import { ProductCard, kindLabel } from '@/components/product-card';
+import Image from 'next/image';
 
 /*
  * A product page.
@@ -112,12 +113,13 @@ export default async function ProductPage({
       <section className="relative isolate overflow-hidden border-b border-rule">
         <div aria-hidden="true" className="absolute inset-0 -z-10">
           {product.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={product.coverImage}
               alt=""
-              decoding="async"
-              className="h-full w-full scale-110 object-cover opacity-50 blur-3xl"
+              fill
+              sizes="100vw"
+              quality={30}
+              className="scale-110 object-cover opacity-50 blur-3xl"
             />
           ) : (
             <div

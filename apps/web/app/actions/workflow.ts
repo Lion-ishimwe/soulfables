@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireStaff, requireViewer, getViewer, isStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
-import { provisionAuthorAccount, revokeAccountFor } from '@/lib/author-accounts';
+import { provisionAuthorAccount, revokeAccountFor, emailInvitation } from '@/lib/author-accounts';
 import { createClient } from '@/lib/supabase/server';
 import { getWorkStory } from '@/lib/admin-data';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -634,10 +634,19 @@ export async function createAuthorAccount(
 
   if (!result.ok) return { error: result.error };
 
+  const mailed = await emailInvitation({
+    email: parsed.data.email,
+    name: author.name as string,
+    invitedBy: viewer.displayName ?? null,
+  });
+
   revalidatePath('/admin/authors');
 
   return {
-    message: `${author.name} can sign in with ${parsed.data.email}. Their temporary password is ${result.password} — send it to them and ask them to change it. It is not shown again.`,
+    message:
+      mailed === 'sent'
+        ? `${author.name} has been emailed an invitation with a link to choose a password. If it does not arrive, their temporary password is ${result.password} — it is not shown again.`
+        : `${author.name} can sign in with ${parsed.data.email}. Their temporary password is ${result.password} — send it to them and ask them to change it. It is not shown again.`,
   };
 }
 
@@ -1030,10 +1039,15 @@ export async function createAuthorWithAccount(
     return { error: result.error };
   }
 
+  const mailed = await emailInvitation({ email, name, invitedBy: viewer.displayName ?? null });
+
   revalidatePath('/admin/authors');
 
   return {
-    message: `${name} can sign in with ${email}. Their temporary password is ${result.password} — send it to them and ask them to change it. It is not shown again.`,
+    message:
+      mailed === 'sent'
+        ? `${name} has been emailed an invitation with a link to choose a password. If it does not arrive, their temporary password is ${result.password} — it is not shown again.`
+        : `${name} can sign in with ${email}. Their temporary password is ${result.password} — send it to them and ask them to change it. It is not shown again.`,
   };
 }
 

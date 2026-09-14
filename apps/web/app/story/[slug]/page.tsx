@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getStories, getStory, getShelf } from '@/lib/content';
+import { getStories, getStory, getShelf, getResidents } from '@/lib/content';
 import { StoryBody } from '@/lib/story-body';
 import { ReaderControls } from '@/components/reader-controls';
 import { ReaderToolkit } from '@/components/reader-toolkit';
@@ -119,6 +119,9 @@ export default async function StoryPage({
     .filter((s) => s.slug !== slug && s.shelf === story.shelf)
     .slice(0, 2);
 
+  // The byline leads to the writer's page, when they have one.
+  const authorSlug = (await getResidents()).find((a) => a.name === story.author)?.slug ?? null;
+
   // Structured data so a story is a first-class Article in search results.
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -138,7 +141,11 @@ export default async function StoryPage({
       />
 
       {/* Full width, so the artwork can be the room the story is read in. */}
-      <StoryHero story={story} shelf={shelf} />
+      <StoryHero
+        story={story}
+        shelf={shelf}
+        authorHref={authorSlug ? `/author/${authorSlug}` : undefined}
+      />
 
       <article className="mx-auto max-w-content px-5 sm:px-8">
         <ReaderControls />

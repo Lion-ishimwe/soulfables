@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Cover } from '@/components/cover-art';
 import { ShelfGlyph } from '@/components/shelf-glyph';
+import Image from 'next/image';
 
 /**
  * The top of a story.
@@ -28,6 +29,7 @@ export function StoryHero({
   intro,
   after,
   href,
+  authorHref,
 }: {
   story: {
     title: string;
@@ -44,6 +46,8 @@ export function StoryHero({
   after?: React.ReactNode;
   /** When the hero is not on the story's own page: where the cover and title lead. */
   href?: string;
+  /** The writer's page, when they have one. */
+  authorHref?: string;
 }) {
   const art = story.coverImage ?? null;
 
@@ -74,7 +78,15 @@ export function StoryHero({
         {story.subtitle}
       </p>
       <p className="mt-8 font-ui text-sm text-grey-muted">
-        By {story.author} · ☕ {story.readingMinutes} min
+        By{' '}
+        {authorHref ? (
+          <Link href={authorHref as Route} className="text-grey transition-colors hover:text-gold">
+            {story.author}
+          </Link>
+        ) : (
+          story.author
+        )}{' '}
+        · ☕ {story.readingMinutes} min
       </p>
       {after}
     </>
@@ -115,12 +127,13 @@ export function StoryHero({
         the title there is only page.
       */}
       <div aria-hidden="true" className="absolute inset-0 -z-10">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={art}
           alt=""
-          decoding="async"
-          className="h-full w-full scale-110 object-cover opacity-80 blur-2xl"
+          fill
+          sizes="100vw"
+          quality={30}
+          className="scale-110 object-cover opacity-80 blur-2xl"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-ink/30 via-ink/70 via-55% to-ink" />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink to-transparent" />

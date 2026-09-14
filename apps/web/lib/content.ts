@@ -424,29 +424,31 @@ export async function searchStories(query: string): Promise<StoryCard[]> {
   const { createPublicClient } = await import('./supabase/server');
   const supabase = createPublicClient();
 
-  const { data, error } = await supabase
-    .from('stories')
-    // body_mdx is searched by the index but never selected — a premium
-    // body must not leak through a search result.
-    .select('id, slug, title, subtitle, reading_minutes, access, authors!stories_author_id_fkey(name)')
-    .eq('status', 'published')
-    .textSearch('search_vector', q, { type: 'websearch', config: 'english' })
-    .limit(50);
+  /*
+   * search_stories() (0035) ranks by the weights the vector has always
+   * carried, falls back to titles within a typo when nothing matches,
+   * and returns what a card needs — cover, shelf, narration — so a
+   * result looks like the same story everywhere else. The body is
+   * matched against and never returned.
+   */
+  const { data, error } = await supabase.rpc('search_stories', { p_query: q, p_limit: 50 });
 
   if (error) {
     console.error('[search]', error.message);
     return [];
   }
 
-  return (data ?? []).map((r: Record<string, unknown>) => ({
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     id: r.id as string,
     slug: r.slug as string,
     title: r.title as string,
     subtitle: (r.subtitle as string) ?? '',
-    author: ((r.authors as { name?: string } | null)?.name) ?? 'Soulfables',
+    author: (r.author_name as string) ?? 'Soulfables',
     readingMinutes: (r.reading_minutes as number) ?? 0,
-    shelf: '',
+    shelf: (r.shelf_slug as string) ?? '',
     access: (r.access as 'free' | 'premium') ?? 'free',
+    coverImage: (r.cover_image as string) ?? null,
+    hasAudio: Boolean(r.has_audio),
   }));
 }
 

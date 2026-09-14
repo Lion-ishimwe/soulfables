@@ -252,12 +252,13 @@ export default async function HomePage() {
         <section className="relative isolate overflow-hidden border-y border-rule">
           <div aria-hidden="true" className="absolute inset-0 -z-10">
             {featured.coverImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={featured.coverImage}
                 alt=""
-                decoding="async"
-                className="h-full w-full scale-110 object-cover opacity-50 blur-3xl"
+                fill
+                sizes="100vw"
+                quality={30}
+                className="scale-110 object-cover opacity-50 blur-3xl"
               />
             ) : (
               <Lamp className="top-0 -translate-y-1/3" />
@@ -384,8 +385,10 @@ export default async function HomePage() {
             <ul className="grid gap-6 sm:grid-cols-3">
               {people.map((p) => (
                 <li key={p.slug}>
-                  <Avatar src={p.avatarUrl} name={p.name} isPersona={p.isPersona} size={64} />
-                  <p className="mt-3 font-ui text-sm text-ivory">{p.name}</p>
+                  <Link href={`/author/${p.slug}` as Route} className="group block">
+                    <Avatar src={p.avatarUrl} name={p.name} isPersona={p.isPersona} size={64} />
+                    <p className="mt-3 font-ui text-sm text-ivory transition-colors group-hover:text-gold">{p.name}</p>
+                  </Link>
                   {p.isPersona && (
                     <p className="mt-1 font-ui text-micro uppercase tracking-[0.12em] text-gold">
                       House voice

@@ -160,3 +160,38 @@ export async function myAuthor(): Promise<{
     avatarUrl: row.avatar_url,
   };
 }
+
+/**
+ * The invitation, emailed.
+ *
+ * A recovery link made for this address lets the writer choose their own
+ * password without the temporary one ever travelling by email. If the
+ * link cannot be made, the email still goes and says to sign in with the
+ * password the editor passed on. Failure to send is reported, never
+ * thrown: the account exists either way.
+ */
+export async function emailInvitation(opts: {
+  email: string;
+  name: string;
+  invitedBy: string | null;
+}): Promise<'sent' | 'skipped' | 'failed'> {
+  const { sendInvitationEmail, emailConfigured } = await import('./email');
+  if (!emailConfigured()) return 'skipped';
+
+  let setPasswordUrl: string | null = null;
+  try {
+    const admin = createAdminClient();
+    const site = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+    const { data } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email: opts.email,
+      options: { redirectTo: `${site}/auth/callback?next=/account/password` },
+    });
+    setPasswordUrl = data?.properties?.action_link ?? null;
+  } catch (e) {
+    console.error('[invite] could not make a set-password link', e);
+  }
+
+  const result = await sendInvitationEmail({ to: opts.email, name: opts.name, invitedBy: opts.invitedBy, setPasswordUrl });
+  return result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed';
+}

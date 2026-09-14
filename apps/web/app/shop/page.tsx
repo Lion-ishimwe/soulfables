@@ -7,6 +7,7 @@ import { isPaymentsConfigured } from '@/lib/payments/provider';
 import { Cover } from '@/components/cover-art';
 import { ProductCard, kindLabel } from '@/components/product-card';
 import { getFeaturedOne, getFeatured, applyOrder } from '@/lib/featured';
+import Image from 'next/image';
 
 export const metadata: Metadata = {
   title: 'The Bookshop',
@@ -77,12 +78,13 @@ export default async function ShopPage() {
         <section className="relative isolate overflow-hidden border-y border-rule">
           <div aria-hidden="true" className="absolute inset-0 -z-10">
             {hero.coverImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={hero.coverImage}
                 alt=""
-                decoding="async"
-                className="h-full w-full scale-110 object-cover opacity-50 blur-3xl"
+                fill
+                sizes="100vw"
+                quality={30}
+                className="scale-110 object-cover opacity-50 blur-3xl"
               />
             ) : (
               <div

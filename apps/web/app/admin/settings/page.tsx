@@ -56,8 +56,8 @@ export default async function SettingsPage() {
     {
       name: 'Email',
       detail: process.env.EMAIL_PROVIDER_API_KEY
-        ? 'Connected. Receipts, invitations and the weekly letter can be sent.'
-        : 'Not connected. Invitations show a temporary password on screen instead of sending one.',
+        ? 'Connected. Order confirmations with receipts, writers’ invitations and the letter’s confirmations are sent.'
+        : 'Not connected. Order confirmations are not sent, invitations show a temporary password on screen, and the letter cannot confirm addresses.',
       connected: Boolean(process.env.EMAIL_PROVIDER_API_KEY),
       required: false,
     },
