@@ -26,7 +26,9 @@ export type EventName =
   | 'story_completed'
   | 'story_saved'
   | 'shelf_opened'
-  | 'product_viewed';
+  | 'product_viewed'
+  /** Wander handed somebody a story. Recorded so its use can be measured. */
+  | 'wander_chosen';
 
 type TrackOptions = {
   entityType?: string;

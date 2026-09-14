@@ -438,22 +438,6 @@ export async function searchStories(query: string): Promise<StoryCard[]> {
   }));
 }
 
-/**
- * Wander — the Librarian chooses.
- *
- * Deterministic per hour rather than random per request: a story picked
- * fresh on every page load is a slot machine, and this is meant to feel
- * like being handed something. It changes on the hour, so coming back
- * later gives you a different one.
- */
-export async function getWanderStory(): Promise<StoryCard | null> {
-  const stories = (await getStories()).filter((s) => s.access === 'free');
-  if (stories.length === 0) return null;
-
-  const hourIndex = Math.floor(Date.now() / 3_600_000);
-  return stories[hourIndex % stories.length];
-}
-
 export type StorySection = { slug: string; title: string };
 
 export type FullStory = StoryCard & {

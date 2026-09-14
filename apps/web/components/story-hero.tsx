@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Cover } from '@/components/cover-art';
+import { ShelfGlyph } from '@/components/shelf-glyph';
 
 /**
  * The top of a story.
@@ -23,6 +25,9 @@ import { Cover } from '@/components/cover-art';
 export function StoryHero({
   story,
   shelf,
+  intro,
+  after,
+  href,
 }: {
   story: {
     title: string;
@@ -33,21 +38,37 @@ export function StoryHero({
     shelf?: string | null;
   };
   shelf: { slug: string; label: string; emoji: string } | null;
+  /** Something said before the shelf and title — Wander's "chosen for you". */
+  intro?: React.ReactNode;
+  /** Something after the byline — buttons, a reason, a way onward. */
+  after?: React.ReactNode;
+  /** When the hero is not on the story's own page: where the cover and title lead. */
+  href?: string;
 }) {
   const art = story.coverImage ?? null;
 
+  const title = href ? (
+    <Link href={href as Route} className="transition-colors duration-base ease-house hover:text-gold">
+      {story.title}
+    </Link>
+  ) : (
+    story.title
+  );
+
   const heading = (
     <>
+      {intro}
       {shelf && (
         <Link
           href={`/shelf/${shelf.slug}`}
-          className="sf-eyebrow transition-colors duration-base ease-house hover:text-gold"
+          className="sf-eyebrow inline-flex items-center gap-2 transition-colors duration-base ease-house hover:text-gold"
         >
-          {shelf.emoji} {shelf.label}
+          <ShelfGlyph slug={shelf.slug} className="h-3.5 w-3.5 text-gold" />
+          {shelf.label}
         </Link>
       )}
       <h1 className="mt-6 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
-        {story.title}
+        {title}
       </h1>
       <p className="mx-auto mt-5 max-w-measure font-display text-xl italic leading-snug text-grey-muted">
         {story.subtitle}
@@ -55,21 +76,31 @@ export function StoryHero({
       <p className="mt-8 font-ui text-sm text-grey-muted">
         By {story.author} · ☕ {story.readingMinutes} min
       </p>
+      {after}
     </>
+  );
+
+  const cover = (
+    <Cover
+      src={art}
+      title={story.title}
+      author={story.author}
+      shelf={story.shelf}
+      sizes={art ? '14rem' : '12rem'}
+      priority={Boolean(art)}
+    />
   );
 
   if (!art) {
     return (
       <header className="mx-auto max-w-content px-5 pb-14 pt-20 text-center sm:px-8">
-        <div className="mx-auto mb-10 aspect-[2/3] w-40 overflow-hidden shadow-cover sm:w-48">
-          <Cover
-            src={null}
-            title={story.title}
-            author={story.author}
-            shelf={story.shelf}
-            sizes="12rem"
-          />
-        </div>
+        {href ? (
+          <Link href={href as Route} className="mx-auto mb-10 block aspect-[2/3] w-40 overflow-hidden shadow-cover sm:w-48">
+            {cover}
+          </Link>
+        ) : (
+          <div className="mx-auto mb-10 aspect-[2/3] w-40 overflow-hidden shadow-cover sm:w-48">{cover}</div>
+        )}
         {heading}
       </header>
     );
@@ -96,16 +127,18 @@ export function StoryHero({
       </div>
 
       <div className="mx-auto max-w-content px-5 pb-14 pt-16 text-center sm:px-8 sm:pt-24">
-        <div className="mx-auto mb-10 aspect-[2/3] w-44 overflow-hidden rounded-sm shadow-cover ring-1 ring-ivory/10 sm:w-56">
-          <Cover
-            src={art}
-            title={story.title}
-            author={story.author}
-            shelf={story.shelf}
-            sizes="14rem"
-            priority
-          />
-        </div>
+        {href ? (
+          <Link
+            href={href as Route}
+            className="mx-auto mb-10 block aspect-[2/3] w-44 overflow-hidden rounded-sm shadow-cover ring-1 ring-ivory/10 transition-transform duration-slow ease-house hover:-translate-y-1.5 sm:w-56"
+          >
+            {cover}
+          </Link>
+        ) : (
+          <div className="mx-auto mb-10 aspect-[2/3] w-44 overflow-hidden rounded-sm shadow-cover ring-1 ring-ivory/10 sm:w-56">
+            {cover}
+          </div>
+        )}
         {heading}
       </div>
     </header>
