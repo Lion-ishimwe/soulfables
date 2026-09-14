@@ -15,6 +15,12 @@
       ]
     },
     {
+      "Sid": "ReadStoriesAloud",
+      "Effect": "Allow",
+      "Action": "polly:SynthesizeSpeech",
+      "Resource": "*"
+    },
+    {
       "Sid": "DecryptThoseSettings",
       "Effect": "Allow",
       "Action": "kms:Decrypt",

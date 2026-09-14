@@ -143,15 +143,34 @@ export default async function StoryPage({
       <article className="mx-auto max-w-content px-5 sm:px-8">
         <ReaderControls />
 
-        {story.audio && !story.locked && (
+        {story.audio && !story.locked && !story.audio.locked && (
           <div className="pt-8">
             <AudioPlayer
               storyId={story.id ?? `demo-${story.slug}`}
               src={story.audio.src}
               narrator={story.audio.narrator}
               isPlaceholder={story.audio.isPlaceholder}
+              generated={story.audio.generated}
               resumeAt={resumeAt}
             />
+          </div>
+        )}
+
+        {/* Narration exists, and it is for residents. Say so, rather than nothing. */}
+        {story.audio?.locked && !story.locked && (
+          <div className="pt-8">
+            <div className="mx-auto flex max-w-measure flex-wrap items-center justify-between gap-4 border border-gold/25 bg-gold-dim px-5 py-4">
+              <p className="font-ui text-sm text-ivory">
+                This story is narrated{story.audio.narrator ? ` by ${story.audio.narrator}` : ''}.
+                <span className="text-grey-muted"> Listening is for Residents.</span>
+              </p>
+              <Link
+                href="/membership"
+                className="font-ui text-xs uppercase tracking-[0.16em] text-gold transition-colors hover:text-gold-soft"
+              >
+                Become a Resident →
+              </Link>
+            </div>
           </div>
         )}
 
@@ -277,7 +296,7 @@ function Paywall({ title }: { title: string }) {
         editions, and the companion.
       </p>
       <Link
-        href="/shop"
+        href="/membership"
         className="mt-8 inline-block border border-gold/50 px-8 py-3.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
       >
         Become a Resident

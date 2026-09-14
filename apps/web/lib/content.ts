@@ -455,8 +455,15 @@ export type StorySection = { slug: string; title: string };
 export type FullStory = StoryCard & {
   /** Parsed from the body, for bookmarks and audio cue points. */
   sections: StorySection[];
-  /** Narration, when it exists. */
-  audio: { src: string; narrator: string | null; isPlaceholder: boolean } | null;
+  /** Narration, when it exists. `locked`: it is for residents and this reader is not one. */
+  audio: {
+    src: string;
+    narrator: string | null;
+    isPlaceholder: boolean;
+    generated: boolean;
+    locked: boolean;
+    durationSeconds: number | null;
+  } | null;
   /**
    * Null for a premium story the reader has no access to. The body is
    * withheld HERE, on the server, so it never reaches the browser at all —
@@ -572,6 +579,9 @@ export async function getStory(slug: string): Promise<FullStory | null> {
             src: '/audio/narration-placeholder.wav',
             narrator: 'Apophia Kamwine',
             isPlaceholder: true,
+            generated: false,
+            locked: false,
+            durationSeconds: null,
           }
         : null,
     };
@@ -599,7 +609,12 @@ export async function getStory(slug: string): Promise<FullStory | null> {
   const row = data as Record<string, unknown>;
   const locked = Boolean(row.locked);
   const body = (row.body as string | null) ?? null;
-  const audio = row.audio as { storage_path?: string; narrator?: string } | null;
+  const audio = row.audio as {
+    narrator?: string;
+    duration_seconds?: number;
+    generated?: boolean;
+    locked?: boolean;
+  } | null;
 
   return {
     id: row.id as string,
@@ -616,12 +631,21 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     // database, not only by this line.
     body,
     sections: body ? sectionsFrom(body) : [],
+    /*
+     * The player asks the narration route, which checks access and signs
+     * a short-lived address; the storage key never reaches the page. A
+     * narration this reader may not hear still comes through as locked,
+     * so the page can say why rather than show nothing.
+     */
     audio:
-      audio?.storage_path && !locked
+      audio && !locked
         ? {
-            src: audio.storage_path,
-            narrator: audio.narrator ?? 'The Librarian',
-            isPlaceholder: true,
+            src: `/api/story/${row.slug as string}/audio`,
+            narrator: audio.narrator ?? null,
+            isPlaceholder: false,
+            generated: Boolean(audio.generated),
+            locked: Boolean(audio.locked),
+            durationSeconds: audio.duration_seconds ?? null,
           }
         : null,
   };

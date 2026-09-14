@@ -106,10 +106,11 @@ export async function grantEntitlement(
   const h = await headers();
 
   if (notify) {
+    // No order: this is a grant, not a sale. Passing the product id here
+    // used to break the email log's foreign key, silently.
     await sendDeliveryEmail({
       to: email,
       orderReference: 'added by Soulfables',
-      orderId: productId,
       isGuest: false,
     });
   }

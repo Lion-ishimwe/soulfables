@@ -937,7 +937,9 @@ export async function letterSubscriberCount(): Promise<number> {
   const { count, error } = await supabase
     .from('letter_subscribers')
     .select('email', { count: 'exact', head: true })
-    .eq('status', 'subscribed');
+    // 'confirmed' is the enum's word; 'subscribed' was not, and the
+    // cast failed, so this read zero forever.
+    .eq('status', 'confirmed');
 
   // Null, not zero. A refusal and an empty list are different answers and
   // the caller should not be told "nobody" when the truth is "cannot say".
@@ -946,4 +948,35 @@ export async function letterSubscriberCount(): Promise<number> {
     return 0;
   }
   return count ?? 0;
+}
+
+/** The narration attached to a story, for the admin's narration panel. */
+export async function getStoryNarration(slug: string): Promise<{
+  narrator: string | null;
+  format: string;
+  durationSeconds: number | null;
+  fileSizeBytes: number | null;
+  access: 'free' | 'premium';
+  generated: boolean;
+  createdAt: string;
+} | null> {
+  if (isDemoMode() || !isConfigured()) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('stories')
+    .select('story_audio(narrator, format, duration_seconds, file_size_bytes, access, generated, created_at)')
+    .eq('slug', slug)
+    .maybeSingle();
+  const rows = (data?.story_audio as Record<string, unknown>[] | null) ?? [];
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    narrator: (r.narrator as string) ?? null,
+    format: (r.format as string) ?? 'mp3',
+    durationSeconds: (r.duration_seconds as number) ?? null,
+    fileSizeBytes: (r.file_size_bytes as number) ?? null,
+    access: (r.access as 'free' | 'premium') ?? 'free',
+    generated: Boolean(r.generated),
+    createdAt: r.created_at as string,
+  };
 }

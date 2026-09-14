@@ -22,9 +22,14 @@ export async function getPlan(): Promise<Plan> {
   const supabase = await createClient();
   const { data } = await supabase
     .from('subscriptions')
-    .select('status, plans(slug)')
+    .select('status, current_period_end, plans(slug)')
     .in('status', ['trialing', 'active'])
     .maybeSingle();
+
+  // The same rule the database applies: a period that has ended is no
+  // longer a residency, whatever the status column still says.
+  const end = data?.current_period_end as string | null | undefined;
+  if (end && new Date(end).getTime() < Date.now()) return 'free';
 
   const slug = (data?.plans as { slug?: string } | null)?.slug;
   return slug === 'resident' ? 'resident' : 'free';

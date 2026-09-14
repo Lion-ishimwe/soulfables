@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-polly": "^3.1132.0",
     "@soulfables/design-system": "*",
     "@soulfables/models": "*",
     "@soulfables/shared": "*",

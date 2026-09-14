@@ -15,7 +15,7 @@ import { createAdminClient } from './supabase/admin';
  * already paid for. The book appears in their library either way.
  */
 
-type SendResult = { sent: boolean; error?: string };
+type SendResult = { sent: boolean; error?: string; messageId?: string; skipped?: boolean };
 
 const FROM = process.env.EMAIL_FROM ?? 'Soulfables <hello@soulfables.co>';
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://soulfables.co';
@@ -28,7 +28,7 @@ async function record(
 ) {
   try {
     const db = createAdminClient();
-    await db.from('email_events').insert({
+    const { error } = await db.from('email_events').insert({
       to_email: to,
       user_id: opts.userId ?? null,
       template,
@@ -38,6 +38,7 @@ async function record(
       status,
       error: opts.error ?? null,
     });
+    if (error) console.error('[email] could not record send', error.message);
   } catch (e) {
     console.error('[email] could not record send', e);
   }
@@ -53,7 +54,7 @@ async function deliver(
 
   if (!key) {
     console.info(`[email] no provider configured — would send "${subject}" to ${to}`);
-    return { sent: false, error: 'no_provider' };
+    return { sent: false, skipped: true, error: 'no_provider' };
   }
 
   try {
@@ -71,7 +72,7 @@ async function deliver(
     }
 
     const body = (await res.json()) as { id?: string };
-    return { sent: true, error: body.id };
+    return { sent: true, messageId: body.id };
   } catch (e) {
     return { sent: false, error: e instanceof Error ? e.message : 'unknown' };
   }
@@ -114,7 +115,8 @@ function shell(heading: string, body: string, cta?: { url: string; label: string
 export async function sendDeliveryEmail(opts: {
   to: string;
   orderReference: string;
-  orderId: string;
+  /** The order row, when there is one. A manual grant has none. */
+  orderId?: string;
   isGuest: boolean;
 }): Promise<SendResult> {
   const subject = `Your Soulfables order ${opts.orderReference}`;
@@ -140,9 +142,9 @@ export async function sendDeliveryEmail(opts: {
 
   const result = await deliver(opts.to, subject, shell('Your book is ready.', body, cta), text);
 
-  await record('delivery', opts.to, result.sent ? 'sent' : 'skipped', {
+  await record('delivery', opts.to, result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed', {
     orderId: opts.orderId,
-    messageId: result.sent ? result.error : undefined,
+    messageId: result.messageId,
     error: result.sent ? undefined : result.error,
   });
 
@@ -162,9 +164,9 @@ export async function sendWelcomeEmail(to: string, userId: string): Promise<Send
     `The library is open.\n\n${SITE}/library`,
   );
 
-  await record('welcome', to, result.sent ? 'sent' : 'skipped', {
+  await record('welcome', to, result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed', {
     userId,
-    messageId: result.sent ? result.error : undefined,
+    messageId: result.messageId,
     error: result.sent ? undefined : result.error,
   });
 

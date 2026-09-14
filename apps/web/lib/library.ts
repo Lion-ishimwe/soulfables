@@ -57,6 +57,8 @@ export async function getOwnedProducts(): Promise<OwnedProduct[]> {
       'product_id, source, granted_at, products(slug, title, subtitle, cover_image, product_files(id, format, file_size_bytes, is_active))',
     )
     .is('revoked_at', null)
+    // A lapsed grant is not owned; the download route would refuse it anyway.
+    .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
     .order('granted_at', { ascending: false });
 
   if (error) {

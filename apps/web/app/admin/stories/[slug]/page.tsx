@@ -10,6 +10,9 @@ import {
 } from '@/lib/admin-data';
 import { PageHeader, StatusPill } from '@/components/admin/ui';
 import { StoryForm } from '@/components/admin/story-form';
+import { AudioField } from '@/components/admin/audio-field';
+import { getStoryNarration } from '@/lib/admin-data';
+import { VOICES, defaultVoice } from '@/lib/audio/tts';
 import { ReviewPanel } from '@/components/admin/review-panel';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import { discardStory, approveStory } from '@/app/actions/workflow';
@@ -149,6 +152,22 @@ export default async function EditStoryPage({
         authors={authors.map((a) => ({ value: a.slug, label: a.name }))}
         shelves={shelves.map((s) => ({ value: s.slug, label: s.label }))}
         themes={themes.map((t) => ({ value: t.id, label: t.label }))}
+      />
+
+      <AudioField
+        storySlug={story.slug}
+        narration={await getStoryNarration(story.slug)}
+        voices={VOICES.map((v) => ({ id: v.id, label: v.label }))}
+        defaultVoice={defaultVoice()}
+        words={
+          (story.releaseMode === 'serial'
+            ? story.chapters.map((c) => c.bodyMdx).join(' ')
+            : story.bodyMdx
+          )
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean).length
+        }
       />
 
       {story.releaseMode === 'serial' && (

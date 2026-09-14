@@ -31,12 +31,15 @@ export function AudioPlayer({
   src,
   narrator,
   isPlaceholder = false,
+  generated = false,
   resumeAt = 0,
 }: {
   storyId: string;
   src: string;
   narrator?: string | null;
   isPlaceholder?: boolean;
+  /** A synthetic voice is reading. Said plainly; never passed off as a person. */
+  generated?: boolean;
   resumeAt?: number;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -103,10 +106,37 @@ export function AudioPlayer({
 
   const progress = duration > 0 ? (current / duration) * 100 : 0;
 
+  /*
+   * The keys a listener reaches for: space to pause, arrows to skip. Only
+   * while the player has focus, so a reader scrolling with the space bar
+   * is not surprised by narration starting.
+   */
+  function onKey(e: React.KeyboardEvent) {
+    if ((e.target as HTMLElement).tagName === 'BUTTON' && e.key === ' ') return;
+    if (e.key === ' ' || e.key === 'k') {
+      e.preventDefault();
+      toggle();
+    } else if (e.key === 'ArrowLeft' || e.key === 'j') {
+      e.preventDefault();
+      skip(-15);
+    } else if (e.key === 'ArrowRight' || e.key === 'l') {
+      e.preventDefault();
+      skip(30);
+    }
+  }
+
+  const label = isPlaceholder
+    ? 'Narration — sample track'
+    : generated
+      ? 'Read aloud — generated voice'
+      : 'Narrated';
+
   return (
     <section
       aria-label="Listen to this story"
-      className="mx-auto max-w-measure border border-rule bg-ink-raised p-5"
+      tabIndex={0}
+      onKeyDown={onKey}
+      className="mx-auto max-w-measure border border-rule bg-ink-raised p-5 outline-none focus-visible:border-gold/50"
     >
       <audio
         ref={audioRef}
@@ -129,10 +159,8 @@ export function AudioPlayer({
       />
 
       <div className="flex items-center justify-between gap-4">
-        <p className="sf-eyebrow">
-          {isPlaceholder ? 'Narration — sample track' : 'Narrated'}
-        </p>
-        {narrator && (
+        <p className="sf-eyebrow">{label}</p>
+        {narrator && !generated && (
           <p className="font-ui text-xs text-grey-muted">Read by {narrator}</p>
         )}
       </div>
@@ -169,6 +197,7 @@ export function AudioPlayer({
             step={1}
             value={current}
             disabled={!ready}
+            aria-valuetext={`${clock(current)} of ${clock(duration)}`}
             onChange={(e) => {
               const el = audioRef.current;
               if (!el) return;
@@ -231,6 +260,13 @@ export function AudioPlayer({
           Narration for this story has not been recorded yet. This is a tone
           track so the player can be tried — the transport, speed, skip and
           resume-where-you-left-off all behave as they will with real audio.
+        </p>
+      )}
+      {generated && !isPlaceholder && (
+        <p className="mt-4 text-xs leading-normal text-grey-muted">
+          This reading is by a generated voice, not a person. It is the story
+          read aloud for anyone who would rather listen; a narrated edition,
+          when there is one, is a different thing and will say so.
         </p>
       )}
     </section>

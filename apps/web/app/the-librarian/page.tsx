@@ -1,14 +1,6 @@
-import type { Metadata } from 'next';
-import { QuietPage } from '@/components/quiet-page';
+import { permanentRedirect } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'The Librarian' };
-
+/** The Librarian lives at /companion. This address is kept so old links still arrive. */
 export default function Page() {
-  return (
-    <QuietPage
-      eyebrow="THE HOUSE"
-      title="The Librarian"
-      body="The keeper of the House. Chooses what you read before you know you need it."
-    />
-  );
+  permanentRedirect('/companion');
 }

@@ -286,6 +286,28 @@ needs it, and the address it was pinned to is out of date anyway.
 
 ---
 
+## Reading stories aloud — Amazon Polly
+
+Every story can be read by a generated voice from its admin page
+(**Narration → Read it aloud**). The voice is Amazon Polly, chosen because
+the House already lives on AWS: no new secret, just a permission on the
+instance role. The player tells readers a synthetic voice is reading.
+
+1. IAM → Policies → `SoulfablesReadSettings` → **Edit** → JSON → replace
+   with [`deploy/iam-policy.json`](../deploy/iam-policy.json) (it now
+   carries `polly:SynthesizeSpeech`) → Save. Nothing else changes; the
+   instance picks the permission up within a minute.
+2. Optional settings in Parameter Store: `TTS_VOICE` (default `Amy`,
+   British; `Brian`, `Joanna`, `Matthew` also offered) and `TTS_REGION`
+   (default `eu-west-1`, where the neural voices are).
+
+A long story is about ten cents. The file goes in the private
+`protected-media` bucket and the player fetches it through a short-lived
+signed address, so it cannot be hot-linked. A person's recording can be
+uploaded from the same panel instead, and replaces the generated one.
+
+---
+
 ## Taking money — PayPal
 
 The shop takes payment through PayPal, on the business's PayPal account
@@ -330,6 +352,7 @@ Switch the dashboard toggle to **Live**, create the app and the webhook again �
 | Sign-in sends you to `localhost` | `NEXT_PUBLIC_SITE_URL` is wrong. Push the right one and **rebuild** — it is baked in, so a restart will not do it. |
 | `502 Bad Gateway` | Node is not up. `journalctl -u soulfables -n 50`. |
 | A PayPal buyer sees "The payment page could not be opened" | The Client ID or Secret is wrong, or `PAYMENT_ENV` does not match the credentials (sandbox keys against live, or the reverse). `journalctl -u soulfables` shows PayPal's answer. |
+| "The server is not allowed to speak yet" when reading a story aloud | The instance role lacks `polly:SynthesizeSpeech`. Update `SoulfablesReadSettings` from `deploy/iam-policy.json`. |
 | Paid on PayPal but the thank-you page keeps waiting | The return route could not capture. Check the log for `[paypal] capture on return failed`. The webhook, once HTTPS exists, catches these. |
 | The instance never shows in Fleet Manager | The agent retries every half hour. Hurry it: `sudo snap restart amazon-ssm-agent`, then `sudo journalctl -u snap.amazon-ssm-agent.amazon-ssm-agent -n 20`. A `400` there means the role still lacks `AmazonSSMManagedInstanceCore`. |
 | `ssh soulfables` says `TargetNotConnected` | Same thing from the other side — the agent is not registered yet. |

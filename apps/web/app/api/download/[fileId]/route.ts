@@ -73,11 +73,17 @@ export async function GET(
 
   // --- Rate limit -------------------------------------------------------
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await db
+  const { count, error: countError } = await db
     .from('download_events')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
     .gte('created_at', since);
+
+  // A limit that cannot be counted does not silently vanish.
+  if (countError) {
+    console.error('[download] rate limit count failed', countError.message);
+    return NextResponse.json({ error: 'unavailable' }, { status: 503 });
+  }
 
   if ((count ?? 0) >= MAX_DOWNLOADS_PER_HOUR) {
     return NextResponse.json(
