@@ -5,7 +5,7 @@ import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { saveProduct, type ProductActionResult } from '@/app/actions/products';
 import { Field, TextArea, Select } from './ui';
-import { Cover } from '@/components/cover-art';
+import { CoverField } from '@/components/admin/cover-field';
 
 export type ProductDraft = {
   id?: string;
@@ -45,7 +45,6 @@ export function ProductForm({ draft }: { draft: ProductDraft }) {
   const [title, setTitle] = useState(draft.title ?? '');
   const [slug, setSlug] = useState(draft.slug ?? '');
   const [slugTouched, setSlugTouched] = useState(Boolean(draft.slug));
-  const [cover, setCover] = useState(draft.coverImage ?? '');
 
   function onTitle(v: string) {
     setTitle(v);
@@ -128,34 +127,19 @@ export function ProductForm({ draft }: { draft: ProductDraft }) {
         </div>
 
         <aside className="min-w-0 lg:border-l lg:border-rule lg:pl-8">
+          {/*
+            Uploaded or pasted, the same field the stories use. Until now a
+            product's cover could only be an address typed by hand, which
+            is why every book in the shop wore the drawn placeholder.
+          */}
           <div className="mb-6">
-            <label htmlFor="p-coverImage" className="sf-eyebrow mb-2 block">
-              Cover
-            </label>
-            <div className="flex gap-4">
-              <div className="aspect-[2/3] w-20 flex-none overflow-hidden border border-rule">
-                <Cover
-                  src={cover || null}
-                  title={title || 'Untitled'}
-                  author={null}
-                  shelf="heartbreak"
-                  sizes="5rem"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <input
-                  id="p-coverImage"
-                  name="coverImage"
-                  value={cover}
-                  onChange={(e) => setCover(e.target.value)}
-                  placeholder="https://…"
-                  className="w-full border border-rule bg-ink-raised px-3.5 py-2.5 font-mono text-xs text-ivory outline-none transition-colors placeholder:text-grey-faint focus:border-gold/50"
-                />
-                <p className="mt-1.5 text-xs leading-normal text-grey-muted">
-                  Empty means the House draws one.
-                </p>
-              </div>
-            </div>
+            <CoverField
+              name="coverImage"
+              defaultValue={draft.coverImage ?? ''}
+              title={title || 'Untitled'}
+              author=""
+              shelf={draft.kind === 'journal' ? 'healing' : 'heartbreak'}
+            />
           </div>
 
           <Select

@@ -8,6 +8,7 @@ import { LibraryBackdrop } from '@/components/library-backdrop';
 import { Cover } from '@/components/cover-art';
 import { Avatar } from '@/components/admin/avatar';
 import { ShelfGlyph } from '@/components/shelf-glyph';
+import { ProductCard } from '@/components/product-card';
 
 /*
  * The lamp, as a reusable pool of light. The hero has one; nothing
@@ -459,49 +460,7 @@ export default async function HomePage() {
           <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {wares.map((p) => (
               <li key={p.slug}>
-                <Link
-                  href={`/shop/${p.slug}` as Route}
-                  className="group flex h-full flex-col overflow-hidden rounded-lg border border-rule bg-ink-raised transition-colors duration-base ease-house hover:border-gold/40"
-                >
-                  <span className="relative flex items-end justify-center border-b border-rule bg-ink px-6 pt-8">
-                    {/* Lamplight behind the book, in the House's gold. */}
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          'radial-gradient(ellipse 70% 60% at 50% 35%, rgb(var(--c-gold) / 0.16), transparent 70%)',
-                      }}
-                    />
-                    <span className="relative aspect-[2/3] w-32 overflow-hidden rounded-sm shadow-cover ring-1 ring-ivory/10 transition-transform duration-slow ease-house group-hover:-translate-y-1.5 sm:w-36">
-                      <Cover
-                        src={p.coverImage ?? null}
-                        title={p.title}
-                        author={p.subtitle ?? ''}
-                        shelf={p.kind === 'journal' ? 'healing' : 'love'}
-                        sizes="9rem"
-                      />
-                    </span>
-                  </span>
-
-                  <span className="flex flex-1 flex-col p-5">
-                    <span className="sf-eyebrow">{p.kind}</span>
-                    <span className="mt-2 font-display text-xl leading-snug text-ivory transition-colors duration-base group-hover:text-gold">
-                      {p.title}
-                    </span>
-                    <span className="mt-1.5 line-clamp-2 flex-1 font-ui text-xs leading-relaxed text-grey-muted">
-                      {p.subtitle}
-                    </span>
-                    <span className="mt-4 flex items-baseline justify-between gap-3">
-                      <span className="font-display text-xl text-ivory">{p.priceLabel}</span>
-                      {p.formats.length > 0 && (
-                        <span className="font-ui text-micro uppercase tracking-[0.14em] text-grey-faint">
-                          {p.formats.join(' · ')}
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                </Link>
+                <ProductCard product={p} />
               </li>
             ))}
           </ul>

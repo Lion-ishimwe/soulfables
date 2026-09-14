@@ -90,7 +90,13 @@ export type Product = {
   pullQuote: string;
   ctaLabel: string;
   priceLabel: string;
+  /** The default price in minor units, for structured data and checkout copy. */
+  price: { unitAmount: number; currency: string } | null;
+  /** The long copy, paragraphs separated by blank lines. */
+  description: string | null;
   formats: string[];
+  /** The active files, one per format, with sizes where known. */
+  files: { format: string; sizeBytes: number | null }[];
   featured: boolean;
 };
 
@@ -129,11 +135,11 @@ const STORIES: StoryCard[] = [
 ];
 
 const PRODUCTS: Product[] = [
-  { id: 'demo-the-version-of-me-you-broke', slug: 'the-version-of-me-you-broke', title: 'The Version Of Me You Broke', subtitle: 'A Soulfables Original by Apophia Kamwine', kind: 'ebook', eyebrow: 'Soulfables Original · New Release', pullQuote: 'You didn’t lose yourself forever. You were waiting to come home.', ctaLabel: 'Come home to yourself', priceLabel: '$7.99', formats: ['EPUB', 'PDF'], featured: true },
-  { id: 'demo-the-soulfables-library', slug: 'the-soulfables-library', title: 'The Soulfables Library', subtitle: 'Your Complete Sanctuary', kind: 'bundle', eyebrow: 'The Librarian’s Collection', pullQuote: 'Every story, every journal, every reflection — kept together in one library.', ctaLabel: 'Explore the complete library', priceLabel: '$45', formats: ['EPUB', 'PDF'], featured: false },
-  { id: 'demo-heartbreak-anthology', slug: 'heartbreak-anthology', title: 'Heartbreak Anthology', subtitle: 'Stories for the Aftermath', kind: 'anthology', eyebrow: 'Your Signature Collection', pullQuote: 'The collection that introduced thousands of readers to Soulfables.', ctaLabel: 'Begin with heartbreak', priceLabel: '$16', formats: ['EPUB', 'PDF'], featured: false },
-  { id: 'demo-the-soul-journal', slug: 'the-soul-journal', title: 'The Soul Journal', subtitle: 'A Companion for Quiet Reflection', kind: 'journal', eyebrow: 'The Everyday Companion', pullQuote: 'A quiet place to write after every story.', ctaLabel: 'Start writing', priceLabel: '$18', formats: ['PDF'], featured: false },
-  { id: 'demo-the-reflection-deck', slug: 'the-reflection-deck', title: 'The Reflection Deck', subtitle: 'Questions for the Quiet Moments', kind: 'deck', eyebrow: 'The Giftable Experience', pullQuote: '52 questions for the moments that ask something of you.', ctaLabel: 'Draw your first card', priceLabel: '$15', formats: ['PDF'], featured: false },
+  { id: 'demo-the-version-of-me-you-broke', slug: 'the-version-of-me-you-broke', title: 'The Version Of Me You Broke', subtitle: 'A Soulfables Original by Apophia Kamwine', kind: 'ebook', eyebrow: 'Soulfables Original · New Release', pullQuote: 'You didn’t lose yourself forever. You were waiting to come home.', ctaLabel: 'Come home to yourself', priceLabel: '$7.99', formats: ['EPUB', 'PDF'], price: { unitAmount: 799, currency: 'USD' }, description: null, files: [{ format: 'EPUB', sizeBytes: null }, { format: 'PDF', sizeBytes: null }], featured: true },
+  { id: 'demo-the-soulfables-library', slug: 'the-soulfables-library', title: 'The Soulfables Library', subtitle: 'Your Complete Sanctuary', kind: 'bundle', eyebrow: 'The Librarian’s Collection', pullQuote: 'Every story, every journal, every reflection — kept together in one library.', ctaLabel: 'Explore the complete library', priceLabel: '$45', formats: ['EPUB', 'PDF'], price: { unitAmount: 4500, currency: 'USD' }, description: null, files: [{ format: 'EPUB', sizeBytes: null }, { format: 'PDF', sizeBytes: null }], featured: false },
+  { id: 'demo-heartbreak-anthology', slug: 'heartbreak-anthology', title: 'Heartbreak Anthology', subtitle: 'Stories for the Aftermath', kind: 'anthology', eyebrow: 'Your Signature Collection', pullQuote: 'The collection that introduced thousands of readers to Soulfables.', ctaLabel: 'Begin with heartbreak', priceLabel: '$16', formats: ['EPUB', 'PDF'], price: { unitAmount: 1600, currency: 'USD' }, description: null, files: [{ format: 'EPUB', sizeBytes: null }, { format: 'PDF', sizeBytes: null }], featured: false },
+  { id: 'demo-the-soul-journal', slug: 'the-soul-journal', title: 'The Soul Journal', subtitle: 'A Companion for Quiet Reflection', kind: 'journal', eyebrow: 'The Everyday Companion', pullQuote: 'A quiet place to write after every story.', ctaLabel: 'Start writing', priceLabel: '$18', formats: ['PDF'], price: { unitAmount: 1800, currency: 'USD' }, description: null, files: [{ format: 'PDF', sizeBytes: null }], featured: false },
+  { id: 'demo-the-reflection-deck', slug: 'the-reflection-deck', title: 'The Reflection Deck', subtitle: 'Questions for the Quiet Moments', kind: 'deck', eyebrow: 'The Giftable Experience', pullQuote: '52 questions for the moments that ask something of you.', ctaLabel: 'Draw your first card', priceLabel: '$15', formats: ['PDF'], price: { unitAmount: 1500, currency: 'USD' }, description: null, files: [{ format: 'PDF', sizeBytes: null }], featured: false },
 ];
 
 /** The journey graph, as seeded. Direction is from the shelf's point of view. */
@@ -344,13 +350,16 @@ async function fetchGetProducts(): Promise<Product[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from('products')
-    .select('id, slug, title, subtitle, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, product_prices(currency, unit_amount, is_default), product_files(format)')
+    .select('id, slug, title, subtitle, description, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, product_prices(currency, unit_amount, is_default), product_files(format, file_size_bytes, is_active)')
     .eq('status', 'published')
     .order('sort_order');
 
   return (data ?? []).map((r: Record<string, unknown>) => {
     const prices = (r.product_prices as { currency: string; unit_amount: number; is_default: boolean }[]) ?? [];
     const price = prices.find((p) => p.is_default) ?? prices[0];
+    const files = ((r.product_files as { format: string; file_size_bytes: number | null; is_active: boolean }[]) ?? [])
+      .filter((f) => f.is_active !== false)
+      .map((f) => ({ format: f.format.toUpperCase(), sizeBytes: f.file_size_bytes ?? null }));
     return {
       id: r.id as string,
       slug: r.slug as string,
@@ -361,7 +370,10 @@ async function fetchGetProducts(): Promise<Product[]> {
       pullQuote: (r.pull_quote as string) ?? '',
       ctaLabel: (r.cta_label as string) ?? 'View',
       priceLabel: price ? formatMoney(price.unit_amount, price.currency) : '',
-      formats: ((r.product_files as { format: string }[]) ?? []).map((f) => f.format.toUpperCase()),
+      price: price ? { unitAmount: price.unit_amount, currency: price.currency } : null,
+      description: (r.description as string) ?? null,
+      formats: files.map((f) => f.format),
+      files,
       featured: Boolean(r.is_featured),
       coverImage: (r.cover_image as string) ?? null,
     };

@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getProducts } from '@/lib/content';
+import { getHouseSettings } from '@/lib/settings';
 import { isPaymentsConfigured } from '@/lib/payments/provider';
 import { BuyForm } from '@/components/buy-form';
 import { Cover } from '@/components/cover-art';
+import { ProductCard, kindLabel } from '@/components/product-card';
 
 /*
  * A product page.
@@ -13,10 +16,11 @@ import { Cover } from '@/components/cover-art';
  * only a slug — the amount is computed server-side at checkout, so there
  * is no field a tampered client could use to name its own price.
  *
- * When no payment provider is configured the control routes to a holding
- * page instead of a dead button. That state should be temporary; if it
- * appears in production, PAYMENT_API_KEY and PAYMENT_WEBHOOK_SECRET are
- * missing from the environment.
+ * When no payment provider is configured the price card says so where
+ * the button would be, rather than offering a button that leads to an
+ * apology. That state should be temporary; if it appears in production,
+ * PAYMENT_API_KEY and PAYMENT_WEBHOOK_SECRET are missing from the
+ * environment.
  */
 
 export const revalidate = 300;
@@ -44,9 +48,23 @@ export async function generateMetadata({
       title: `${product.title} · Soulfables`,
       description: product.pullQuote,
       url: `/shop/${product.slug}`,
+      ...(product.coverImage ? { images: [{ url: product.coverImage }] } : {}),
     },
   };
 }
+
+function formatBytes(bytes: number | null): string | null {
+  if (!bytes) return null;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const FORMAT_NOTE: Record<string, string> = {
+  EPUB: 'for phones, tablets and e-readers',
+  PDF: 'for any screen, laid out as designed',
+  MOBI: 'for older Kindles',
+  MP3: 'to listen',
+};
 
 export default async function ProductPage({
   params,
@@ -54,23 +72,33 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const products = await getProducts();
+  const [products, house] = await Promise.all([getProducts(), getHouseSettings()]);
   const product = products.find((p) => p.slug === slug);
   if (!product) notFound();
 
-  const others = products.filter((p) => p.slug !== slug).slice(0, 3);
-
-  // Until a provider is configured the buy control routes to a holding
-  // page rather than a dead button.
-  const paymentsReady = isPaymentsConfigured();
+  const others = products.filter((p) => p.slug !== slug).slice(0, 4);
+  const open = isPaymentsConfigured();
+  const paragraphs = (product.description ?? '').split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
 
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Book',
+    '@type': product.kind === 'audio' ? 'AudioObject' : 'Book',
     name: product.title,
     description: product.subtitle,
     publisher: { '@type': 'Organization', name: 'Soulfables' },
     bookFormat: 'https://schema.org/EBook',
+    ...(product.coverImage ? { image: product.coverImage } : {}),
+    ...(product.price
+      ? {
+          offers: {
+            '@type': 'Offer',
+            price: (product.price.unitAmount / 100).toFixed(2),
+            priceCurrency: product.price.currency,
+            availability: open ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+            url: `/shop/${product.slug}`,
+          },
+        }
+      : {}),
   };
 
   return (
@@ -80,94 +108,197 @@ export default async function ProductPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <nav aria-label="Breadcrumb" className="mx-auto max-w-page px-5 pt-10 sm:px-8">
-        <Link
-          href="/shop"
-          className="font-ui text-sm text-grey-muted transition-colors duration-base ease-house hover:text-ivory"
-        >
-          ← The Bookshop
-        </Link>
-      </nav>
-
-      <article className="mx-auto max-w-content px-5 pb-24 pt-12 text-center sm:px-8">
-        <div className="mx-auto mb-10 aspect-[2/3] w-52 overflow-hidden shadow-cover">
-          <Cover
-            src={product.coverImage}
-            title={product.title}
-            author={product.subtitle}
-            shelf="heartbreak"
-            sizes="13rem"
-          />
-        </div>
-
-        <p className="sf-eyebrow text-gold">{product.eyebrow}</p>
-        <h1 className="mt-6 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
-          {product.title}
-        </h1>
-        <p className="mt-4 font-ui text-sm text-grey-muted">{product.subtitle}</p>
-
-        <blockquote className="mx-auto mt-10 max-w-measure font-display text-2xl font-light italic leading-snug text-grey">
-          “{product.pullQuote}”
-        </blockquote>
-
-        <div className="mx-auto mt-12 max-w-measure border border-rule p-8">
-          <p className="font-display text-4xl text-ivory">{product.priceLabel}</p>
-          <p className="mt-3 font-ui text-sm text-grey-muted">
-            {product.formats.join(' + ')} · Instant access · Yours to keep
-          </p>
-
-          {paymentsReady ? (
-            <BuyForm slug={product.slug} ctaLabel={product.ctaLabel} />
+      {/* ---- The book, as a room -------------------------------------- */}
+      <section className="relative isolate overflow-hidden border-b border-rule">
+        <div aria-hidden="true" className="absolute inset-0 -z-10">
+          {product.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.coverImage}
+              alt=""
+              decoding="async"
+              className="h-full w-full scale-110 object-cover opacity-50 blur-3xl"
+            />
           ) : (
-            <Link
-              href="/shop/checkout-unavailable"
-              className="mt-8 inline-block w-full border border-gold/50 px-10 py-4 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
-            >
-              {product.ctaLabel}
-            </Link>
+            <div
+              className="absolute left-1/2 top-0 h-[28rem] w-[52rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60 blur-3xl"
+              style={{
+                background:
+                  'radial-gradient(ellipse at center, rgb(var(--c-gold) / 0.16) 0%, rgb(var(--c-gold) / 0) 70%)',
+              }}
+            />
           )}
-
-          <p className="mt-6 text-xs leading-normal text-grey-muted">
-            Every purchase appears in your library the moment payment clears,
-            in every format the book ships in.
-          </p>
+          <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/80 to-ink/40" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-ink to-transparent" />
         </div>
-      </article>
+
+        <nav aria-label="Breadcrumb" className="mx-auto max-w-page px-5 pt-8 sm:px-8">
+          <Link
+            href={'/shop' as Route}
+            className="font-ui text-sm text-grey-muted transition-colors duration-base ease-house hover:text-ivory"
+          >
+            ← The Bookshop
+          </Link>
+        </nav>
+
+        <div className="mx-auto grid max-w-page items-center gap-10 px-5 pb-16 pt-10 sm:px-8 lg:grid-cols-[16rem_1fr] lg:gap-14 lg:pb-20">
+          <div className="mx-auto aspect-[2/3] w-48 overflow-hidden rounded-sm shadow-cover ring-1 ring-ivory/10 lg:w-full">
+            <Cover
+              src={product.coverImage}
+              title={product.title}
+              author={product.subtitle}
+              shelf={product.kind === 'journal' ? 'healing' : 'heartbreak'}
+              sizes="(min-width: 1024px) 16rem, 12rem"
+              priority
+            />
+          </div>
+
+          <div className="text-center lg:text-left">
+            <p className="font-ui text-micro uppercase tracking-[0.24em] text-gold">
+              {product.eyebrow || kindLabel(product.kind)}
+            </p>
+            <h1 className="mt-5 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
+              {product.title}
+            </h1>
+            <p className="mt-3 font-ui text-base text-grey-muted">{product.subtitle}</p>
+            {product.pullQuote && (
+              <blockquote className="mx-auto mt-6 max-w-measure font-display text-2xl font-light italic leading-snug text-grey lg:mx-0">
+                “{product.pullQuote}”
+              </blockquote>
+            )}
+            <p className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-ui text-xs text-grey-muted lg:justify-start">
+              <span>{kindLabel(product.kind)}</span>
+              {product.formats.length > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{product.formats.join(' + ')}</span>
+                </>
+              )}
+              <span aria-hidden="true">·</span>
+              <span>Published by Soulfables</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ---- About it, what you get, and the price --------------------- */}
+      <section className="mx-auto max-w-page px-5 py-16 sm:px-8">
+        <div className="grid gap-12 lg:grid-cols-[1fr_22rem] lg:gap-16">
+          <div className="min-w-0">
+            {paragraphs.length > 0 ? (
+              <>
+                <p className="sf-eyebrow">About this {kindLabel(product.kind).toLowerCase()}</p>
+                <div className="mt-5 max-w-measure space-y-5 font-reading text-lg leading-relaxed text-grey">
+                  {paragraphs.map((para, i) => (
+                    <p key={i}>{para}</p>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="sf-eyebrow">About this {kindLabel(product.kind).toLowerCase()}</p>
+                <p className="mt-5 max-w-measure font-reading text-lg leading-relaxed text-grey">
+                  {product.subtitle}
+                </p>
+              </>
+            )}
+
+            <div className="mt-12 border-t border-rule pt-10">
+              <p className="sf-eyebrow">What you get</p>
+              <ul className="mt-5 grid gap-4 sm:grid-cols-2">
+                {product.files.length > 0 ? (
+                  product.files.map((f) => (
+                    <li key={f.format} className="flex items-start gap-3">
+                      <span className="mt-1 flex h-7 w-11 shrink-0 items-center justify-center rounded border border-gold/40 font-mono text-micro uppercase text-gold">
+                        {f.format}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-ui text-sm text-ivory">
+                          {f.format} file
+                          {formatBytes(f.sizeBytes) && (
+                            <span className="text-grey-muted"> · {formatBytes(f.sizeBytes)}</span>
+                          )}
+                        </span>
+                        <span className="block font-ui text-xs text-grey-muted">
+                          {FORMAT_NOTE[f.format] ?? 'ready to download'}
+                        </span>
+                      </span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="font-ui text-sm text-grey-muted sm:col-span-2">
+                    The files are being prepared. Every format the {kindLabel(product.kind).toLowerCase()} ships in is included in the price.
+                  </li>
+                )}
+                <li className="flex items-start gap-3">
+                  <span aria-hidden="true" className="mt-1 flex h-7 w-11 shrink-0 items-center justify-center rounded border border-rule font-mono text-micro text-gold">✦</span>
+                  <span className="min-w-0">
+                    <span className="block font-ui text-sm text-ivory">In your library at once</span>
+                    <span className="block font-ui text-xs text-grey-muted">Open it here, or download it, the moment payment clears.</span>
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span aria-hidden="true" className="mt-1 flex h-7 w-11 shrink-0 items-center justify-center rounded border border-rule font-mono text-micro text-gold">✦</span>
+                  <span className="min-w-0">
+                    <span className="block font-ui text-sm text-ivory">Yours to keep</span>
+                    <span className="block font-ui text-xs text-grey-muted">No locks, no expiry. Download it again whenever you like.</span>
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* The price, and the one honest button. */}
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="rounded-lg border border-rule bg-ink-raised p-7">
+              <p className="sf-eyebrow">{kindLabel(product.kind)}</p>
+              <p className="mt-3 font-display text-4xl text-ivory">{product.priceLabel}</p>
+              <p className="mt-2 font-ui text-xs text-grey-muted">
+                One price, every format
+                {product.formats.length > 0 && <> — {product.formats.join(' + ')}</>}.
+              </p>
+
+              {open ? (
+                <BuyForm slug={product.slug} ctaLabel={product.ctaLabel} />
+              ) : (
+                <div className="mt-7 border-t border-rule pt-6">
+                  <p className="font-ui text-sm text-ivory">Not on sale yet.</p>
+                  <p className="mt-2 font-ui text-xs leading-relaxed text-grey-muted">
+                    The counter is being set up with care — the last thing the House will
+                    do is take money and fail to hand over the book.
+                  </p>
+                  <Link
+                    href={'/letter' as Route}
+                    className="mt-5 inline-block w-full rounded border border-gold/50 px-6 py-3 text-center font-ui text-xs uppercase tracking-[0.16em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
+                  >
+                    Tell me when it opens
+                  </Link>
+                </div>
+              )}
+
+              <p className="mt-6 font-ui text-xs leading-relaxed text-grey-muted">
+                Questions before you buy?{' '}
+                <a href={`mailto:${house.supportEmailShop}`} className="text-gold transition-colors hover:text-gold-soft">
+                  {house.supportEmailShop}
+                </a>
+              </p>
+            </div>
+          </aside>
+        </div>
+      </section>
 
       {others.length > 0 && (
-        <section className="mx-auto max-w-page px-5 pb-24 sm:px-8">
-          <p className="sf-eyebrow mb-8 text-center">Also in the collection</p>
-          <ul className="grid gap-px bg-rule sm:grid-cols-3">
-            {others.map((p) => (
-              <li key={p.slug}>
-                <Link
-                  href={`/shop/${p.slug}`}
-                  className="group flex h-full flex-col bg-ink transition-colors duration-base ease-house hover:bg-ink-raised"
-                >
-                  <div className="aspect-[2/3] w-full overflow-hidden bg-ink-raised">
-                    <Cover
-                      src={p.coverImage}
-                      title={p.title}
-                      author={p.subtitle}
-                      shelf="love"
-                      className="transition-transform duration-slow ease-house group-hover:scale-[1.03]"
-                    />
-                  </div>
-                  <div className="flex flex-1 flex-col p-8">
-                  <h2 className="font-display text-2xl font-light text-ivory transition-colors duration-base group-hover:text-gold">
-                    {p.title}
-                  </h2>
-                  <p className="mt-2 flex-1 text-sm leading-normal text-grey-muted">
-                    {p.subtitle}
-                  </p>
-                  <p className="mt-6 font-display text-xl text-ivory">
-                    {p.priceLabel}
-                  </p>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <section className="border-t border-rule">
+          <div className="mx-auto max-w-page px-5 py-16 sm:px-8">
+            <p className="sf-eyebrow mb-8">Also in the collection</p>
+            <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {others.map((p) => (
+                <li key={p.slug}>
+                  <ProductCard product={p} />
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
       )}
     </>
