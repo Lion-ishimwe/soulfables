@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { publicUrl } from '@/lib/public-url';
 
 /**
  * Issue a download.
@@ -63,10 +64,9 @@ export async function GET(
 
   if (!user) {
     // Send them to sign in rather than 401ing a browser navigation.
-    const url = request.nextUrl.clone();
-    url.pathname = '/signin';
-    url.search = `?next=${encodeURIComponent(`/api/download/${fileId}`)}`;
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(
+      publicUrl(request, '/signin', { next: `/api/download/${fileId}` }),
+    );
   }
 
   const db = createAdminClient();

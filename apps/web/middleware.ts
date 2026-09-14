@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { publicUrl } from '@/lib/public-url';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -57,10 +58,7 @@ export async function middleware(request: NextRequest) {
     const signedIn = request.cookies.get(DEMO_SIGNED_COOKIE)?.value === '1';
 
     if ((needsUser || needsStaff) && !signedIn) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/signin';
-      url.searchParams.set('next', path);
-      return NextResponse.redirect(url);
+      return NextResponse.redirect(publicUrl(request, '/signin', { next: path }));
     }
 
     return response;
@@ -125,10 +123,7 @@ export async function middleware(request: NextRequest) {
     : [{ data: { user: null } }, { data: null }];
 
   if ((needsUser || needsStaff) && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/signin';
-    url.searchParams.set('next', path);
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(publicUrl(request, '/signin', { next: path }));
   }
 
   if (needsStaff && user) {
