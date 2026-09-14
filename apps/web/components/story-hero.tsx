@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Cover } from '@/components/cover-art';
 import { ShelfGlyph } from '@/components/shelf-glyph';
+import { ListenLink } from '@/components/listen-link';
 import Image from 'next/image';
 
 /**
@@ -30,6 +31,7 @@ export function StoryHero({
   after,
   href,
   authorHref,
+  listen,
 }: {
   story: {
     title: string;
@@ -48,6 +50,8 @@ export function StoryHero({
   href?: string;
   /** The writer's page, when they have one. */
   authorHref?: string;
+  /** Narration exists: offer it here, or say who it is for. */
+  listen?: { minutes: number | null; locked: boolean } | null;
 }) {
   const art = story.coverImage ?? null;
 
@@ -88,6 +92,15 @@ export function StoryHero({
         )}{' '}
         · ☕ {story.readingMinutes} min
       </p>
+      {listen && (
+        <div className="mt-6 flex justify-center">
+          {listen.locked ? (
+            <span className="font-ui text-xs text-grey-muted">♪ Narrated · listening is for Residents</span>
+          ) : (
+            <ListenLink minutes={listen.minutes} />
+          )}
+        </div>
+      )}
       {after}
     </>
   );

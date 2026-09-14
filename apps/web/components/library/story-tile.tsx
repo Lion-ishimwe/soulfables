@@ -50,7 +50,11 @@ export function StoryTile({
                 Residents
               </span>
             )}
-            {story.hasAudio && <span title="Narrated">♪</span>}
+            {story.hasAudio && (
+              <span title={story.audioMinutes ? `Narrated, ${story.audioMinutes} minutes` : 'Narrated'}>
+                ♪{story.audioMinutes ? ` ${story.audioMinutes} min` : ''}
+              </span>
+            )}
           </p>
 
           <h3 className="mt-1.5 font-display text-lg font-light leading-snug text-ivory transition-colors duration-base group-hover:text-gold">

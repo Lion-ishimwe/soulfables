@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { recordListening } from '@/app/actions/reading';
+import { LISTEN_EVENT } from '@/components/listen-link';
 
 /**
  * The narration player.
@@ -77,6 +78,19 @@ export function AudioPlayer({
     el.playbackRate = speed;
   }, [speed]);
 
+  // The hero's Listen button asks for a start; oblige once the file is ready.
+  useEffect(() => {
+    const onListen = () => {
+      const el = audioRef.current;
+      if (!el) return;
+      const start = () => void el.play();
+      if (el.readyState >= 1) start();
+      else el.addEventListener('loadedmetadata', start, { once: true });
+    };
+    window.addEventListener(LISTEN_EVENT, onListen);
+    return () => window.removeEventListener(LISTEN_EVENT, onListen);
+  }, []);
+
   // Save on the way out, whatever the reason.
   useEffect(() => {
     const flush = () => save(audioRef.current?.currentTime ?? 0, true);
@@ -133,6 +147,7 @@ export function AudioPlayer({
 
   return (
     <section
+      id="listen"
       aria-label="Listen to this story"
       tabIndex={0}
       onKeyDown={onKey}
@@ -260,13 +275,6 @@ export function AudioPlayer({
           Narration for this story has not been recorded yet. This is a tone
           track so the player can be tried — the transport, speed, skip and
           resume-where-you-left-off all behave as they will with real audio.
-        </p>
-      )}
-      {generated && !isPlaceholder && (
-        <p className="mt-4 text-xs leading-normal text-grey-muted">
-          This reading is by a generated voice, not a person. It is the story
-          read aloud for anyone who would rather listen; a narrated edition,
-          when there is one, is a different thing and will say so.
         </p>
       )}
     </section>

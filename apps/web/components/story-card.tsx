@@ -37,9 +37,9 @@ export function StoryCard({ story }: { story: StoryCardType }) {
           {story.hasAudio && (
             <span
               className="border border-rule bg-ink/80 px-2 py-0.5 font-ui text-micro text-grey backdrop-blur-sm"
-              title="Narrated"
+              title={story.audioMinutes ? `Narrated, ${story.audioMinutes} minutes` : 'Narrated'}
             >
-              ♪ Narrated
+              ♪ {story.audioMinutes ? `${story.audioMinutes} min` : 'Narrated'}
             </span>
           )}
         </div>

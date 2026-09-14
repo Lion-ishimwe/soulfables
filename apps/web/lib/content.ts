@@ -60,6 +60,8 @@ export type StoryCard = {
   access: 'free' | 'premium';
   /** Whether a narrated edition exists. */
   hasAudio?: boolean;
+  /** Length of the narration, in minutes, when there is one and it is known. */
+  audioMinutes?: number | null;
   /** Uploaded artwork. Null means the drawn cover is used instead. */
   coverImage?: string | null;
   /**
@@ -302,7 +304,7 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, view_count, published_at, authors!stories_author_id_fkey(name), story_themes(themes(slug, label)), story_shelves!inner(is_primary, shelves!inner(slug))')
+    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, view_count, published_at, authors!stories_author_id_fkey(name), story_themes(themes(slug, label)), story_shelves!inner(is_primary, shelves!inner(slug)), story_audio(duration_seconds)')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
@@ -340,6 +342,9 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
       themes: themesOf(r.story_themes),
       views: Number(r.view_count ?? 0),
       publishedAt: (r.published_at as string) ?? null,
+      // Live cards never knew they were narrated: the badge read only the
+      // demo's list. Now the row says, and how long for.
+      ...audioOf(r.story_audio),
     };
   });
 }
@@ -449,7 +454,16 @@ export async function searchStories(query: string): Promise<StoryCard[]> {
     access: (r.access as 'free' | 'premium') ?? 'free',
     coverImage: (r.cover_image as string) ?? null,
     hasAudio: Boolean(r.has_audio),
+    audioMinutes: r.audio_seconds ? Math.max(1, Math.round(Number(r.audio_seconds) / 60)) : null,
   }));
+}
+
+/** The narration facts a card carries, from the joined story_audio rows. */
+function audioOf(joined: unknown): { hasAudio: boolean; audioMinutes: number | null } {
+  const rows = (joined as { duration_seconds?: number | null }[] | null) ?? [];
+  if (rows.length === 0) return { hasAudio: false, audioMinutes: null };
+  const seconds = rows[0]?.duration_seconds ?? null;
+  return { hasAudio: true, audioMinutes: seconds ? Math.max(1, Math.round(seconds / 60)) : null };
 }
 
 export type StorySection = { slug: string; title: string };

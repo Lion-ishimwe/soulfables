@@ -145,6 +145,14 @@ export default async function StoryPage({
         story={story}
         shelf={shelf}
         authorHref={authorSlug ? `/author/${authorSlug}` : undefined}
+        listen={
+          story.audio && !story.locked
+            ? {
+                minutes: story.audio.durationSeconds ? Math.max(1, Math.round(story.audio.durationSeconds / 60)) : null,
+                locked: story.audio.locked,
+              }
+            : null
+        }
       />
 
       <article className="mx-auto max-w-content px-5 sm:px-8">
