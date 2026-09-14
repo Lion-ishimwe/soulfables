@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getShelf, getShelves, getStories, getJourney } from '@/lib/content';
 import { StoryCard } from '@/components/story-card';
 import { getFeatured } from '@/lib/featured';
+import { ShelfGlyph } from '@/components/shelf-glyph';
 
 /*
  * A shelf page.
@@ -86,9 +87,9 @@ export default async function ShelfPage({
 
       {/* Header */}
       <header className="mx-auto max-w-content px-5 pb-16 pt-12 text-center sm:px-8">
-        <p className="text-3xl" aria-hidden="true">
-          {shelf.emoji}
-        </p>
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold/10 text-gold">
+          <ShelfGlyph slug={shelf.slug} className="h-6 w-6" />
+        </span>
         <p className="sf-eyebrow mt-6">The Library of Feelings</p>
         <h1 className="mt-4 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
           {shelf.title}
@@ -205,7 +206,7 @@ export default async function ShelfPage({
                             href={`/shelf/${s.slug}`}
                             className="group flex items-center gap-2 rounded-full border border-rule px-4 py-2.5 transition-all duration-base ease-house hover:border-gold/40 hover:bg-gold-dim"
                           >
-                            <span aria-hidden="true">{s.emoji}</span>
+                            <ShelfGlyph slug={s.slug} className="h-3.5 w-3.5 text-gold" />
                             <span className="font-ui text-sm text-grey transition-colors group-hover:text-ivory">
                               {s.label}
                             </span>

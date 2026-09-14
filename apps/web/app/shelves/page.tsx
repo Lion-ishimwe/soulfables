@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { getShelves, getStories } from '@/lib/content';
+import { ShelfGlyph } from '@/components/shelf-glyph';
 
 export const metadata: Metadata = {
   title: 'All Shelves',
@@ -54,8 +55,8 @@ export default async function ShelvesPage() {
                   href={`/shelf/${shelf.slug}` as Route}
                   className="group flex h-full flex-col rounded-lg border border-rule bg-ink-raised p-6 transition-all duration-base ease-house hover:border-gold/40 hover:bg-ink-hover"
                 >
-                  <span aria-hidden="true" className="text-2xl">
-                    {shelf.emoji || '✦'}
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gold/10 text-gold">
+                    <ShelfGlyph slug={shelf.slug} />
                   </span>
 
                   <h2 className="mt-4 font-display text-2xl font-light leading-snug text-ivory transition-colors group-hover:text-gold">

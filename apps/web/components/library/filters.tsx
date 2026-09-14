@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Route } from 'next';
+import { ShelfGlyph } from '@/components/shelf-glyph';
 
 /**
  * The chip row and the view switch.
@@ -54,7 +55,7 @@ export function ShelfChips({
               aria-current={active === s.slug ? 'page' : undefined}
               className={`${chip} ${active === s.slug ? on : off}`}
             >
-              {s.emoji && <span aria-hidden="true">{s.emoji}</span>}
+              <ShelfGlyph slug={s.slug} className="h-3.5 w-3.5 text-gold" />
               {s.label}
             </Link>
           </li>
