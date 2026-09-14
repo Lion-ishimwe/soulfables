@@ -9,6 +9,7 @@ import { checkbox, field } from '@/lib/form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getViewer } from '@/lib/auth';
 import { getPaymentProvider, isPaymentsConfigured } from '@/lib/payments/provider';
+import { limitFor, HOUR, waitMessage } from '@/lib/rate-limit';
 
 /**
  * Begin checkout.
@@ -62,6 +63,11 @@ export async function startCheckout(
 
   const viewer = await getViewer();
   const email = viewer?.email ?? parsed.data.email ?? '';
+
+  // A checkout makes a pending order and a provider session. Ten an hour
+  // from one place is a person; more is a script.
+  const limit = await limitFor('checkout', viewer?.id ?? null, 10, HOUR);
+  if (!limit.ok) return { error: waitMessage(limit) };
 
   if (!email) {
     return { error: 'We need an email address to send your book to.' };

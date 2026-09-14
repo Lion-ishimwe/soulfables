@@ -7,6 +7,7 @@ import { getViewer } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendLetterConfirmation, emailConfigured } from '@/lib/email';
+import { limitFor, HOUR, waitMessage } from '@/lib/rate-limit';
 
 export type LetterResult = { error?: string; message?: string };
 
@@ -32,6 +33,10 @@ export async function subscribeToLetter(_prev: LetterResult, formData: FormData)
   const { email, source } = parsed.data;
 
   if (isDemoMode()) return { message: 'The demo keeps no list — but on the real House, you would be on it.' };
+
+  // Six an hour from one address: a typo corrected, not a list being filled.
+  const limit = await limitFor('letter', null, 6, HOUR);
+  if (!limit.ok) return { error: waitMessage(limit) };
 
   const viewer = await getViewer();
   const db = createAdminClient();

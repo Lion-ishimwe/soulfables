@@ -8,6 +8,7 @@ import {
   type CompanionMessage,
 } from '@/lib/ai/companion';
 import { getViewer } from '@/lib/auth';
+import { limitFor, HOUR, waitMessage } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,14 @@ export async function POST(request: NextRequest) {
   const viewer = await getViewer();
   if (!viewer) {
     return NextResponse.json({ error: 'sign-in-required' }, { status: 401 });
+  }
+
+  const limit = await limitFor('companion', viewer.id, 120, HOUR);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { role: 'assistant', content: waitMessage(limit) } satisfies CompanionMessage,
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
+    );
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

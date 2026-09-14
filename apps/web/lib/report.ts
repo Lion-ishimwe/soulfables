@@ -55,6 +55,32 @@ const EMPTY: Report = {
   readers: [],
 };
 
+/** The last week of request failures the application recorded about itself. */
+export async function getRecentErrors(limit = 20): Promise<
+  { at: string; message: string; path: string | null; kind: string | null; count: number }[]
+> {
+  if (isDemoMode()) return [];
+  const supabase = await createClient();
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data, error } = await supabase
+    .from('app_errors')
+    .select('at, message, path, kind')
+    .gte('at', since)
+    .order('at', { ascending: false })
+    .limit(500);
+  if (error || !data) return [];
+
+  // Grouped by message and path, newest first, with how often.
+  const groups = new Map<string, { at: string; message: string; path: string | null; kind: string | null; count: number }>();
+  for (const r of data as { at: string; message: string; path: string | null; kind: string | null }[]) {
+    const key = `${r.message}|${r.path ?? ''}`;
+    const g = groups.get(key);
+    if (g) g.count += 1;
+    else groups.set(key, { ...r, count: 1 });
+  }
+  return [...groups.values()].slice(0, limit);
+}
+
 export async function getReport(days = 30): Promise<Report> {
   if (isDemoMode()) return EMPTY;
 

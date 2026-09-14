@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { field } from '@/lib/form';
 import { canEditStory } from '@/lib/can-edit';
 import { canUseAI } from '@/lib/ai/access';
+import { getViewer } from '@/lib/auth';
+import { limitFor, HOUR, waitMessage } from '@/lib/rate-limit';
 import {
   draftStory,
   continueWriting,
@@ -17,6 +19,13 @@ export type AssistResult = { text?: string; error?: string };
 export type ConceptsResult = { concepts?: Concept[]; error?: string };
 
 const NOT_ALLOWED = 'The House has not switched the writing assistant on for your desk.';
+
+/** Every job here spends money. Thirty an hour is a working afternoon. */
+async function underLimit(): Promise<string | null> {
+  const viewer = await getViewer();
+  const limit = await limitFor('assist', viewer?.id ?? null, 30, HOUR);
+  return limit.ok ? null : waitMessage(limit);
+}
 
 const conceptSchema = z.object({
   title: z.string().trim().min(1, 'Give it a title first, even a working one.').max(200),
@@ -54,6 +63,8 @@ export async function assistDraft(
   }
 
   if (!(await canUseAI())) return { error: NOT_ALLOWED };
+  const wait = await underLimit();
+  if (wait) return { error: wait };
 
   const slug = field(formData, 'storySlug');
   if (slug && !(await canEditStory(slug))) {
@@ -81,6 +92,8 @@ export async function assistContinue(
   }
 
   if (!(await canUseAI())) return { error: NOT_ALLOWED };
+  const wait = await underLimit();
+  if (wait) return { error: wait };
 
   const slug = field(formData, 'storySlug');
   if (slug && !(await canEditStory(slug))) {
@@ -111,6 +124,8 @@ export async function assistTitles(
   }
 
   if (!(await canUseAI())) return { error: NOT_ALLOWED };
+  const wait = await underLimit();
+  if (wait) return { error: wait };
 
   const slug = field(formData, 'storySlug');
   if (slug && !(await canEditStory(slug))) {
@@ -147,6 +162,8 @@ export async function assistConcepts(
     return { error: 'No AI provider is connected. Settings → Billing shows what is missing.' };
   }
   if (!(await canUseAI())) return { error: NOT_ALLOWED };
+  const wait = await underLimit();
+  if (wait) return { error: wait };
 
   const parsed = conceptSchema.safeParse({
     title: field(formData, 'title'),

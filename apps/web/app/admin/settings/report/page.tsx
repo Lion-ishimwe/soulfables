@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth';
-import { getReport } from '@/lib/report';
+import { getRecentErrors, getReport } from '@/lib/report';
 import { AdminPageHeader, Panel, PanelEmpty, StatusDot } from '@/components/admin/dashboard';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
 import { AreaChart } from '@/components/admin/charts';
@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function ReportPage() {
   await requireStaff();
-  const report = await getReport(30);
+  const [report, errors] = await Promise.all([getReport(30), getRecentErrors()]);
 
   const money = (cents: number) =>
     new Intl.NumberFormat('en-US', {
@@ -137,6 +137,29 @@ export default async function ReportPage() {
           )}
         </Panel>
       </div>
+
+      {/* ---- What broke ------------------------------------------- */}
+      <Panel title="Errors" hint="Request failures the server recorded, last 7 days">
+        {!report.live ? (
+          <PanelEmpty>Demo mode records nothing.</PanelEmpty>
+        ) : errors.length === 0 ? (
+          <PanelEmpty>Nothing failed this week.</PanelEmpty>
+        ) : (
+          <ul className="divide-y divide-rule">
+            {errors.map((e, i) => (
+              <li key={i} className="flex flex-wrap items-start justify-between gap-4 px-5 py-3.5">
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-xs text-ivory">{e.message}</p>
+                  <p className="mt-1 font-ui text-xs text-grey-muted">
+                    {e.path ?? '—'}{e.kind ? ` · ${e.kind}` : ''} · last {new Date(e.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <span className="shrink-0 font-ui text-xs tabular-nums text-grey-muted">×{e.count}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       {/* ---- Readers, which used to be its own page ----------------- */}
       <Panel

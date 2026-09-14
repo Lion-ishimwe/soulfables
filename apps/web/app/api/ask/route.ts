@@ -5,6 +5,7 @@ import { canEditStory } from '@/lib/can-edit';
 import { canUseAI } from '@/lib/ai/access';
 import { getWorkStory } from '@/lib/admin-data';
 import { askWriter, writingAvailable } from '@/lib/ai/writing';
+import { limitFor, HOUR, waitMessage } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'The House has not switched the writing assistant on for your desk.' },
       { status: 403 },
+    );
+  }
+
+  // Every turn spends money. Forty an hour is a conversation; more is a loop.
+  const limit = await limitFor('ask', viewer.id, 40, HOUR);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: waitMessage(limit) },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
     );
   }
 

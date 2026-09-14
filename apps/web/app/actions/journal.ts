@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireViewer } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 import { demoAddEntry, demoDeleteEntry } from '@/lib/demo/queries';
+import { limitFor, HOUR, waitMessage } from '@/lib/rate-limit';
 
 /**
  * Journal actions.
@@ -69,6 +70,9 @@ export async function saveEntry(
   formData: FormData,
 ): Promise<JournalResult> {
   const viewer = await requireViewer('/journal');
+
+  const limit = await limitFor('journal', viewer.id, 60, HOUR);
+  if (!limit.ok) return { error: waitMessage(limit) };
 
   const parsed = entrySchema.safeParse({
     body: field(formData, 'body'),
