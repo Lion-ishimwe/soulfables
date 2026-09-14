@@ -5,6 +5,7 @@ import { isDemoMode } from '@/lib/demo/mode';
 import { AdminPageHeader, Panel, StatusDot } from '@/components/admin/dashboard';
 import { SettingsForm } from '@/components/admin/settings-form';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
+import { isPaymentsConfigured, paymentsDescription } from '@/lib/payments/provider';
 
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -42,10 +43,14 @@ export default async function SettingsPage() {
     },
     {
       name: 'Payments',
-      detail: process.env.PAYMENT_API_KEY
-        ? `Connected via ${process.env.PAYMENT_PROVIDER ?? 'stripe'}.`
-        : 'Not connected. The shop is built; nothing can be bought until a provider key is set.',
-      connected: Boolean(process.env.PAYMENT_API_KEY),
+      detail: isPaymentsConfigured()
+        ? `Connected — ${paymentsDescription()}. ${
+            process.env.PAYMENT_PROVIDER === 'paypal' && process.env.PAYMENT_ENV !== 'live'
+              ? 'Sandbox: buyers pay with PayPal test accounts, and no real money moves.'
+              : 'Real money moves.'
+          }`
+        : 'Not connected. The shop is built; nothing can be bought until the provider settings are in place.',
+      connected: isPaymentsConfigured(),
       required: false,
     },
     {

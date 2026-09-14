@@ -5,7 +5,7 @@ import {
   isPaymentsConfigured,
   WebhookVerificationError,
 } from '@/lib/payments/provider';
-import { sendDeliveryEmail } from '@/lib/email';
+import { settlePaid, settleFailed, settleRefunded } from '@/lib/payments/fulfil';
 
 /**
  * The payment webhook. This is the only thing in the system that may
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature =
     request.headers.get('stripe-signature') ??
+    request.headers.get('paypal-transmission-sig') ??
     request.headers.get('paddle-signature') ??
     request.headers.get('verif-hash');
 
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
   let event;
   try {
     const provider = await getPaymentProvider();
-    event = await provider.parseWebhook(rawBody, signature);
+    event = await provider.parseWebhook(rawBody, signature, request.headers);
   } catch (e) {
     if (e instanceof WebhookVerificationError) {
       console.error('[webhook] signature rejected:', e.message);
@@ -146,128 +147,37 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case 'payment.succeeded': {
-        // Find the order by session id first, reference second. Both come
-        // from the verified payload, never from the return URL.
-        const { data: order } = await db
-          .from('orders')
-          .select('id, status, email, user_id, reference, total_amount, currency')
-          .or(
-            [
-              event.providerSessionId
-                ? `provider_session_id.eq.${event.providerSessionId}`
-                : null,
-              event.orderReference ? `reference.eq.${event.orderReference}` : null,
-            ]
-              .filter(Boolean)
-              .join(','),
-          )
-          .maybeSingle();
+        // Settlement is shared with PayPal's return route; see
+        // lib/payments/fulfil.ts. Only verified evidence reaches it.
+        const result = await settlePaid(db, event);
 
-        if (!order) {
+        if (result.outcome === 'order_not_found') {
           console.error('[webhook] no order for event', event.providerEventId);
           await markProcessed('order_not_found');
           // 200: retrying will not conjure the order. Alert on this
           // instead — it means checkout and webhook disagree.
           return NextResponse.json({ received: true, warning: 'order not found' });
         }
-
-        if (order.status === 'paid') {
-          await markProcessed();
-          return NextResponse.json({ received: true, alreadyPaid: true });
-        }
-
-        // Guard against an underpaid or wrong-currency session reaching
-        // this far. The provider should never send one; if it does, we
-        // do not grant.
-        if (
-          event.amount !== order.total_amount ||
-          event.currency !== order.currency
-        ) {
-          console.error(
-            '[webhook] amount mismatch',
-            order.reference,
-            event.amount,
-            order.total_amount,
-          );
+        if (result.outcome === 'amount_mismatch') {
           await markProcessed('amount_mismatch');
           return NextResponse.json({ received: true, warning: 'amount mismatch' });
         }
-
-        // --- The only place paid_at is ever written ---------------------
-        const { error: updateError } = await db
-          .from('orders')
-          .update({
-            status: 'paid',
-            paid_at: new Date().toISOString(),
-            provider_payment_id: event.providerPaymentId,
-          })
-          .eq('id', order.id)
-          .eq('status', 'pending'); // no-op if another worker won the race
-
-        if (updateError) throw updateError;
-
-        // --- Grant. Bundles fan out inside this function. ---------------
-        const { data: granted, error: grantError } = await db.rpc(
-          'grant_entitlements_for_order',
-          { p_order_id: order.id },
-        );
-
-        if (grantError) throw grantError;
-
-        // A guest checkout grants nothing yet: the order is claimed when
-        // the buyer creates an account with the same address. The email
-        // below tells them to do exactly that.
-        await sendDeliveryEmail({
-          to: order.email,
-          orderReference: order.reference,
-          orderId: order.id,
-          isGuest: !order.user_id,
-        });
-
         await markProcessed();
-        return NextResponse.json({ received: true, granted: granted ?? 0 });
+        return NextResponse.json(
+          result.outcome === 'already_paid'
+            ? { received: true, alreadyPaid: true }
+            : { received: true, granted: result.granted },
+        );
       }
 
       case 'payment.failed': {
-        await db
-          .from('orders')
-          .update({ status: 'failed', failure_reason: event.reason })
-          .or(
-            [
-              event.providerSessionId
-                ? `provider_session_id.eq.${event.providerSessionId}`
-                : null,
-              event.orderReference ? `reference.eq.${event.orderReference}` : null,
-            ]
-              .filter(Boolean)
-              .join(','),
-          )
-          .eq('status', 'pending');
-
+        await settleFailed(db, event);
         await markProcessed();
         return NextResponse.json({ received: true });
       }
 
       case 'payment.refunded': {
-        const { data: order } = await db
-          .from('orders')
-          .select('id')
-          .eq('provider_payment_id', event.providerPaymentId ?? '')
-          .maybeSingle();
-
-        if (order) {
-          await db
-            .from('orders')
-            .update({ status: 'refunded', refunded_at: new Date().toISOString() })
-            .eq('id', order.id);
-
-          // Access goes away with the money.
-          await db.rpc('revoke_entitlements_for_order', {
-            p_order_id: order.id,
-            p_reason: 'refund',
-          });
-        }
-
+        await settleRefunded(db, event);
         await markProcessed();
         return NextResponse.json({ received: true });
       }

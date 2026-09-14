@@ -157,7 +157,7 @@ What goes up, read from your `.env.local`:
 | Stored as | Keys |
 |---|---|
 | **SecureString** (encrypted) | `SUPABASE_SERVICE_ROLE_KEY`, `AI_API_KEY`, and the payment/email keys when you have them |
-| **String** (already public) | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, `EMAIL_FROM`, `PAYMENT_PROVIDER` |
+| **String** (already public) | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, `EMAIL_FROM`, `PAYMENT_PROVIDER`, `PAYMENT_CLIENT_ID`, `PAYMENT_ENV` |
 
 `SUPABASE_DB_URL` is **not** sent. It is the direct database connection
 and the running site never uses it — migrations are run from a developer
@@ -286,6 +286,40 @@ needs it, and the address it was pinned to is out of date anyway.
 
 ---
 
+## Taking money — PayPal
+
+The shop takes payment through PayPal, on the business's PayPal account
+in Europe. Five settings, all in Parameter Store under
+`/soulfables/production/`:
+
+| Name | Value | Kind |
+|---|---|---|
+| `PAYMENT_PROVIDER` | `paypal` | String |
+| `PAYMENT_ENV` | `sandbox` while testing, `live` when real | String |
+| `PAYMENT_CLIENT_ID` | the app's **Client ID** | String |
+| `PAYMENT_API_KEY` | the app's **Secret** | SecureString |
+| `PAYMENT_WEBHOOK_SECRET` | the webhook's **ID** (not a secret; PayPal verifies signatures itself) | SecureString |
+
+### 1. Practice first, with the sandbox
+
+1. [developer.paypal.com](https://developer.paypal.com) → **Apps & Credentials** → keep the **Sandbox** toggle on → **Create App**. Name it `Soulfables`. Copy the Client ID and Secret.
+2. On the same page, **Sandbox accounts**: PayPal made a *business* account (the seller) and a *personal* one (a buyer with pretend money). Note the buyer's email and password — you will pay with it.
+3. **Webhooks** → Add webhook → URL `https://YOUR-DOMAIN/api/webhooks/payment` → events: `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED`. Copy the **Webhook ID**.
+4. Put the five values in Parameter Store, `PAYMENT_ENV=sandbox`, and deploy.
+5. Buy something with the sandbox buyer. The order should show as paid on the thank-you page and the book should appear in the library.
+
+> **Webhooks need HTTPS.** PayPal will not send to a plain `http://` address, so on the bare IP the webhook is silent. The shop still works: the buyer's return captures the payment server-side and settles the order without a webhook. What the webhook adds is the buyer who approved the payment and then closed the tab — with a domain and a certificate (see *Adding the domain later*), that case is covered too.
+
+### 2. Then live
+
+Switch the dashboard toggle to **Live**, create the app and the webhook again — live credentials are separate — replace the three values, set `PAYMENT_ENV=live`, deploy. Settings → The House shows which counter is open and whether real money moves.
+
+### What the code does
+
+`lib/payments/paypal.ts` is the whole of it. Checkout creates a PayPal order and sends the buyer to approve it; PayPal returns them to `/api/payments/paypal/return`, which captures the payment and settles the order on PayPal's answer; the webhook does the same for anyone who never came back. Nothing the browser carries is trusted for anything but finding the order. Amounts come from the database on every step.
+
+---
+
 ## When something is wrong
 
 | Symptom | Cause |
@@ -295,6 +329,8 @@ needs it, and the address it was pinned to is out of date anyway.
 | Site loads but the admin says "no database connection" | It was built before the settings existed. Re-run `deploy.sh`. |
 | Sign-in sends you to `localhost` | `NEXT_PUBLIC_SITE_URL` is wrong. Push the right one and **rebuild** — it is baked in, so a restart will not do it. |
 | `502 Bad Gateway` | Node is not up. `journalctl -u soulfables -n 50`. |
+| A PayPal buyer sees "The payment page could not be opened" | The Client ID or Secret is wrong, or `PAYMENT_ENV` does not match the credentials (sandbox keys against live, or the reverse). `journalctl -u soulfables` shows PayPal's answer. |
+| Paid on PayPal but the thank-you page keeps waiting | The return route could not capture. Check the log for `[paypal] capture on return failed`. The webhook, once HTTPS exists, catches these. |
 | The instance never shows in Fleet Manager | The agent retries every half hour. Hurry it: `sudo snap restart amazon-ssm-agent`, then `sudo journalctl -u snap.amazon-ssm-agent.amazon-ssm-agent -n 20`. A `400` there means the role still lacks `AmazonSSMManagedInstanceCore`. |
 | `ssh soulfables` says `TargetNotConnected` | Same thing from the other side — the agent is not registered yet. |
 | `ssh soulfables` says `aws: command not found` | The CLI is not on the path of the shell that ssh spawns. Open a new terminal; on Git Bash check `which aws`. |

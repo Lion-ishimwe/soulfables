@@ -39,7 +39,7 @@ command -v aws >/dev/null || die "The AWS CLI is not installed. https://aws.amaz
 # be handing out a key to a door that server never needs to open.
 # ---------------------------------------------------------------------
 SECURE=(SUPABASE_SERVICE_ROLE_KEY AI_API_KEY EMAIL_PROVIDER_API_KEY PAYMENT_API_KEY PAYMENT_WEBHOOK_SECRET)
-PLAIN=(NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_SITE_URL EMAIL_FROM PAYMENT_PROVIDER AI_MODEL AI_PROVIDER)
+PLAIN=(NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_SITE_URL EMAIL_FROM PAYMENT_PROVIDER PAYMENT_CLIENT_ID PAYMENT_ENV AI_MODEL AI_PROVIDER)
 
 is_secure() { local n=$1; for s in "${SECURE[@]}"; do [[ $s == "$n" ]] && return 0; done; return 1; }
 

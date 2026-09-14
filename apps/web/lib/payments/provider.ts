@@ -5,8 +5,8 @@ import 'server-only';
  *
  * Everything else in the commerce path — order creation, entitlement
  * granting, downloads, My Library — is written against this and knows
- * nothing about Stripe. Swapping to Paddle or Flutterwave means writing
- * one new file that satisfies this contract and changing PAYMENT_PROVIDER.
+ * nothing about Stripe or PayPal. Adding a provider means writing one
+ * new file that satisfies this contract and registering it below.
  *
  * Two rules the interface encodes rather than merely documents:
  *
@@ -90,9 +90,10 @@ export interface PaymentProvider {
   /**
    * Verify the signature and normalise the payload.
    * MUST throw if the signature does not verify. Never return a partial
-   * result for an unverified request.
+   * result for an unverified request. The headers are there for
+   * providers whose verification needs more than one of them.
    */
-  parseWebhook(rawBody: string, signature: string | null): Promise<PaymentEvent>;
+  parseWebhook(rawBody: string, signature: string | null, headers?: Headers): Promise<PaymentEvent>;
 }
 
 /** Thrown when a webhook cannot be trusted. Handler responds 400. */
@@ -111,6 +112,10 @@ export async function getPaymentProvider(): Promise<PaymentProvider> {
       const { StripeProvider } = await import('./stripe');
       return new StripeProvider();
     }
+    case 'paypal': {
+      const { PayPalProvider } = await import('./paypal');
+      return new PayPalProvider();
+    }
     default:
       throw new Error(
         `Unknown PAYMENT_PROVIDER "${name}". Implement it in lib/payments/ and register it here.`,
@@ -119,5 +124,17 @@ export async function getPaymentProvider(): Promise<PaymentProvider> {
 }
 
 export function isPaymentsConfigured(): boolean {
-  return Boolean(process.env.PAYMENT_API_KEY && process.env.PAYMENT_WEBHOOK_SECRET);
+  const name = process.env.PAYMENT_PROVIDER ?? 'stripe';
+  const base = Boolean(process.env.PAYMENT_API_KEY && process.env.PAYMENT_WEBHOOK_SECRET);
+  // PayPal signs requests with a client id as well as a secret.
+  return name === 'paypal' ? base && Boolean(process.env.PAYMENT_CLIENT_ID) : base;
+}
+
+/** For the Settings page: which counter, and whether it is the practice one. */
+export function paymentsDescription(): string {
+  const name = process.env.PAYMENT_PROVIDER ?? 'stripe';
+  if (name === 'paypal') {
+    return `PayPal, ${process.env.PAYMENT_ENV === 'live' ? 'live' : 'sandbox'}`;
+  }
+  return name;
 }
