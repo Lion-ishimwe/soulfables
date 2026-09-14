@@ -24,6 +24,51 @@ export const revalidate = 300;
  * with nothing behind it does not render at all rather than showing a
  * frame around nothing.
  */
+/*
+ * The three doors' icons: an open book, a bag, an envelope. Line
+ * drawings in currentColor, so they take the gold from the disc and
+ * keep it in either palette. Emoji were here before, and an emoji is
+ * whatever the reader's operating system thinks a shopping bag looks
+ * like — a purple one, on most.
+ */
+const DOOR_ICONS = {
+  book: (
+    <>
+      <path d="M12 6.5c-1.6-1.4-3.8-2-6.5-2H4v13h1.5c2.7 0 4.9.6 6.5 2 1.6-1.4 3.8-2 6.5-2H20v-13h-1.5c-2.7 0-4.9.6-6.5 2Z" />
+      <path d="M12 6.5v13" />
+    </>
+  ),
+  bag: (
+    <>
+      <path d="M5.5 8.5h13l-.9 11.1a1.5 1.5 0 0 1-1.5 1.4H7.9a1.5 1.5 0 0 1-1.5-1.4L5.5 8.5Z" />
+      <path d="M8.75 8.5V7a3.25 3.25 0 0 1 6.5 0v1.5" />
+    </>
+  ),
+  letter: (
+    <>
+      <rect x="3.5" y="6" width="17" height="12.5" rx="1.5" />
+      <path d="m4.5 7.5 7.5 6 7.5-6" />
+    </>
+  ),
+} as const;
+
+function DoorIcon({ name }: { name: keyof typeof DOOR_ICONS }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {DOOR_ICONS[name]}
+    </svg>
+  );
+}
+
 export default async function HomePage() {
   const [shelves, stories, products, residents, backdrop, featured] = await Promise.all([
     getShelves(),
@@ -152,17 +197,17 @@ export default async function HomePage() {
 
         <div className="mt-8 grid gap-5 md:grid-cols-3">
           {[
-            { href: '/library', title: 'Library', icon: '📖', copy: `${shelves.length} shelves, arranged by feeling.` },
-            { href: '/shop', title: 'Shop', icon: '🛍️', copy: 'Books, journals, and keepsakes for every season.' },
-            { href: '/letter', title: 'Weekly Letter', icon: '✉️', copy: 'A letter each week, from the shelves.' },
+            { href: '/library', title: 'Library', icon: 'book' as const, copy: `${shelves.length} shelves, arranged by feeling.` },
+            { href: '/shop', title: 'Shop', icon: 'bag' as const, copy: 'Books, journals, and keepsakes for every season.' },
+            { href: '/letter', title: 'Weekly Letter', icon: 'letter' as const, copy: 'A letter each week, from the shelves.' },
           ].map((d) => (
             <Link
               key={d.href}
               href={d.href as Route}
               className="group rounded-lg border border-rule bg-ink-raised p-6 transition-colors hover:border-gold/40"
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gold/10 text-xl">
-                <span aria-hidden="true">{d.icon}</span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gold/10 text-gold">
+                <DoorIcon name={d.icon} />
               </span>
               <h2 className="mt-5 font-display text-2xl text-ivory">{d.title}</h2>
               <p className="mt-2 font-ui text-sm leading-relaxed text-grey-muted">{d.copy}</p>
@@ -399,8 +444,8 @@ export default async function HomePage() {
       <section className="mx-auto max-w-page px-5 pb-24 sm:px-8">
         <div className="flex flex-wrap items-center justify-between gap-6 rounded-lg border border-rule bg-ink-raised px-7 py-7">
           <div className="flex items-center gap-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/10 text-xl">
-              <span aria-hidden="true">✉️</span>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/10 text-gold">
+              <DoorIcon name="letter" />
             </span>
             <div>
               <p className="font-display text-2xl text-ivory">The weekly letter</p>
