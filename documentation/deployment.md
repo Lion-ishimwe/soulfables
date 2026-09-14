@@ -288,10 +288,16 @@ needs it, and the address it was pinned to is out of date anyway.
 
 ## Reading stories aloud — Amazon Polly
 
-Every story can be read by a generated voice from its admin page
-(**Narration → Read it aloud**). The voice is Amazon Polly, chosen because
-the House already lives on AWS: no new secret, just a permission on the
-instance role. The player tells readers a synthetic voice is reading.
+Every published story has a narration by default. A story is read by a
+generated voice when it is published and again when its words change;
+and the server, about thirty seconds after it starts and every six hours
+after that, reads any published story that still has none (the ones
+from before the voice existed, or whose reading failed). A story's admin
+page can also ask for a reading (**Narration → Read it aloud**), and
+Settings → The House can read all the missing ones at once or switch the
+whole behaviour off. The voice is Amazon Polly, chosen because the House
+already lives on AWS: no new secret, just a permission on the instance
+role. The player tells readers a synthetic voice is reading.
 
 1. IAM → Policies → `SoulfablesReadSettings` → **Edit** → JSON → replace
    with [`deploy/iam-policy.json`](../deploy/iam-policy.json) (it now

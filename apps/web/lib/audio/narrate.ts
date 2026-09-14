@@ -121,9 +121,16 @@ export async function narrateStory(opts: {
     })
     .then(() => undefined, () => undefined);
 
-  revalidateTag('content');
-  revalidatePath(`/story/${words.slug}`);
-  revalidatePath(`/admin/stories/${words.slug}`);
+  // Revalidation needs a request to hang off. The House's own catch-up
+  // (lib/audio/catch-up.ts) runs from no request, and there the caches
+  // simply expire on their own within the minute.
+  try {
+    revalidateTag('content');
+    revalidatePath(`/story/${words.slug}`);
+    revalidatePath(`/admin/stories/${words.slug}`);
+  } catch {
+    /* no request to revalidate from; the caches are short-lived */
+  }
 
   return { done: true, voice, durationSeconds: spoken.durationSeconds, characters: spoken.characters };
 }

@@ -25,7 +25,8 @@ export function NarrateEverything() {
       <div className="min-w-0">
         <p className="font-ui text-sm text-ivory">Stories without a narration</p>
         <p className="mt-0.5 font-ui text-micro text-grey-faint">
-          Published before narration was automatic, or read once and removed. One click reads them all.
+          The House reads these on its own — soon after it starts, and every few hours. This reads them now
+          rather than waiting.
         </p>
         {state.error && <p role="alert" className="mt-2 font-ui text-xs text-state-danger">{state.error}</p>}
         {state.message && <p aria-live="polite" className="mt-2 font-ui text-xs text-gold">{state.message}</p>}

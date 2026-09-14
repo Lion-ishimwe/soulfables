@@ -45,6 +45,18 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
   }
 };
 
-export function register() {
-  /* nothing to set up; onRequestError is what matters here */
+/**
+ * What the server does when it starts.
+ *
+ * On the Node runtime, in production, the House begins its narration
+ * catch-up: any published story without a narration is read aloud a
+ * short while after start, and the search is repeated every few hours.
+ * The module is imported lazily so this file stays light on the edge
+ * runtime, which has no use for it.
+ */
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  if (process.env.NODE_ENV !== 'production') return;
+  const { startNarrationCatchUp } = await import('@/lib/audio/catch-up');
+  startNarrationCatchUp();
 }
