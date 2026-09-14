@@ -25,6 +25,8 @@ import {
   demoSaveAuthor,
 } from '@/lib/demo/editorial';
 import { canEditStory, viewerAuthorSlug } from '@/lib/can-edit';
+import { after } from 'next/server';
+import { ensureNarration } from '@/lib/audio/narrate';
 
 /**
  * The editorial workflow.
@@ -274,6 +276,10 @@ export async function approveStory(formData: FormData): Promise<void> {
   revalidatePath('/', 'layout');
 
   revalidateTag('content');
+
+  // Published: read it aloud, once the reply has gone.
+  if (!isDemoMode()) after(() => ensureNarration(slug, 'published'));
+
   redirect(`/admin/submissions?published=${encodeURIComponent(story.title)}` as Route);
 }
 
@@ -452,6 +458,8 @@ export async function saveChapter(
 
   revalidateTag('content');
 
+  if (publish && !isDemoMode()) after(() => ensureNarration(d.storySlug, 'chapter released'));
+
   return {
     message: publish
       ? `Chapter ${d.number} released.`
@@ -514,6 +522,9 @@ export async function publishChapter(formData: FormData): Promise<void> {
       .from('story_chapters')
       .update({ status: 'published', published_at: new Date().toISOString() })
       .eq('id', id);
+
+    // A released chapter changes what the serial says aloud.
+    if (storySlug) after(() => ensureNarration(storySlug, 'chapter released'));
 
     /*
      * Tell whoever is carrying the story, falling back to whoever's name

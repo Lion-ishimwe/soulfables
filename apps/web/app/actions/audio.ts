@@ -214,29 +214,16 @@ export async function generateStoryAudio(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
 
-  const { synthesise, VOICES, defaultVoice } = await import('@/lib/audio/tts');
-  const voice = VOICES.some((v) => v.id === d.voice) ? (d.voice as string) : defaultVoice();
-
-  const db = createAdminClient();
-  const { data: story } = await db
-    .from('stories')
-    .select('id, title, body_mdx, release_mode, story_chapters(number, body_mdx, status)')
-    .eq('slug', d.storySlug)
-    .maybeSingle();
-  if (!story) return { error: 'That story could not be found.' };
-
-  // A serial is its chapters, in order; a whole story is its body.
-  const chapters = ((story.story_chapters as { number: number; body_mdx: string; status: string }[]) ?? [])
-    .sort((a, b) => a.number - b.number);
-  const text =
-    story.release_mode === 'serial' && chapters.length
-      ? chapters.map((c) => c.body_mdx).join('\n\n')
-      : (story.body_mdx as string) ?? '';
-  if (text.trim().split(/\s+/).length < 20) return { error: 'There is not enough written to read aloud.' };
-
-  let spoken;
+  const { narrateStory } = await import('@/lib/audio/narrate');
+  let outcome;
   try {
-    spoken = await synthesise(`${story.title}.\n\n${text}`, voice);
+    outcome = await narrateStory({
+      slug: d.storySlug,
+      voice: d.voice,
+      access: d.access,
+      actor: { id: viewer.id, email: viewer.email },
+      reason: 'manual',
+    });
   } catch (e) {
     console.error('[audio] synthesis failed', e);
     const reason = e instanceof Error ? e.message : 'unknown';
@@ -246,50 +233,37 @@ export async function generateStoryAudio(
         : `The voice could not read it: ${reason}`,
     };
   }
+  if (!outcome.done) return { error: `Nothing was read: ${outcome.reason}.` };
 
-  const path = `audio/${story.id}/${Date.now()}.mp3`;
-  const { error: uploadError } = await db.storage
-    .from('protected-media')
-    .upload(path, spoken.audio, { contentType: 'audio/mpeg', upsert: false });
-  if (uploadError) return { error: `Could not store the narration: ${uploadError.message}` };
+  const minutes = Math.max(1, Math.round(outcome.durationSeconds / 60));
+  return { message: `${outcome.voice} has read it — about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}. Readers can listen now.` };
+}
 
-  const { data: previous } = await db.from('story_audio').select('storage_path').eq('story_id', story.id);
-  const { error: upsertError } = await db.from('story_audio').upsert(
-    {
-      story_id: story.id,
-      storage_path: path,
-      format: 'mp3',
-      duration_seconds: spoken.durationSeconds,
-      file_size_bytes: spoken.audio.byteLength,
-      narrator: `${voice} (generated)`,
-      access: d.access,
-      generated: true,
-    },
-    { onConflict: 'story_id,format' },
-  );
-  if (upsertError) {
-    await db.storage.from('protected-media').remove([path]);
-    return { error: `Could not record the narration: ${upsertError.message}` };
-  }
-  const stale = (previous ?? []).map((p) => p.storage_path as string).filter((p) => p && p !== path);
-  if (stale.length) {
-    await db.from('story_audio').delete().eq('story_id', story.id).neq('storage_path', path);
-    await db.storage.from('protected-media').remove(stale);
-  }
+export type NarrateAllResult = { error?: string; message?: string };
 
-  await db.from('audit_log').insert({
-    action: 'story.narration.generate',
-    entity_type: 'story',
-    entity_id: story.id,
-    actor_id: viewer.id,
-    actor_email: viewer.email,
-    after: { path, voice, characters: spoken.characters, bytes: spoken.audio.byteLength, access: d.access },
-  }).then(() => undefined, () => undefined);
+/**
+ * Read aloud every published story that has no narration, in the
+ * background: the response returns at once and the readings happen one
+ * after another, a few seconds each, after it. The audit log records
+ * each one; Settings → Report's errors panel records any that fail.
+ */
+export async function narrateEverything(_prev: NarrateAllResult, _formData: FormData): Promise<NarrateAllResult> {
+  const viewer = await requireStaff();
+  if (isDemoMode()) return { error: 'Demo mode has nowhere to put a file.' };
 
-  revalidateTag('content');
-  revalidatePath(`/admin/stories/${d.storySlug}`);
-  revalidatePath(`/story/${d.storySlug}`);
+  const db = createAdminClient();
+  const { data } = await db.from('stories').select('slug, story_audio(id)').eq('status', 'published');
+  const missing = (data ?? []).filter((s) => ((s.story_audio as unknown[] | null) ?? []).length === 0).length;
+  if (missing === 0) return { message: 'Every published story already has a narration.' };
 
-  const minutes = Math.max(1, Math.round(spoken.durationSeconds / 60));
-  return { message: `${voice} has read it — about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}. Readers can listen now.` };
+  const { after } = await import('next/server');
+  const { narrateMissing } = await import('@/lib/audio/narrate');
+  after(async () => {
+    const result = await narrateMissing(`all-missing by ${viewer.email ?? viewer.id}`);
+    console.info('[narration] read', result.read, 'of', result.attempted);
+  });
+
+  return {
+    message: `Reading ${missing} ${missing === 1 ? 'story' : 'stories'} aloud now. Each takes a few seconds; refresh the Stories page in a minute or two.`,
+  };
 }

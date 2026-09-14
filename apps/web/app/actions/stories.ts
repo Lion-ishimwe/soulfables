@@ -9,6 +9,8 @@ import { checkbox, field } from '@/lib/form';
 import { createClient } from '@/lib/supabase/server';
 import { requireStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
+import { after } from 'next/server';
+import { ensureNarration } from '@/lib/audio/narrate';
 
 /**
  * Story authoring actions — the M1 critical path.
@@ -341,6 +343,9 @@ export async function saveStory(
   }
 
   if (!storyId) return { error: 'The story could not be saved.' };
+
+  // Published words are read aloud; unchanged words are not read twice.
+  if (d.status === 'published') after(() => ensureNarration(d.slug, 'saved'));
 
   // Rebuild sections from the body. Replace rather than diff: sections
   // carry no reader data of their own, and bookmarks reference them by

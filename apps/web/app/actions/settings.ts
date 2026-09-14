@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
-import { field } from '@/lib/form';
+import { checkbox, field } from '@/lib/form';
 import { requireStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 import { createClient } from '@/lib/supabase/server';
@@ -32,6 +32,7 @@ const schema = z.object({
   legalName: z.string().trim().max(200).optional().or(z.literal('')),
   legalAddress: z.string().trim().max(600).optional().or(z.literal('')),
   vatNumber: z.string().trim().max(40).optional().or(z.literal('')),
+  autoNarration: z.boolean().default(true),
 });
 
 /**
@@ -60,6 +61,7 @@ export async function saveHouseSettings(
     legalName: field(formData, 'legalName'),
     legalAddress: field(formData, 'legalAddress'),
     vatNumber: field(formData, 'vatNumber'),
+    autoNarration: checkbox(formData, 'autoNarration'),
   });
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -86,6 +88,7 @@ export async function saveHouseSettings(
       legal_name: d.legalName || null,
       legal_address: d.legalAddress || null,
       vat_number: d.vatNumber || null,
+      auto_narration: d.autoNarration,
       // The column exists to answer "who changed the House's name".
       // Leaving it null makes that unanswerable.
       updated_by: viewer.id,

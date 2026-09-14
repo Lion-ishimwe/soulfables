@@ -213,6 +213,32 @@ export function SettingsForm({ settings }: { settings: HouseSettings }) {
           </p>
         </fieldset>
 
+        {/*
+          The voice. On by default: a story is read aloud when it is
+          published and again when its words change; a recording by a
+          person is never replaced. Off, and narration is only ever
+          asked for from a story's own page.
+        */}
+        <fieldset className="mt-6 border-t border-rule pt-5">
+          <legend className="sr-only">Narration</legend>
+          <p className={label}>Narration</p>
+          <label className="flex items-start gap-3 rounded border border-rule bg-ink px-4 py-3.5">
+            <input
+              type="checkbox"
+              name="autoNarration"
+              defaultChecked={settings.autoNarration}
+              className="mt-1 h-3.5 w-3.5 flex-none accent-[#C89528]"
+            />
+            <span className="min-w-0">
+              <span className="block font-ui text-sm text-ivory">Read every published story aloud</span>
+              <span className="mt-0.5 block font-ui text-xs leading-relaxed text-grey-muted">
+                A generated voice reads a story when it is published, and again when its words change.
+                A recording by a person is never replaced. About ten cents a story.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
         <div className="mt-6 flex justify-end border-t border-rule pt-5">
           <Save />
         </div>

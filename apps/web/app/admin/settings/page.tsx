@@ -6,6 +6,7 @@ import { AdminPageHeader, Panel, StatusDot } from '@/components/admin/dashboard'
 import { SettingsForm } from '@/components/admin/settings-form';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
 import { isPaymentsConfigured, paymentsDescription } from '@/lib/payments/provider';
+import { NarrateEverything } from '@/components/admin/narrate-everything';
 
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,10 @@ export default async function SettingsPage() {
 
       <div className="mb-6">
         <SettingsForm settings={settings} />
+      </div>
+
+      <div className="mb-6">
+        <NarrateEverything />
       </div>
 
       <Panel
