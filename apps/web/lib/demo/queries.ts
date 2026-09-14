@@ -82,6 +82,18 @@ export async function demoAddEntry(input: {
   return id;
 }
 
+export async function demoUpdateEntry(
+  id: string,
+  change: { title: string | null; body: string },
+): Promise<void> {
+  const s = await session();
+  const entry = s.entries.find((e) => e.id === id);
+  if (entry) {
+    entry.title = change.title;
+    entry.body = change.body;
+  }
+}
+
 export async function demoDeleteEntry(id: string): Promise<void> {
   const s = await session();
   const i = s.entries.findIndex((e) => e.id === id);

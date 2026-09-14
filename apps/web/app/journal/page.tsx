@@ -14,6 +14,7 @@ import { getReading, getSavedStories } from '@/lib/library';
 import { getStories, getShelves } from '@/lib/content';
 import { JournalComposer, type StoryOption } from '@/components/journal-composer';
 import { KebabMenu } from '@/components/admin/kebab-menu';
+import { JournalEntryBody } from '@/components/journal-entry-body';
 import { deleteEntry } from '@/app/actions/journal';
 
 export const metadata: Metadata = {
@@ -71,9 +72,9 @@ const BookMark = () => (
 export default async function JournalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; all?: string }>;
+  searchParams: Promise<{ q?: string; all?: string; story?: string }>;
 }) {
-  const { q, all } = await searchParams;
+  const { q, all, story: fromStory } = await searchParams;
   const offset = Math.max(0, Math.min(99, Number(q) || 0));
   const showAll = all === '1';
 
@@ -117,6 +118,15 @@ export default async function JournalPage({
   const library: StoryOption[] = catalogue
     .filter((s) => s.id)
     .map((s) => ({ id: s.id as string, slug: s.slug, title: s.title, shelf: s.shelf }));
+
+  /*
+   * Arrived from a story's page ("Write about this"): that story is
+   * already chosen, and if it is not on the reader's shelf yet it is
+   * put there for the composer's list — they were just reading it,
+   * which is more than a bookmark says.
+   */
+  const arrived = fromStory ? library.find((s) => s.slug === fromStory) ?? null : null;
+  if (arrived && !shelf.some((s) => s.id === arrived.id)) shelf.unshift(arrived);
 
   const sections = viewer ? await getSectionsFor(library.map((s) => s.id)) : [];
 
@@ -169,6 +179,7 @@ export default async function JournalPage({
         shelves={shelves.map((s) => ({ slug: s.slug, label: s.label }))}
         sections={sections}
         signedIn={Boolean(viewer)}
+        initialStoryId={arrived?.id ?? ''}
       />
 
       {viewer && (
@@ -268,12 +279,7 @@ export default async function JournalPage({
                           </summary>
 
                           <div className="border-t border-rule px-5 py-5 sm:pl-[6.25rem]">
-                            {e.title && (
-                              <h3 className="mb-3 font-display text-2xl text-ivory">{e.title}</h3>
-                            )}
-                            <p className="whitespace-pre-wrap font-reading text-base leading-relaxed text-grey">
-                              {e.body}
-                            </p>
+                            <JournalEntryBody id={e.id} title={e.title} body={e.body} />
                             {e.storySlug && (
                               <p className="mt-4 font-ui text-xs text-grey-muted">
                                 After reading{' '}
@@ -316,69 +322,18 @@ export default async function JournalPage({
             )}
           </section>
 
-          {/* ---- The shelf -------------------------------------------- */}
-          <section className="mt-16 border-t border-rule pt-10">
-            <h2 className="font-display text-2xl font-light text-ivory">Your shelf</h2>
-            <p className="mt-1 font-display text-base italic text-grey-muted">
-              What you have read, and what stayed.
-            </p>
-
-            <div className="mt-6 grid gap-8 sm:grid-cols-2">
-              <div>
-                <p className="mb-3 font-ui text-micro uppercase tracking-[0.18em] text-grey-muted">
-                  Reading
-                </p>
-                {reading.inProgress.length === 0 && reading.finished.length === 0 ? (
-                  <p className="text-sm text-grey-muted">
-                    You haven&rsquo;t wandered into a story yet.{' '}
-                    <Link href={'/library' as Route} className="text-gold hover:text-gold-soft">
-                      The shelves are waiting.
-                    </Link>
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-rule rounded-lg border border-rule">
-                    {[...reading.inProgress, ...reading.finished].map((r) => (
-                      <li key={r.slug}>
-                        <Link
-                          href={`/story/${r.slug}` as Route}
-                          className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-ink-raised"
-                        >
-                          <span className="min-w-0 truncate font-display text-lg text-ivory">{r.title}</span>
-                          <span className="shrink-0 font-ui text-xs text-grey-muted">
-                            {r.completedAt ? 'Finished' : `${Math.round(r.percent * 100)}%`}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div>
-                <p className="mb-3 font-ui text-micro uppercase tracking-[0.18em] text-grey-muted">
-                  The ones that stayed
-                </p>
-                {saved.length === 0 ? (
-                  <p className="text-sm text-grey-muted">
-                    When a story stays with you, it will rest here.
-                  </p>
-                ) : (
-                  <ul className="flex flex-wrap gap-2.5">
-                    {saved.map((s) => (
-                      <li key={s!.slug}>
-                        <Link
-                          href={`/story/${s!.slug}` as Route}
-                          className="inline-block rounded-full border border-rule px-4 py-2 font-ui text-sm text-grey-muted transition-colors hover:border-gold/40 hover:text-ivory"
-                        >
-                          {s!.title}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </section>
+          {/*
+            The shelf used to be repeated here. It lives in My Library,
+            and a journal is for the words a story left, not the list of
+            stories — so this points there instead of copying it.
+          */}
+          <p className="mt-12 text-center font-ui text-sm text-grey-muted">
+            What you are reading, and what stayed, is in{' '}
+            <Link href={'/account/library' as Route} className="text-gold transition-colors hover:text-gold-soft">
+              your library
+            </Link>
+            .
+          </p>
         </>
       )}
 

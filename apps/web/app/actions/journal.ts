@@ -186,3 +186,57 @@ export async function deleteEntry(formData: FormData): Promise<void> {
 
   revalidatePath('/journal');
 }
+
+const editSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().trim().max(200).optional().or(z.literal('')),
+  body: z
+    .string()
+    .trim()
+    .min(1, 'A reflection cannot be empty. Delete it instead, if it should go.')
+    .max(20000, 'That entry is longer than the journal can hold.')
+    .refine((t) => countWords(t) <= WORD_LIMIT, {
+      message: `One quiet page is ${WORD_LIMIT.toLocaleString()} words. This one is longer.`,
+    }),
+});
+
+/**
+ * Change the words of a reflection.
+ *
+ * Only the title and the body: the date, the feeling, the story and the
+ * section are what the reflection was about, and stay. Scoped to the
+ * reader twice — the query says user_id, and RLS says it again.
+ */
+export async function updateEntry(
+  _prev: JournalResult,
+  formData: FormData,
+): Promise<JournalResult> {
+  const viewer = await requireViewer('/journal');
+
+  const parsed = editSchema.safeParse({
+    id: field(formData, 'id'),
+    title: field(formData, 'title'),
+    body: field(formData, 'body'),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  if (isDemoMode()) {
+    const { demoUpdateEntry } = await import('@/lib/demo/queries');
+    await demoUpdateEntry(d.id, { title: d.title || null, body: d.body });
+    revalidatePath('/journal');
+    return { message: 'Changed.', id: d.id };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('journal_entries')
+    .update({ title: d.title || null, body: d.body })
+    .eq('id', d.id)
+    .eq('user_id', viewer.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/journal');
+  return { message: 'Changed.', id: d.id };
+}

@@ -83,6 +83,7 @@ export function JournalComposer({
   shelves,
   sections,
   signedIn,
+  initialStoryId = '',
 }: {
   moods: Mood[];
   prompt: Prompt | null;
@@ -94,11 +95,13 @@ export function JournalComposer({
   shelves: { slug: string; label: string }[];
   sections: SectionOption[];
   signedIn: boolean;
+  /** Arrived from a story's page: that story, already chosen. */
+  initialStoryId?: string;
 }) {
   const [state, formAction] = useActionState<JournalResult, FormData>(saveEntry, {});
   const [mood, setMood] = useState('');
   const [body, setBody] = useState('');
-  const [storyId, setStoryId] = useState('');
+  const [storyId, setStoryId] = useState(initialStoryId);
   const [sectionId, setSectionId] = useState('');
 
   const words = useMemo(() => countWords(body), [body]);
@@ -353,21 +356,17 @@ export function JournalComposer({
       {/* ---- Keeping it ----------------------------------------------- */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-5">
         <div className="min-w-0">
+          {/*
+            There used to be a checkbox here offering to let the Librarian
+            read the entry. The Librarian is rule-based and reads nothing,
+            so the switch did nothing — and a switch that does nothing is
+            a promise the House does not keep. It returns when there is a
+            Librarian that reads. Until then the column stays false.
+          */}
           <p className="flex items-center gap-2 font-ui text-xs text-grey-muted">
             <LockMark />
-            Your reflections are private to you.
+            Your reflections are private to you — and that includes from us.
           </p>
-          <label className="mt-2.5 flex max-w-sm items-start gap-2.5 font-ui text-micro leading-relaxed text-grey-faint">
-            <input
-              type="checkbox"
-              name="aiOptIn"
-              className="mt-0.5 h-3.5 w-3.5 flex-none accent-[#C89528]"
-            />
-            <span>
-              Let the Librarian read this entry. Off by default — private
-              includes from us.
-            </span>
-          </label>
         </div>
         <Save blocked={over || words === 0} />
       </div>

@@ -9,6 +9,9 @@ import { AudioPlayer } from '@/components/audio-player';
 import { StoryHero } from '@/components/story-hero';
 import { getListeningPosition } from '@/lib/library';
 import { track } from '@/lib/analytics';
+import { getViewer } from '@/lib/auth';
+import { getEntriesForStory } from '@/lib/journal';
+import { formatDate } from '@/lib/format';
 
 /*
  * The reader.
@@ -101,13 +104,16 @@ export default async function StoryPage({
     properties: { slug: story.slug, access: story.access, locked: story.locked },
   });
 
-  const [shelf, stories, resumeAt] = await Promise.all([
+  const viewer = await getViewer();
+  const [shelf, stories, resumeAt, reflections] = await Promise.all([
     story.shelf ? getShelf(story.shelf) : Promise.resolve(null),
     getStories(),
     // Most stories have no narration; do not read a session to find that out.
     story.audio && !story.locked
       ? getListeningPosition(story.slug)
       : Promise.resolve(0),
+    // The reader's own words about this story, for the foot of the page.
+    viewer ? getEntriesForStory({ id: story.id, slug: story.slug }) : Promise.resolve([]),
   ]);
   const related = stories
     .filter((s) => s.slug !== slug && s.shelf === story.shelf)
@@ -174,7 +180,7 @@ export default async function StoryPage({
 
           <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Link
-              href="/journal"
+              href={`/journal?story=${story.slug}`}
               className="border border-gold/40 px-8 py-3.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
             >
               Write about this
@@ -189,6 +195,41 @@ export default async function StoryPage({
             )}
           </div>
         </footer>
+
+        {/*
+          Your own words, beside the story that caused them. Reread it a
+          month on and here is what it did to you the first time. Only
+          the reader's own — RLS makes sure of that — and only when there
+          are any: an empty box about yourself is not an invitation.
+        */}
+        {reflections.length > 0 && (
+          <section className="border-t border-rule py-14">
+            <p className="sf-eyebrow text-center">What you wrote after reading this</p>
+            <ul className="mx-auto mt-8 max-w-measure space-y-6">
+              {reflections.map((r) => (
+                <li key={r.id} className="border-l-2 border-gold/40 pl-5">
+                  {r.title && <p className="font-display text-xl text-ivory">{r.title}</p>}
+                  <p className="mt-1 line-clamp-4 whitespace-pre-wrap font-reading text-base italic leading-relaxed text-grey">
+                    {r.body}
+                  </p>
+                  <p className="mt-2 font-ui text-xs text-grey-muted">
+                    {formatDate(r.createdAt)}
+                    {r.moodLabel && <> · {r.moodLabel}</>}
+                    {r.sectionTitle && <> · {r.sectionTitle}</>}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-8 text-center">
+              <Link
+                href="/journal"
+                className="font-ui text-sm text-gold transition-colors hover:text-gold-soft"
+              >
+                Open your journal →
+              </Link>
+            </p>
+          </section>
+        )}
       </article>
 
       {related.length > 0 && (

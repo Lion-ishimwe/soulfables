@@ -239,3 +239,51 @@ export async function getSectionsFor(storyIds: string[]): Promise<SectionOption[
     title: (r.title as string) ?? '',
   }));
 }
+
+/**
+ * The reader's own reflections on one story, newest first.
+ *
+ * Shown at the foot of the story so that rereading it a month later
+ * puts your own words beside it. RLS scopes the read to the reader; a
+ * stranger gets nothing, and a signed-in reader gets only theirs.
+ */
+export async function getEntriesForStory(
+  story: { id?: string | null; slug: string },
+  limit = 3,
+): Promise<Entry[]> {
+  if (!configured()) {
+    const all = await demoEntries(await storyTitleLookup());
+    return all.filter((e) => e.storySlug === story.slug).slice(0, limit);
+  }
+  if (!story.id) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('journal_entries')
+    .select('id, title, body, created_at, moods(label, emoji), stories(slug, title), story_sections(title)')
+    .eq('story_id', story.id)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[journal] getEntriesForStory', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((e: Record<string, unknown>) => {
+    const mood = e.moods as { label?: string; emoji?: string } | null;
+    const st = e.stories as { slug?: string; title?: string } | null;
+    const section = e.story_sections as { title?: string } | null;
+    return {
+      id: e.id as string,
+      title: (e.title as string) ?? null,
+      body: e.body as string,
+      createdAt: e.created_at as string,
+      moodLabel: mood?.label ?? null,
+      moodEmoji: mood?.emoji ?? null,
+      storySlug: st?.slug ?? null,
+      storyTitle: st?.title ?? null,
+      sectionTitle: section?.title ?? null,
+    };
+  });
+}
