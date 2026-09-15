@@ -259,6 +259,22 @@ export async function saveStory(
     return { error: 'That story no longer exists. It may have been deleted.' };
   }
 
+  /*
+   * Every published story lives on a shelf.
+   *
+   * The form offers "— none —", which is right for a draft that has not
+   * found its place yet and wrong for anything readers are meant to
+   * find: the library, the home page and the shelf pages all reach
+   * stories through the shelf link, and a published story without one
+   * was simply absent from all of them.
+   */
+  if (d.shelfId && !shelfId) {
+    return { error: 'That shelf no longer exists. Choose another before saving.' };
+  }
+  if ((d.status === 'published' || d.status === 'scheduled') && !shelfId) {
+    return { error: 'Choose a shelf before publishing. Readers find every story through its shelf.' };
+  }
+
   const row = {
     title: d.title,
     slug: d.slug,

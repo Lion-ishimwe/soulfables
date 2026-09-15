@@ -230,6 +230,11 @@ export async function approveStory(formData: FormData): Promise<void> {
   const story = demoGetStory(slug);
   if (!story) return;
 
+  // A published story lives on a shelf; that is how readers reach it.
+  if (!story.shelfSlug) {
+    redirect(`/admin/submissions?needsShelf=${encodeURIComponent(story.title)}&slug=${encodeURIComponent(slug)}` as Route);
+  }
+
   const now = new Date().toISOString();
 
   await patchStory(slug, {

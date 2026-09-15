@@ -300,11 +300,23 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
    * was no PostgREST to be ambiguous with.
    */
   const supabase = createPublicClient();
+  /*
+   * The shelf join is inner only when a shelf is asked for.
+   *
+   * It used to be inner always, which made a story with no shelf link
+   * disappear from the library, the home page and search-by-shelf while
+   * its own page still answered — eleven published, nine on show, and
+   * nothing anywhere said why. Saving now refuses to publish without a
+   * shelf, but a listing must never hide a published story either way.
+   */
+  const shelfJoin = shelfSlug
+    ? 'story_shelves!inner(is_primary, shelves!inner(slug))'
+    : 'story_shelves(is_primary, shelves(slug))';
   let query = supabase
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select('id, slug, title, subtitle, reading_minutes, access, cover_image, view_count, published_at, authors!stories_author_id_fkey(name), story_themes(themes(slug, label)), story_shelves!inner(is_primary, shelves!inner(slug)), story_audio(duration_seconds)')
+    .select(`id, slug, title, subtitle, reading_minutes, access, cover_image, view_count, published_at, authors!stories_author_id_fkey(name), story_themes(themes(slug, label)), ${shelfJoin}, story_audio(duration_seconds)`)
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 

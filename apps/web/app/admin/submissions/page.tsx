@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { listSubmissions } from '@/lib/admin-data';
 import { PageHeader, EmptyState } from '@/components/admin/ui';
@@ -19,9 +19,9 @@ export const dynamic = 'force-dynamic';
 export default async function SubmissionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ published?: string; returned?: string }>;
+  searchParams: Promise<{ published?: string; returned?: string; needsShelf?: string; slug?: string }>;
 }) {
-  const [{ published, returned }, submissions] = await Promise.all([
+  const [{ published, returned, needsShelf, slug: needsShelfSlug }, submissions] = await Promise.all([
     searchParams,
     listSubmissions(),
   ]);
@@ -36,6 +36,15 @@ export default async function SubmissionsPage({
       {published && (
         <p className="mb-6 border-l-2 border-state-success bg-state-success/10 px-4 py-3 text-sm text-ivory">
           “{published}” is published, and its author has been told.
+        </p>
+      )}
+      {needsShelf && (
+        <p className="mb-6 border-l-2 border-state-danger bg-state-danger/10 px-4 py-3 text-sm text-ivory">
+          “{needsShelf}” has no shelf yet, and readers find every story through its shelf.{' '}
+          <Link href={`/admin/stories/${needsShelfSlug ?? ''}` as Route} className="text-gold underline-offset-4 hover:underline">
+            Choose one
+          </Link>
+          , then approve it.
         </p>
       )}
       {returned && (
