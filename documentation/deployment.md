@@ -370,11 +370,11 @@ Switch the dashboard toggle to **Live**, create the app and the webhook again �
 
 Stated plainly, because each is a decision rather than an oversight:
 
-- **No HTTPS.** Serving on a bare IP, so there is no certificate — a
-  certificate authority will not issue for an IP address. Sign-in cookies
-  and passwords cross the network in the clear. This is acceptable for a
-  private preview and **not** acceptable once real readers have accounts.
-  The fix is a domain (below).
+- **No HTTPS until the domain is pointed here.** A certificate authority
+  will not issue for a bare IP, so sign-in cookies and passwords cross
+  the network in the clear. Acceptable for a private preview and **not**
+  acceptable once real readers have accounts. The cure is the domain,
+  below; everything on the server is ready for it.
 - **One instance, no redundancy.** If it stops, the site is down.
 - **No automated deploys.** Every release is the two commands above.
 - **SSH on a public port, pinned to one address** — until the Session
@@ -383,18 +383,77 @@ Stated plainly, because each is a decision rather than an oversight:
   its own; nothing on this box is precious.
 - **No monitoring or alerting.**
 
-### Adding the domain later
+## Putting the House on soulfables.co, over HTTPS
 
-Once a domain points at the Elastic IP:
+The domain is registered at GoDaddy. The server is already prepared:
+certbot is installed, and the nginx site names `soulfables.co` and
+`www.soulfables.co` while still answering on the bare IP. Four steps
+remain, in this order — a certificate cannot be issued before the name
+resolves here.
+
+**1. Point the domain at the Elastic IP (GoDaddy).**
+
+[GoDaddy → DNS management](https://dcc.godaddy.com/control/dnsmanagement?domainName=soulfables.co)
+for `soulfables.co`. Delete the existing `A` record for `@` (a new domain
+carries one pointing at GoDaddy's parking page) and any parking `CNAME`
+for `www`, then add:
+
+| Type | Name | Value | TTL |
+| --- | --- | --- | --- |
+| A | `@` | `13.53.49.185` | 600 |
+| A | `www` | `13.53.49.185` | 600 |
+
+Two `A` records rather than a `CNAME` for `www`, because both names go on
+the same certificate and an `A` record is the plainer thing to reason
+about. Leave `MX` and `TXT` records alone if email runs through them.
+Propagation is usually minutes:
 
 ```bash
-sudo sed -i 's/server_name _;/server_name soulfables.co www.soulfables.co;/' \
-  /etc/nginx/sites-available/soulfables
-sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d soulfables.co -d www.soulfables.co
+nslookup soulfables.co 8.8.8.8
 ```
 
-Certbot rewrites the nginx file in place to add TLS and the redirect from
-port 80. Then open **443** in the security group, push the new
-`SITE_URL=https://soulfables.co`, and deploy again so the new address is
-compiled in.
+**2. Open port 443 (AWS console).**
+
+EC2 → Security Groups → `sg-07deb8ccd608541b7` (`launch-wizard-1`) →
+**Edit inbound rules** → **Add rule** → Type **HTTPS**, Source
+**Anywhere-IPv4** (`0.0.0.0/0`), description `HTTPS`. Save.
+
+Port 80 stays open: it carries the certificate challenge and, afterwards,
+the redirect to HTTPS. The deploy user's IAM policy deliberately cannot
+edit security groups, so this one is done by hand.
+
+**3. Ask for the certificate.**
+
+```bash
+sudo certbot --nginx -d soulfables.co -d www.soulfables.co --redirect
+```
+
+Certbot asks for an address for expiry warnings and for agreement to the
+Let's Encrypt subscriber terms, proves the domain over port 80, then
+edits `/etc/nginx/sites-available/soulfables` in place: a 443 listener,
+the certificate paths, and a permanent redirect from port 80. It installs
+a timer that renews twice a day, so there is nothing to diarise.
+`deploy.sh` never touches nginx, so those edits survive every deployment.
+
+**4. Tell the House its own address.**
+
+Canonical URLs, the sitemap, share images, sign-in links and payment
+returns all come from `NEXT_PUBLIC_SITE_URL`, which is compiled into the
+build. From the repository root on your machine:
+
+```bash
+SITE_URL=https://soulfables.co bash deploy/secrets.sh push
+HOST=soulfables bash deploy/upload.sh
+ssh soulfables 'sudo -u soulfables bash /srv/soulfables/deploy/deploy.sh'
+```
+
+Then, outside this repository:
+
+- **Supabase → Authentication → URL Configuration**: set the Site URL to
+  `https://soulfables.co` and add `https://soulfables.co/**` to the
+  redirect allow-list, or sign-in links will keep pointing at the IP.
+- **PayPal → Webhooks**: the webhook URL can now be
+  `https://soulfables.co/api/webhooks/payment`. PayPal refuses plain
+  HTTP, which is why it was silent until now.
+- **Email (Resend)**: verify `soulfables.co` as a sending domain, so
+  `hello@soulfables.co` is not filtered as a forgery.
