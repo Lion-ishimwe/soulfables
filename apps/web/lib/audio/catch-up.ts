@@ -27,7 +27,10 @@ declare global {
 async function look(reason: string) {
   try {
     const result = await narrateMissing(reason);
-    if (result.attempted) console.info('[narration] catch-up read', result.read, 'of', result.attempted);
+    console.info(
+      '[narration]',
+      result.attempted ? `catch-up read ${result.read} of ${result.attempted}` : 'catch-up: every published story has a narration',
+    );
   } catch (e) {
     console.error('[narration] catch-up failed:', e instanceof Error ? e.message : e);
   }
