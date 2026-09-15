@@ -408,6 +408,16 @@ the same certificate and an `A` record is the plainer thing to reason
 about. Leave `MX` and `TXT` records alone if email runs through them.
 Propagation is usually minutes:
 
+> **The forwarding has to go first.** The domain was forwarded to an
+> earlier prototype at `https://sulfables.base44.app`, and GoDaddy keeps
+> two parked `A` records (`15.197.225.128`, `3.33.251.168`) on the apex
+> for as long as any forwarding rule exists. They cannot be deleted by
+> hand: GoDaddy answers "you cannot modify records applied by a product".
+> Delete the rule under **Redirection → Domain** and they go with it. The
+> prototype stays reachable at its own address; if the redirect is ever
+> wanted again, put it on a subdomain such as `old.soulfables.co` rather
+> than on the apex.
+
 ```bash
 nslookup soulfables.co 8.8.8.8
 ```
