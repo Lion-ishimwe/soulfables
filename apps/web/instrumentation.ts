@@ -55,8 +55,12 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
  * runtime, which has no use for it.
  */
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  if (process.env.NODE_ENV !== 'production') return;
-  const { startNarrationCatchUp } = await import('@/lib/audio/catch-up');
-  startNarrationCatchUp();
+  // Kept as nested ifs on purpose: webpack drops the whole block, import
+  // included, from the edge bundle, where the module could not build.
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    if (process.env.NODE_ENV === 'production') {
+      const { startNarrationCatchUp } = await import('@/lib/audio/catch-up');
+      startNarrationCatchUp();
+    }
+  }
 }
