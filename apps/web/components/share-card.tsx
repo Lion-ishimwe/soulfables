@@ -59,7 +59,16 @@ export function shareCard(opts: {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, color: '#C89528', fontSize: 22, letterSpacing: 6, textTransform: 'uppercase' }}>
-            <span>✦</span>
+            {/*
+              A drawn diamond rather than the ✦ character.
+
+              next/og carries only the fonts it is given, and reaches out
+              to Google for any glyph they lack. That fetch answers 400
+              for this star, so every share card went out with an empty
+              box where the House's mark should be. A rotated square owes
+              nothing to a font.
+            */}
+            <div style={{ width: 13, height: 13, background: '#C89528', transform: 'rotate(45deg)' }} />
             <span>{opts.eyebrow}</span>
           </div>
           <div style={{ marginTop: 28, fontSize: size, lineHeight: 1.08, fontWeight: 400 }}>{title}</div>
