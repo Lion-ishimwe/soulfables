@@ -187,7 +187,15 @@ systemctl daemon-reload
 systemctl enable soulfables >/dev/null
 
 log "Installing the nginx site"
-install -m 644 "$(dirname "$0")/nginx.conf" /etc/nginx/sites-available/soulfables
+# Once certbot has issued a certificate it owns this file: it holds the
+# 443 listener and the certificate paths, and copying the pre-TLS shape
+# over it would take the site off HTTPS until somebody noticed. A
+# re-provision leaves a TLS config alone.
+if grep -q ssl_certificate /etc/nginx/sites-available/soulfables 2>/dev/null; then
+  echo "    a TLS config is already in place — leaving it alone"
+else
+  install -m 644 "$(dirname "$0")/nginx.conf" /etc/nginx/sites-available/soulfables
+fi
 ln -sf /etc/nginx/sites-available/soulfables /etc/nginx/sites-enabled/soulfables
 # Ubuntu's default site answers on port 80 and would win on a bare IP.
 rm -f /etc/nginx/sites-enabled/default
