@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { getResidents, getShelves, getStories } from '@/lib/content';
 
@@ -14,22 +15,20 @@ export const revalidate = 300;
  * About the House.
  *
  * Carried over from the first Soulfables, where this page was the one
- * people sent to each other. The words are kept; the room is rebuilt in
- * the House's own materials — the lamp, the rules, the display face —
- * rather than around a generated picture that belonged to a different
- * building.
+ * people sent to each other — the words, the reading room with its one
+ * lamp, and the arrangement: the room on the left with the founding
+ * sentence resting on its corner; on the right what the House is for
+ * and the four things it holds to. Below that, one belief, how it came
+ * to be, and a door out.
  *
- * Arranged as the reference was: the lamp and a line about what
- * entering should feel like; what the House is for; the four things it
- * holds to; one belief; how it came to be; and a door out. The only
- * thing added is the row of numbers, which is the House's habit: every
- * number on a page is real, so a visitor can see the shelves are not a
- * metaphor.
+ * The one addition is the row of numbers, which is the House's habit:
+ * every number on a page is real, so a visitor can see the shelves are
+ * not a metaphor.
  */
 
 const VALUES = [
   {
-    title: 'Emotional truth',
+    title: 'Emotional Truth',
     body: 'Every story is honest before it is beautiful. We write what is true, even when truth is uncomfortable.',
   },
   {
@@ -48,70 +47,26 @@ const VALUES = [
 
 const MOMENTS = [
   {
-    title: 'The first story',
+    title: 'The First Story',
     body: 'A single folktale, written at midnight, shared with three friends — and one wrote back at 3am.',
   },
   {
-    title: 'The first reader',
+    title: 'The First Reader',
     body: 'A stranger said, “I thought I was the only one who felt this way.” The library had its first door.',
   },
   {
-    title: 'The first letter',
+    title: 'The First Letter',
     body: 'Readers began writing back with their own stories. A conversation, written down, became a house.',
   },
   {
-    title: 'The first shelf',
+    title: 'The First Shelf',
     body: 'Stories were gathered by what they help you feel. The shelves appeared, one by one, in the dark.',
   },
   {
-    title: 'The House opens',
+    title: 'The House Opens',
     body: 'Today the doors are left unlocked, and the lamp stays lit. Every soul has a story, and the House keeps them.',
   },
 ] as const;
-
-/** A dark reading room with one lamp lit at the far end. Drawn, not photographed. */
-function LampWindow() {
-  return (
-    <div
-      aria-hidden="true"
-      className="relative aspect-[4/5] w-full overflow-hidden rounded-sm border border-rule bg-ink-raised"
-    >
-      {/* The shelves: rows of them, and two uprights, fading into the dark. */}
-      <div
-        className="absolute inset-0 opacity-[0.16]"
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(180deg, rgb(var(--c-ivory) / 0.5) 0 1px, transparent 1px 12.5%), linear-gradient(90deg, transparent 0 18%, rgb(var(--c-ivory) / 0.45) 18% calc(18% + 1px), transparent calc(18% + 1px) 82%, rgb(var(--c-ivory) / 0.45) 82% calc(82% + 1px), transparent calc(82% + 1px))',
-        }}
-      />
-      {/* The floor, catching a little of the light. */}
-      <div
-        className="absolute inset-x-0 bottom-0 h-1/3"
-        style={{
-          background:
-            'linear-gradient(180deg, rgb(var(--c-ink) / 0) 0%, rgb(var(--c-ink) / 0.9) 100%)',
-        }}
-      />
-      {/* The lamp. */}
-      <div
-        className="absolute left-1/2 top-[58%] h-[70%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
-        style={{
-          background:
-            'radial-gradient(circle at center, rgb(var(--c-gold) / 0.55) 0%, rgb(var(--c-gold) / 0.18) 30%, rgb(var(--c-gold) / 0) 65%)',
-        }}
-      />
-      <div className="absolute left-1/2 top-[58%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-soft shadow-[0_0_24px_8px_rgb(var(--c-gold)/0.7)]" />
-      {/* The vignette that makes it a room rather than a pattern. */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse at 50% 60%, rgb(var(--c-ink) / 0) 20%, rgb(var(--c-ink) / 0.85) 75%, rgb(var(--c-ink)) 100%)',
-        }}
-      />
-    </div>
-  );
-}
 
 function Glow({ className = '' }: { className?: string }) {
   return (
@@ -136,56 +91,62 @@ export default async function AboutPage() {
 
   return (
     <div className="relative overflow-hidden">
-      <Glow className="-top-32" />
-
-      {/* ---- The lamp, and what entering should feel like ---------------- */}
-      <section className="relative mx-auto grid max-w-content items-center gap-10 px-5 pt-16 sm:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] sm:gap-14 sm:px-8 sm:pt-24">
-        <LampWindow />
-        <div>
-          <p className="sf-eyebrow">About the House</p>
-          <blockquote className="mt-5 font-display text-3xl font-light italic leading-snug text-ivory sm:text-4xl">
+      {/* ---- The reading room, and what the House is for ----------------- */}
+      <section className="mx-auto grid max-w-page gap-14 px-5 pt-5 sm:grid-cols-[minmax(0,11fr)_minmax(0,13fr)] sm:gap-16 sm:px-8 sm:pt-6 lg:gap-20">
+        {/*
+          The room. A tall crop of the wide original, so the lamp sits
+          low and the vaults rise above it. The founding sentence rests on
+          the room's bottom corner and reaches past its edge, as it did
+          in the first House; below the fold on a phone it simply sits
+          beneath the picture.
+        */}
+        <div className="relative self-start pb-24 sm:pb-14">
+          <div className="relative aspect-[4/5] w-full overflow-hidden">
+            <Image
+              src="/house/reading-room.jpg"
+              alt="A vast dark library with a single warm lamp glowing on a reading desk"
+              fill
+              priority
+              sizes="(min-width: 640px) 45vw, 100vw"
+              className="object-cover object-center"
+            />
+          </div>
+          <blockquote className="absolute bottom-0 right-0 max-w-[17rem] border border-rule bg-ink-raised px-7 py-6 font-display text-[0.95rem] italic leading-relaxed text-gold sm:-right-8 lg:-right-10">
             “When someone opens Soulfables, they should feel like they have entered a peaceful library.”
           </blockquote>
-          <p className="mt-6 max-w-measure font-reading text-base leading-relaxed text-grey-muted">
-            That sentence was written before the first story was, and every room since has been built to keep it.
-          </p>
         </div>
-      </section>
 
-      {/* ---- What the House is for -------------------------------------- */}
-      <section className="mx-auto max-w-content px-5 pt-24 sm:px-8 sm:pt-32">
-        <p className="sf-eyebrow">The House</p>
-        <h1 className="mt-5 max-w-[22ch] font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
-          The House was built for people carrying stories too heavy to carry alone.
-        </h1>
-        <p className="mt-6 max-w-measure font-display text-xl italic leading-snug text-gold-soft sm:text-2xl">
-          We are a library of feelings, organised by what they help you feel.
-        </p>
-        <div className="mt-8 max-w-measure space-y-5 font-reading text-lg leading-relaxed text-grey">
-          <p>Soulfables tells modern folktales that help people feel seen, reflect deeply, and heal.</p>
-          <p className="text-grey-muted">
+        <div className="sm:pt-4">
+          <p className="sf-eyebrow">The House</p>
+          <h1 className="mt-6 font-display text-4xl font-light leading-[1.12] text-ivory sm:text-5xl lg:text-[3.4rem]">
+            The House was built for people carrying stories too heavy to carry alone.
+          </h1>
+          <p className="mt-7 font-display text-lg italic leading-snug text-ivory">
+            We are a library of feelings, organised by what they help you feel.
+          </p>
+          <p className="mt-6 font-ui text-base leading-relaxed text-ivory">
+            Soulfables tells modern folktales that help people feel seen, reflect deeply, and heal.
+          </p>
+          <p className="mt-5 font-ui text-[0.95rem] leading-relaxed text-grey-muted">
             Soulfables began because the world is loud, and people are lonely, and the stories we tell each
             other are the quietest, oldest cure for both. We are not a publisher. We are a library of feelings,
             organised by what they help you feel.
           </p>
+
+          {/* The four things it holds to. */}
+          <ul className="mt-9 grid gap-x-8 sm:grid-cols-2">
+            {VALUES.map((v) => (
+              <li key={v.title} className="border-t border-rule pb-6 pt-5">
+                <h2 className="font-display text-lg text-ivory">{v.title}</h2>
+                <p className="mt-2.5 font-ui text-[0.85rem] leading-relaxed text-grey-muted">{v.body}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      {/* ---- What it holds to ------------------------------------------- */}
-      <section className="mx-auto max-w-content px-5 pt-24 sm:px-8 sm:pt-28">
-        <p className="sf-eyebrow">What the House holds to</p>
-        <ul className="mt-8 grid gap-x-12 sm:grid-cols-2">
-          {VALUES.map((v) => (
-            <li key={v.title} className="border-t border-rule py-7">
-              <h2 className="font-display text-2xl font-light text-ivory">{v.title}</h2>
-              <p className="mt-3 max-w-measure font-reading text-base leading-relaxed text-grey-muted">{v.body}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-
       {/* ---- One belief ------------------------------------------------- */}
-      <section className="relative mt-28 py-20 text-center sm:py-28">
+      <section className="relative mt-16 py-20 text-center sm:mt-24 sm:py-28">
         <Glow className="top-1/2 -translate-y-1/2" />
         <div className="relative mx-auto max-w-content px-5 sm:px-8">
           <p className="sf-eyebrow">What we believe</p>
@@ -204,17 +165,16 @@ export default async function AboutPage() {
             How Soulfables came to be
           </h2>
         </div>
-        <ol className="relative mx-auto mt-14 max-w-[40rem] border-l border-rule pl-8 sm:pl-12">
+        <ol className="mx-auto mt-14 max-w-[36rem] text-center">
           {MOMENTS.map((m, i) => (
-            <li key={m.title} className={i === 0 ? '' : 'mt-12'}>
-              <span
-                aria-hidden="true"
-                className="absolute -left-[0.55rem] mt-1.5 font-ui text-sm leading-none text-gold"
-              >
+            <li key={m.title} className={i === 0 ? '' : 'mt-10'}>
+              <p aria-hidden="true" className="font-ui text-sm text-gold">
                 ✦
-              </span>
-              <h3 className="font-display text-2xl font-light text-ivory">{m.title}</h3>
-              <p className="mt-2 max-w-measure font-reading text-base leading-relaxed text-grey-muted">{m.body}</p>
+              </p>
+              <h3 className="mt-4 font-display text-2xl font-light text-ivory">{m.title}</h3>
+              <p className="mx-auto mt-3 max-w-measure font-ui text-[0.95rem] leading-relaxed text-grey-muted">
+                {m.body}
+              </p>
             </li>
           ))}
         </ol>
@@ -244,11 +204,11 @@ export default async function AboutPage() {
 
       {/* ---- The door out ------------------------------------------------ */}
       <section className="relative mx-auto max-w-content px-5 pb-8 pt-24 text-center sm:px-8 sm:pt-28">
-        <p className="text-gold" aria-hidden="true">
-          ✦
-        </p>
         <p className="mt-5 font-display text-2xl font-light italic text-ivory sm:text-3xl">
           The lamp will be here when you return.
+        </p>
+        <p className="mt-6 text-gold" aria-hidden="true">
+          ✦
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
           <Link
