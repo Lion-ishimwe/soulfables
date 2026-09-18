@@ -257,7 +257,12 @@ export default async function ProductPage({
               <p className="mt-3 font-display text-4xl text-ivory">{product.priceLabel}</p>
               <p className="mt-2 font-ui text-xs text-grey-muted">
                 One price, every format
-                {product.formats.length > 0 && <> — {product.formats.join(' + ')}</>}.
+                {product.formats.length > 0 && <> — {product.formats.join(' + ')}</>}. Includes VAT.
+              </p>
+              <p className="mt-1.5 font-ui text-xs text-grey-muted">
+                <Link href={'/digital-products' as Route} className="text-gold transition-colors hover:text-gold-soft">
+                  How buying works →
+                </Link>
               </p>
 
               {open ? (

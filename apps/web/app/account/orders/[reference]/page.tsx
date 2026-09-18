@@ -122,7 +122,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ refere
 
         <p className="mt-8 font-ui text-xs leading-relaxed text-grey-muted">
           Digital goods, delivered to the buyer&rsquo;s library at {house.siteUrl ?? 'the House'} on payment.
-          {order.tax === 0 && ' No tax has been added to this amount.'}
+          {order.tax === 0 && ' The total includes VAT where it applies; none is itemised separately.'}
           {order.refundedAt && ` Refunded ${longDate(order.refundedAt)}.`}
         </p>
       </article>

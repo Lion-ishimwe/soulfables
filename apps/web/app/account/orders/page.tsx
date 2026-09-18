@@ -94,7 +94,11 @@ export default async function OrdersPage() {
         <a href={`mailto:${house.supportEmailShop}`} className="text-gold transition-colors hover:text-gold-soft">
           {house.supportEmailShop}
         </a>{' '}
-        with the order reference.
+        with the order reference. When money comes back, and when it does not, is set out in the{' '}
+        <Link href={'/digital-products' as Route} className="text-gold transition-colors hover:text-gold-soft">
+          digital products policy
+        </Link>
+        .
       </p>
     </div>
   );

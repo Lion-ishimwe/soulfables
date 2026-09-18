@@ -92,6 +92,9 @@ export function SiteFooter() {
             <Link href="/terms" className="transition-colors hover:text-ivory">
               Terms
             </Link>
+            <Link href={'/digital-products' as Route} className="transition-colors hover:text-ivory">
+              Digital products
+            </Link>
             <span className="italic">Made with quiet care</span>
           </div>
         </div>

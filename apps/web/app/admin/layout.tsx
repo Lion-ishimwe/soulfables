@@ -190,6 +190,9 @@ export default async function AdminLayout({
               <Link href={'/terms' as Route} className="transition-colors hover:text-ivory">
                 Terms of Service
               </Link>
+              <Link href={'/digital-products' as Route} className="transition-colors hover:text-ivory">
+                Digital Products
+              </Link>
             </nav>
           </div>
         </footer>

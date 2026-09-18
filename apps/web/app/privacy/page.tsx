@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { getHouseSettings } from '@/lib/settings';
+import { LEGAL, legalDate } from '@/lib/legal';
 
 export const metadata: Metadata = {
   title: 'Privacy',
@@ -26,7 +27,7 @@ export const revalidate = 3600;
 export default async function PrivacyPage() {
   const house = await getHouseSettings();
   const who = house.legalName ?? house.siteName;
-  const updated = '15 September 2026';
+  const updated = legalDate(LEGAL.privacy);
 
   const h = 'mt-12 font-display text-2xl text-ivory';
   const p = 'mt-4 font-reading text-lg leading-relaxed text-grey';

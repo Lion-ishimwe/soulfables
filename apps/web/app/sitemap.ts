@@ -33,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/support', priority: 0.3 },
     { path: '/privacy', priority: 0.2 },
     { path: '/terms', priority: 0.2 },
+    { path: '/digital-products', priority: 0.2 },
   ].map(({ path, priority }) => ({
     url: `${SITE}${path}`,
     changeFrequency: 'weekly' as const,

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { getHouseSettings } from '@/lib/settings';
+import { LEGAL, legalDate } from '@/lib/legal';
 
 export const metadata: Metadata = {
   title: 'Terms',
@@ -23,7 +24,7 @@ export const revalidate = 3600;
 export default async function TermsPage() {
   const house = await getHouseSettings();
   const who = house.legalName ?? house.siteName;
-  const updated = '15 September 2026';
+  const updated = legalDate(LEGAL.terms);
 
   const h = 'mt-12 font-display text-2xl text-ivory';
   const p = 'mt-4 font-reading text-lg leading-relaxed text-grey';
@@ -47,21 +48,18 @@ export default async function TermsPage() {
 
       <h2 className={h}>Buying a book</h2>
       <p className={p}>
-        The price shown is the price charged, in the currency shown. Payment is taken by PayPal;
-        we never see your card or bank details. When payment clears, the book is placed in your
-        library at once, in every format it comes in, and it stays there for as long as the House
-        stands. You may download it as often as you like for your own reading. You may not sell,
-        share or publish it.
+        The price shown is the price charged, including VAT where it applies. Payment is taken by
+        PayPal; we never see your card or bank details. When payment clears, the book is placed in
+        your library at once and stays there for as long as the House stands, to download as often
+        as you like for your own reading. You may not sell, share or publish it.
       </p>
       <p className={p}>
         Because a book is delivered the moment you pay, you agree at checkout to immediate delivery
-        and acknowledge that the fourteen-day right to withdraw from a distance purchase does not
-        apply once delivery has begun. If something is wrong with what you received — a file that
-        will not open, a book that is not what was described — write to{' '}
-        <a href={`mailto:${house.supportEmailShop}`} className="text-gold hover:text-gold-soft">{house.supportEmailShop}</a>{' '}
-        with your order reference and we will put it right, with a refund if we cannot. A refund
-        removes the book from your library. Receipts are on your{' '}
-        <Link href={'/account/orders' as Route} className="text-gold hover:text-gold-soft">orders page</Link>.
+        and acknowledge that the fourteen-day right to withdraw no longer applies once delivery has
+        begun. What happens when a file is faulty, when you change your mind, or when you bought
+        something twice is set out in the{' '}
+        <Link href={'/digital-products' as Route} className="text-gold hover:text-gold-soft">digital products policy</Link>,
+        which forms part of these terms.
       </p>
 
       <h2 className={h}>Residency</h2>

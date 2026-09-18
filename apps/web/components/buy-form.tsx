@@ -94,7 +94,9 @@ export function BuyForm({ slug, ctaLabel }: { slug: string; ctaLabel: string }) 
         <span>
           I want the book delivered to my library straight away, and I understand that once it
           is, the fourteen-day right to change my mind no longer applies. I have read the{' '}
-          <a href="/terms" className="text-gold hover:text-gold-soft">terms</a>.
+          <a href="/terms" className="text-gold hover:text-gold-soft">terms</a> and the{' '}
+          <a href="/digital-products" className="text-gold hover:text-gold-soft">digital products policy</a>.
+          The price includes VAT.
         </span>
       </label>
 

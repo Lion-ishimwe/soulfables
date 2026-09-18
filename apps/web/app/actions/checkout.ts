@@ -5,6 +5,7 @@ import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { LEGAL } from '@/lib/legal';
 import { checkbox, field } from '@/lib/form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getViewer } from '@/lib/auth';
@@ -125,7 +126,12 @@ export async function startCheckout(
       subtotal_amount: price.unit_amount,
       total_amount: price.unit_amount,
       // The buyer's agreement to immediate delivery, kept with the order.
-      metadata: { consent_immediate_delivery_at: new Date().toISOString() },
+      metadata: {
+        consent_immediate_delivery_at: new Date().toISOString(),
+        // The wording the buyer ticked, by version, so a later change to
+        // the pages cannot alter what this order was agreed under.
+        accepted: { terms: LEGAL.terms, digital_products: LEGAL.digitalProducts },
+      },
     })
     .select('id, reference')
     .single();
