@@ -5,6 +5,9 @@ node_modules/
 
 # Builds
 .next/
+# deploy.sh builds beside the live site, then swaps; server-only
+.next-build/
+.next-previous/
 out/
 build/
 dist/

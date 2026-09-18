@@ -53,6 +53,20 @@ loadRootEnv();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+
+  /*
+   * Where the build lands.
+   *
+   * `next build` writes into .next, and `next start` serves from .next —
+   * the same directory. On the server that meant several minutes of
+   * every deploy during which the running site was serving a half-
+   * written build: anyone with a tab open got a client-side exception,
+   * and forms posted to server actions that no longer existed. deploy.sh
+   * now builds into a sibling directory named here and swaps it into
+   * place in one rename. The service itself never sets this, so it keeps
+   * reading .next.
+   */
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // Workspace packages ship TypeScript source, not a build step.
   transpilePackages: ['@soulfables/design-system', '@soulfables/models', '@soulfables/shared'],
   images: {

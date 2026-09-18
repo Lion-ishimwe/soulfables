@@ -277,7 +277,7 @@ export function JournalComposer({
 
       {/* ---- The story it belongs to ---------------------------------- */}
       <label htmlFor="j-story" className={`${eyebrow} mb-2 block`}>
-        Connect to a story <span className="normal-case tracking-normal">(optional)</span>
+        Connect to a story
       </label>
       <div className="relative">
         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-grey-muted">
@@ -333,7 +333,7 @@ export function JournalComposer({
         {storySections.length > 0 && (
           <div>
             <label htmlFor="j-section" className={`${eyebrow} mb-2 block`}>
-              Where in the story <span className="normal-case tracking-normal">(required)</span>
+              Where in the story
             </label>
             {/*
               "Anywhere in it" is still an answer, but it is now one the
@@ -360,7 +360,7 @@ export function JournalComposer({
 
         <div>
           <label htmlFor="j-quote" className={`${eyebrow} mb-2 block`}>
-            A line you want to remember <span className="normal-case tracking-normal">(required)</span>
+            A line you want to remember
           </label>
           <input
             id="j-quote"

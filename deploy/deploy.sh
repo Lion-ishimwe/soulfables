@@ -93,13 +93,43 @@ log "Installing dependencies"
 npm ci
 
 log "Building"
+# ---------------------------------------------------------------------
+# Build beside the live site, not on top of it.
+#
+# The running service serves apps/web/.next. Building straight into it
+# used to mean several minutes per deploy during which the site served a
+# half-written build: open tabs threw "a client-side exception has
+# occurred", and forms posted to server actions that no longer existed.
+# So the build goes into .next-build (next.config.mjs reads
+# NEXT_DIST_DIR) and is swapped into place with a rename, which takes no
+# time at all. The previous build's static files are carried across so a
+# tab opened before the deploy keeps finding its scripts until it
+# reloads; hashed names mean nothing collides.
+#
 # Node sizes its heap from physical memory and ignores swap entirely, so
 # on a 1 GB instance it caps at about 467 MB and the type-checker dies
 # with "Ineffective mark-compacts near heap limit" — which reads like a
 # bug in the code rather than a machine that is too small. The swap file
 # provisioning adds is what makes a larger ceiling safe; without it this
 # would trade a clean failure for the OOM killer.
-NODE_OPTIONS="--max-old-space-size=1536" npm run build
+# ---------------------------------------------------------------------
+WEB="$APP_DIR/apps/web"
+rm -rf "$WEB/.next-build"
+# The compiler's cache lives inside the build directory; carrying it
+# over is the difference between a two-minute build and a six-minute one.
+if [[ -d "$WEB/.next/cache" ]]; then
+  mkdir -p "$WEB/.next-build"
+  cp -r "$WEB/.next/cache" "$WEB/.next-build/cache"
+fi
+NEXT_DIST_DIR=.next-build NODE_OPTIONS="--max-old-space-size=1536" npm run build
+
+log "Swapping the build in"
+if [[ -d "$WEB/.next/static" ]]; then
+  cp -rn "$WEB/.next/static/." "$WEB/.next-build/static/" 2>/dev/null || true
+fi
+rm -rf "$WEB/.next-previous"
+[[ -d "$WEB/.next" ]] && mv "$WEB/.next" "$WEB/.next-previous"
+mv "$WEB/.next-build" "$WEB/.next"
 
 log "Restarting"
 sudo systemctl restart soulfables
