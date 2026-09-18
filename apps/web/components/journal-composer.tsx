@@ -208,13 +208,21 @@ export function JournalComposer({
               {prompt.body}
             </p>
           </div>
-          <Link
-            href={anotherHref as Route}
-            className="flex shrink-0 items-center gap-2 font-ui text-sm text-gold transition-colors hover:text-gold-soft"
-          >
-            <RefreshMark />
-            Another question
-          </Link>
+          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+            <Link
+              href={anotherHref as Route}
+              className="flex items-center gap-2 font-ui text-sm text-gold transition-colors hover:text-gold-soft"
+            >
+              <RefreshMark />
+              Another question
+            </Link>
+            <Link
+              href={'/questions' as Route}
+              className="font-ui text-xs text-grey-muted transition-colors hover:text-gold"
+            >
+              Or draw one from the drawer →
+            </Link>
+          </div>
         </div>
       )}
 

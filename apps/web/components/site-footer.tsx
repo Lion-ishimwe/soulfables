@@ -20,6 +20,7 @@ const COLUMNS = [
     links: [
       { href: '/journal', label: 'Reading Journal' },
       { href: '/letter', label: 'Weekly Letter' },
+      { href: '/questions', label: 'Quiet Questions' },
       { href: '/shop/the-reflection-deck', label: 'Reflection Deck' },
       { href: '/companion', label: 'The Librarian' },
     ],

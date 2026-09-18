@@ -22,6 +22,7 @@ import { usePathname } from 'next/navigation';
 const TABS = [
   { href: '/admin/settings', label: 'The House', exact: true },
   { href: '/admin/settings/featured', label: 'Featured', exact: false },
+  { href: '/admin/settings/questions', label: 'Questions', exact: false },
   { href: '/admin/settings/account', label: 'Account', exact: false },
   { href: '/admin/settings/access', label: 'Access', exact: false },
   { href: '/admin/settings/billing', label: 'Billing', exact: false },
