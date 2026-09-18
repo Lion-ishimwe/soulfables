@@ -92,7 +92,7 @@ export default async function QuestionsPage() {
       </section>
 
       {/* ---- The rest of the reading room ------------------------------ */}
-      <section className="mx-auto max-w-content px-5 pt-24 sm:px-8 sm:pt-28">
+      <section className="mx-auto max-w-content px-5 pb-8 pt-24 sm:px-8 sm:pt-28">
         <p className="sf-eyebrow text-center">The universe</p>
         <ul className="mx-auto mt-8 grid max-w-3xl gap-4 sm:grid-cols-3">
           {DOORS.map((d) => (
@@ -110,14 +110,6 @@ export default async function QuestionsPage() {
         </ul>
       </section>
 
-      <section className="mx-auto max-w-content px-5 pb-8 pt-24 text-center sm:px-8 sm:pt-28">
-        <p className="font-display text-2xl font-light italic text-ivory sm:text-3xl">
-          The lamp will be here when you return.
-        </p>
-        <p className="mt-6 text-gold" aria-hidden="true">
-          ✦
-        </p>
-      </section>
     </div>
   );
 }
