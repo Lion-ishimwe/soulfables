@@ -90,6 +90,23 @@ export async function saveEntry(
   const d = parsed.data;
   const id = field(formData, 'id') || null;
 
+  /*
+   * A connected story carries its two answers with it.
+   *
+   * The composer marks both as required and waits for them; this is the
+   * same rule where it cannot be skipped. `hasSections` says whether the
+   * story offered places to choose between at all — a story with no
+   * headings has nowhere to point at, and is not asked.
+   */
+  if (d.storyId) {
+    if (!d.quote) {
+      return { error: 'Add the line you want to remember, or disconnect the story.' };
+    }
+    if (field(formData, 'hasSections') === '1' && !d.sectionId) {
+      return { error: 'Choose where in the story this reflection belongs.' };
+    }
+  }
+
   // Demo mode writes to the in-process store. Same validation, same
   // return shape — the composer cannot tell the difference.
   if (isDemoMode()) {

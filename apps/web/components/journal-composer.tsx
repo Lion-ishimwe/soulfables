@@ -103,6 +103,7 @@ export function JournalComposer({
   const [body, setBody] = useState('');
   const [storyId, setStoryId] = useState(initialStoryId);
   const [sectionId, setSectionId] = useState('');
+  const [quote, setQuote] = useState('');
 
   const words = useMemo(() => countWords(body), [body]);
   const over = words > WORD_LIMIT;
@@ -117,6 +118,19 @@ export function JournalComposer({
    * offers the Grief shelf's stories, in their own group beneath the
    * reader's own, without repeating anything already on their shelf.
    */
+  /*
+   * Connecting a story is not a half-measure.
+   *
+   * Both fields under it used to say "(optional)", so a story could be
+   * attached to a reflection with nothing said about where in it, or
+   * which line was worth keeping — the two things that make the
+   * connection worth having. They are required now, and the button waits
+   * for them rather than failing after the fact.
+   */
+  const missingPlace = Boolean(storyId) && storySections.length > 0 && sectionId === '';
+  const missingQuote = Boolean(storyId) && quote.trim().length === 0;
+  const storyIncomplete = missingPlace || missingQuote;
+
   const moodShelf = moods.find((m) => m.id === mood)?.shelfSlug ?? null;
   const shelfLabel = shelves.find((s) => s.slug === moodShelf)?.label ?? null;
   const mine = useMemo(() => new Set(stories.map((s) => s.id)), [stories]);
@@ -170,6 +184,9 @@ export function JournalComposer({
       <input type="hidden" name="moodId" value={mood} />
       <input type="hidden" name="storyId" value={storyId} />
       <input type="hidden" name="sectionId" value={storySections.length ? sectionId : ''} />
+      {/* Whether this story had places to choose between, so the server
+          can hold the same rule the composer shows. */}
+      <input type="hidden" name="hasSections" value={storySections.length ? '1' : ''} />
 
       {state.error && (
         <p role="alert" className="mb-5 border-l-2 border-state-danger bg-state-danger/10 px-4 py-3 text-sm text-ivory">
@@ -272,6 +289,7 @@ export function JournalComposer({
           onChange={(e) => {
             setStoryId(e.target.value);
             setSectionId('');
+            setQuote('');
           }}
           className={`${field} appearance-none pl-11 pr-10`}
         >
@@ -315,15 +333,22 @@ export function JournalComposer({
         {storySections.length > 0 && (
           <div>
             <label htmlFor="j-section" className={`${eyebrow} mb-2 block`}>
-              Where in the story <span className="normal-case tracking-normal">(optional)</span>
+              Where in the story <span className="normal-case tracking-normal">(required)</span>
             </label>
+            {/*
+              "Anywhere in it" is still an answer, but it is now one the
+              reader gives rather than one the form assumes. Connecting a
+              story is a promise to say where in it this belongs.
+            */}
             <select
               id="j-section"
+              required
               value={sectionId}
               onChange={(e) => setSectionId(e.target.value)}
               className={`${field} appearance-none pr-10`}
             >
-              <option value="" className="bg-ink not-italic">Anywhere in it</option>
+              <option value="" disabled className="bg-ink not-italic">Choose a place in it</option>
+              <option value="anywhere" className="bg-ink not-italic">Anywhere in it</option>
               {storySections.map((s) => (
                 <option key={s.id} value={s.id} className="bg-ink not-italic">
                   {s.title}
@@ -335,12 +360,15 @@ export function JournalComposer({
 
         <div>
           <label htmlFor="j-quote" className={`${eyebrow} mb-2 block`}>
-            A line you want to remember <span className="normal-case tracking-normal">(optional)</span>
+            A line you want to remember <span className="normal-case tracking-normal">(required)</span>
           </label>
           <input
             id="j-quote"
             name="quote"
+            required={Boolean(storyId)}
             disabled={!storyId}
+            value={quote}
+            onChange={(e) => setQuote(e.target.value)}
             maxLength={2000}
             placeholder={storyId ? 'A quote, a sentence, or a thought…' : 'Choose a story first'}
             className={field}
@@ -367,8 +395,15 @@ export function JournalComposer({
             <LockMark />
             Your reflections are private to you — and that includes from us.
           </p>
+          {storyIncomplete && (
+            <p className="mt-1.5 font-ui text-micro text-grey-faint">
+              {missingPlace
+                ? 'Choose where in the story this belongs, and the line you want to remember.'
+                : 'Add the line you want to remember, or disconnect the story.'}
+            </p>
+          )}
         </div>
-        <Save blocked={over || words === 0} />
+        <Save blocked={over || words === 0 || storyIncomplete} />
       </div>
     </form>
   );
