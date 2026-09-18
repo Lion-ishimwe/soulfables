@@ -96,6 +96,7 @@ export function SiteFooter() {
               Digital products
             </Link>
             <span className="italic">Made with quiet care</span>
+            <span>Powered by VEXA</span>
           </div>
         </div>
       </div>
