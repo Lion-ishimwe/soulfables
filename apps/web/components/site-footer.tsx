@@ -41,8 +41,6 @@ const COLUMNS = [
     links: [
       { href: '/about', label: 'About the House' },
       { href: '/support', label: 'Support' },
-      { href: '/foundation', label: 'Foundation' },
-      { href: '/constitution', label: 'Constitution' },
     ],
   },
 ] as const;
