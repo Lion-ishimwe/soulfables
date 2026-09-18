@@ -49,11 +49,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-32 border-t border-rule">
       <div className="mx-auto max-w-page px-5 py-16 sm:px-8">
-        <p className="text-center font-display text-lg italic text-grey-muted">
-          The lamp will be here when you return.
-        </p>
-
-        <div className="mt-16 grid gap-12 md:grid-cols-[1.4fr_repeat(4,1fr)]">
+        <div className="grid gap-12 md:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div>
             <p className="mb-4 text-gold" aria-hidden="true">
               ✦
