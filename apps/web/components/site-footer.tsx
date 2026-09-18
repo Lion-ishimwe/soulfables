@@ -1,3 +1,4 @@
+import type { Route } from 'next';
 import Link from 'next/link';
 
 /*
@@ -20,8 +21,9 @@ const COLUMNS = [
     links: [
       { href: '/journal', label: 'Reading Journal' },
       { href: '/letter', label: 'Weekly Letter' },
-      { href: '/questions', label: 'Quiet Questions' },
-      { href: '/shop/the-reflection-deck', label: 'Reflection Deck' },
+      // The drawer of quiet questions, as the first House named it. The
+      // printable deck of 52 is a product, and lives in the Bookshop.
+      { href: '/questions', label: 'Reflection Deck' },
       { href: '/companion', label: 'The Librarian' },
     ],
   },
@@ -75,7 +77,7 @@ export function SiteFooter() {
                 {col.links.map((link) => (
                   <li key={link.href}>
                     <Link
-                      href={link.href}
+                      href={link.href as Route}
                       className="text-sm text-grey transition-colors duration-base ease-house hover:text-gold"
                     >
                       {link.label}
