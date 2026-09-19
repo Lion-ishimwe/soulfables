@@ -226,7 +226,7 @@ export class PayPalProvider implements PaymentProvider {
               brand_name: 'Soulfables',
               user_action: 'PAY_NOW',
               shipping_preference: 'NO_SHIPPING',
-              landing_page: 'LOGIN',
+              landing_page: 'GUEST_CHECKOUT',
               // Our own route, which captures before showing the
               // thank-you page. The cancel address is the caller's.
               return_url: `${origin}/api/payments/paypal/return?ref=${encodeURIComponent(req.reference)}`,
