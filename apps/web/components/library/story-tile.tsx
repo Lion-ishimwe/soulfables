@@ -1,3 +1,4 @@
+import type { Route } from 'next';
 import Link from 'next/link';
 import type { StoryCard as StoryCardType } from '@/lib/content';
 import { Cover } from '@/components/cover-art';
@@ -44,7 +45,16 @@ export function StoryTile({
 
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="flex flex-wrap items-center gap-2 font-ui text-xs text-grey-muted">
-            <span>☕ {story.readingMinutes} min</span>
+            {story.shop ? (
+              <>
+                <span>{story.shop.kind}</span>
+                <span className="border border-gold/45 px-1.5 py-px font-ui text-micro uppercase tracking-[0.12em] text-gold">
+                  Bookshop · {story.shop.priceLabel}
+                </span>
+              </>
+            ) : (
+              <span>☕ {story.readingMinutes} min</span>
+            )}
             {story.access === 'premium' && (
               <span className="border border-gold/45 px-1.5 py-px font-ui text-micro uppercase tracking-[0.12em] text-gold">
                 Premium
@@ -65,7 +75,7 @@ export function StoryTile({
           <h3 className="mt-1.5 font-display text-lg font-light leading-snug text-ivory transition-colors duration-base group-hover:text-gold">
             {/* The link covers the card. One target, and the whole tile
                 takes the hover, rather than a title you have to hit. */}
-            <Link href={`/story/${story.slug}`} className="before:absolute before:inset-0">
+            <Link href={(story.shop ? story.shop.href : `/story/${story.slug}`) as Route} className="before:absolute before:inset-0">
               {story.title}
             </Link>
           </h3>
@@ -118,7 +128,7 @@ export function StoryListRow({ story }: { story: StoryCardType }) {
 
       <div className="min-w-0 flex-1">
         <h3 className="font-display text-lg font-light leading-snug text-ivory transition-colors group-hover:text-gold">
-          <Link href={`/story/${story.slug}`} className="before:absolute before:inset-0">
+          <Link href={(story.shop ? story.shop.href : `/story/${story.slug}`) as Route} className="before:absolute before:inset-0">
             {story.title}
           </Link>
         </h3>
@@ -131,7 +141,11 @@ export function StoryListRow({ story }: { story: StoryCardType }) {
 
         <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-ui text-xs text-grey-muted">
           <span>{story.author}</span>
-          <span>☕ {story.readingMinutes} min</span>
+          {story.shop ? (
+            <span className="text-gold">{story.shop.kind} · {story.shop.priceLabel}</span>
+          ) : (
+            <span>☕ {story.readingMinutes} min</span>
+          )}
           {story.access === 'premium' && <span className="text-gold">Premium</span>}
           {views > 0 && (
             <span className="tabular-nums">👁 {formatCount(views)}</span>

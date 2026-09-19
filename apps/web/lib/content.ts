@@ -62,6 +62,8 @@ export type StoryCard = {
   hasAudio?: boolean;
   /** Length of the narration, in minutes, when there is one and it is known. */
   audioMinutes?: number | null;
+  /** A book from the Bookshop standing on the Library shelf: where to buy it, and for what. */
+  shop?: { href: string; priceLabel: string; kind: string } | null;
   /** A sleep story: read slowly for the night; listening is for Premium. */
   forSleep?: boolean;
   /** The series it belongs to, and which episode it is. */
@@ -107,6 +109,10 @@ export type Product = {
   /** The active files, one per format, with sizes where known. */
   files: { format: string; sizeBytes: number | null }[];
   featured: boolean;
+  /** The shelf it sits on in the Library, when it has one. */
+  shelf?: string;
+  /** When it went on sale, so the Library can sort it among the stories. */
+  createdAt?: string | null;
 };
 
 /** Demo mode swaps the whole data source; see lib/demo/mode.ts. */
@@ -380,7 +386,7 @@ async function fetchGetProducts(): Promise<Product[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from('products')
-    .select('id, slug, title, subtitle, description, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, product_prices(currency, unit_amount, is_default), product_files(format, file_size_bytes, is_active)')
+    .select('id, slug, title, subtitle, description, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, created_at, product_prices(currency, unit_amount, is_default), product_files(format, file_size_bytes, is_active), product_shelves(shelves(slug))')
     .eq('status', 'published')
     .order('sort_order');
 
@@ -406,8 +412,49 @@ async function fetchGetProducts(): Promise<Product[]> {
       files,
       featured: Boolean(r.is_featured),
       coverImage: (r.cover_image as string) ?? null,
+      shelf: shelfOfProduct(r.product_shelves),
+      createdAt: (r.created_at as string) ?? null,
     };
   });
+}
+
+function shelfOfProduct(joined: unknown): string {
+  const rows = (joined as { shelves?: { slug?: string } | { slug?: string }[] | null }[] | null) ?? [];
+  const first = rows[0]?.shelves;
+  const one = Array.isArray(first) ? first[0] : first;
+  return one?.slug ?? '';
+}
+
+const KIND_LABELS: Record<string, string> = {
+  ebook: 'Ebook',
+  anthology: 'Anthology',
+  bundle: 'Bundle',
+  journal: 'Journal',
+  deck: 'Card deck',
+};
+
+/**
+ * A book from the Bookshop, standing on the Library shelf.
+ *
+ * The Library holds every book the House has, free to read or for sale;
+ * the Bookshop is the part of it that costs something. A product on the
+ * shelf looks like a story with a price on it and opens its shop page.
+ */
+export function productAsCard(p: Product): StoryCard {
+  return {
+    id: p.id ?? `product-${p.slug}`,
+    slug: `shop-${p.slug}`,
+    title: p.title,
+    subtitle: p.subtitle,
+    author: 'Soulfables',
+    readingMinutes: 0,
+    shelf: p.shelf ?? '',
+    access: 'free',
+    coverImage: p.coverImage ?? null,
+    hasAudio: false,
+    publishedAt: p.createdAt ?? null,
+    shop: { href: `/shop/${p.slug}`, priceLabel: p.priceLabel, kind: KIND_LABELS[p.kind] ?? p.kind },
+  };
 }
 
 async function fetchGetJourney(shelfSlug: string) {

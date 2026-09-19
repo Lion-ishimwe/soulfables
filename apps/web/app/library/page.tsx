@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { getEarlyAccessStories, getShelves, getStories, type StoryCard } from '@/lib/content';
+import { getEarlyAccessStories, getProducts, getShelves, getStories, productAsCard, type StoryCard } from '@/lib/content';
 import { getFeatured, applyOrder } from '@/lib/featured';
 import { LibraryBackdrop } from '@/components/library-backdrop';
 import { StoryTile, StoryListRow } from '@/components/library/story-tile';
@@ -47,12 +47,21 @@ export default async function LibraryPage({
 }: {
   searchParams: Promise<Params>;
 }) {
-  const [params, all, shelves, placed] = await Promise.all([
+  const [params, told, shelves, placed, products] = await Promise.all([
     searchParams,
     getStories(),
     getShelves(),
     getFeatured('library_order'),
+    getProducts(),
   ]);
+  /*
+   * The Library holds every book the House has. The stories are read
+   * here; the books from the Bookshop stand on the same shelf with a
+   * price on them and open their shop page. The Bookshop is the part of
+   * the Library that costs something, not a different room.
+   */
+  const books = products.map(productAsCard);
+  const all: StoryCard[] = [...told, ...books];
 
   const shelf = params.shelf ?? '';
   const q = (params.q ?? '').trim();
@@ -111,8 +120,8 @@ export default async function LibraryPage({
   } else if (sort === 'title') {
     stories = [...stories].sort((a, b) => a.title.localeCompare(b.title));
   } else {
-    // getStories() already returns newest first; the House's picks lead.
-    stories = applyOrder(stories, placed);
+    // Newest first across stories and books alike; the House's picks lead.
+    stories = applyOrder([...stories].sort((a, b) => when(b).localeCompare(when(a))), placed);
   }
 
   // ---- Page --------------------------------------------------------
@@ -151,7 +160,7 @@ export default async function LibraryPage({
           <p className="mt-4 max-w-md text-base leading-normal text-grey-muted">
             {activeShelf
               ? activeShelf.tagline
-              : `${all.length} ${all.length === 1 ? 'folktale' : 'folktales'} across ${shelves.length} shelves. Find the one that meets you where you are.`}
+              : `${told.length} ${told.length === 1 ? 'story' : 'stories'}${books.length ? ` and ${books.length} ${books.length === 1 ? 'book' : 'books'}` : ''} across ${shelves.length} shelves. Find the one that meets you where you are.`}
           </p>
         </div>
       </header>
