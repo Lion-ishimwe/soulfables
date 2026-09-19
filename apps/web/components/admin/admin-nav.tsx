@@ -41,6 +41,7 @@ const GROUPS = [
     items: [
       { href: '/admin/letter', label: 'Weekly Letter', icon: 'draft' },
       { href: '/admin/prompts', label: 'Journal prompts', icon: 'spark' },
+      { href: '/admin/community', label: 'Community', icon: 'people' },
     ],
   },
     {

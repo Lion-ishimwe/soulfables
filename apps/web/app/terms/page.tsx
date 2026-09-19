@@ -92,6 +92,14 @@ export default async function TermsPage() {
         is not yours, copy what you have not bought, or interfere with the service for others. We
         may close an account that does.
       </p>
+      <p className={p}>
+        On the wall — the community — you write about your own life or about a story, never about
+        another reader; you name nobody who did not agree to be named; you sell nothing; and you
+        offer company, not advice. Everything you share is read by a person at the House before it
+        appears, may be declined without a reason, and may be taken down later. What you share
+        stays yours; by sharing it you let the House show it on the wall, under the name you chose,
+        for as long as it stays up. Anything that sounds like danger is met with help, not applause.
+      </p>
 
       <h2 className={h}>The limits of what we promise</h2>
       <p className={p}>

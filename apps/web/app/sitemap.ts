@@ -28,6 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/letter', priority: 0.6 },
     { path: '/questions', priority: 0.6 },
     { path: '/series', priority: 0.6 },
+    { path: '/community', priority: 0.6 },
     { path: '/sleep', priority: 0.5 },
     { path: '/journal/guided', priority: 0.5 },
     { path: '/residents', priority: 0.5 },

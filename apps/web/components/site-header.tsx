@@ -1,5 +1,7 @@
 'use client';
 
+import type { Route } from 'next';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -14,6 +16,7 @@ const NAV = [
   { href: '/library', label: 'Library' },
   { href: '/wander', label: 'Wander' },
   { href: '/journal', label: 'Reading Journal' },
+  { href: '/community', label: 'Community' },
   { href: '/companion', label: 'Librarian' },
   { href: '/shop', label: 'Bookshop' },
   { href: '/residents', label: 'Residents' },
@@ -39,7 +42,7 @@ export function SiteHeader() {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as Route}
                 aria-current={active ? 'page' : undefined}
                 className={`font-ui text-sm transition-colors duration-base ease-house ${
                   active ? 'text-gold' : 'text-grey-muted hover:text-ivory'
@@ -95,7 +98,7 @@ export function SiteHeader() {
           {NAV.map((item) => (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.href as Route}
               onClick={() => setOpen(false)}
               className="block border-b border-rule py-4 font-display text-2xl text-ivory"
             >

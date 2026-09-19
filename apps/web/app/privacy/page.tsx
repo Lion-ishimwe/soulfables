@@ -59,6 +59,7 @@ export default async function PrivacyPage() {
         <li className={li}><strong className="text-ivory">Your orders.</strong> What you bought, when, for how much, and the payment reference the payment provider gave us. We never see or store card or bank details; PayPal handles those.</li>
         <li className={li}><strong className="text-ivory">Downloads.</strong> Each time you download a book we record which file, when, and the network address it went to, so a leaked link can be traced and a dispute answered.</li>
         <li className={li}><strong className="text-ivory">Reading counts.</strong> Which stories are opened and finished, counted for the House. Attached to your account while you have one.</li>
+        <li className={li}><strong className="text-ivory">The wall.</strong> Anything you share with the community — a post, a reply, a reaction, a report — with the name you chose to sign it, which may be a pen name or none. Posts and replies are public once the House has read them; who wrote them is known to the House and to nobody else, unless you signed your own name. Deleting your account removes them.</li>
       </ul>
 
       <h2 className={h}>What we do not do</h2>

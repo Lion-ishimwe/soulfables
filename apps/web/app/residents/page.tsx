@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPlan } from '@/lib/membership';
 import { getViewer } from '@/lib/auth';
-import { getReaderVoices } from '@/lib/community';
+import { getReaderVoices } from '@/lib/voices';
 
 export const metadata: Metadata = {
   title: 'Residents',
