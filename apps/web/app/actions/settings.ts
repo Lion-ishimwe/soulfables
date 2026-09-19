@@ -6,6 +6,7 @@ import { checkbox, field } from '@/lib/form';
 import { requireStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 import { createClient } from '@/lib/supabase/server';
+import { getPaymentProvider, isPaymentsConfigured } from '@/lib/payments/provider';
 
 export type SettingsResult = { error?: string; message?: string };
 
@@ -132,6 +133,35 @@ export async function saveMembership(_prev: SettingsResult, formData: FormData):
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   if (isDemoMode()) return { error: 'The demo keeps its prices as they are.' };
   const d = parsed.data;
+
+  /*
+   * The price the House prints must be the price PayPal takes. A plan
+   * at PayPal carries its own amount and the subscription is billed at
+   * that, whatever the membership page says — so before saving, each
+   * plan id is looked up and the two are compared. A mismatch is
+   * refused with both numbers, and the admin decides which to change.
+   */
+  if (isPaymentsConfigured()) {
+    const provider = await getPaymentProvider();
+    if (provider.getPlanPrice) {
+      for (const [label, amount, planId, interval] of [
+        ['monthly', Math.round(d.monthly * 100), d.monthlyPlanId || null, 'month'],
+        ['yearly', Math.round(d.yearly * 100), d.yearlyPlanId || null, 'year'],
+      ] as const) {
+        if (!planId) continue;
+        const held = await provider.getPlanPrice(planId);
+        if (!held) return { error: `The ${label} plan id was not found at PayPal, or the plan is not active there.` };
+        if (held.interval !== interval) return { error: `The ${label} plan at PayPal does not bill ${interval === 'month' ? 'monthly' : 'yearly'}.` };
+        if (held.currency !== 'USD') return { error: `The ${label} plan at PayPal is priced in ${held.currency}; the House sells in USD.` };
+        if (held.amount !== amount) {
+          const dollars = (n: number) => `$${(n / 100).toFixed(2)}`;
+          return {
+            error: `PayPal charges ${dollars(held.amount)} on the ${label} plan, but ${dollars(amount)} was entered here. The two must agree: change the amount here, or make a new plan at PayPal.`,
+          };
+        }
+      }
+    }
+  }
 
   const supabase = await createClient();
   const { data: plan } = await supabase.from('plans').select('id').eq('slug', 'resident').single();

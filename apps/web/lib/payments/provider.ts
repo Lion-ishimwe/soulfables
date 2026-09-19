@@ -115,7 +115,15 @@ export interface PaymentProvider {
   createSubscription?(req: SubscriptionRequest): Promise<{ subscriptionId: string; approvalUrl: string }>;
   getSubscription?(id: string): Promise<SubscriptionFacts>;
   cancelSubscription?(id: string, reason: string): Promise<void>;
+  /**
+   * What the provider itself charges on a plan, so the House can refuse
+   * to advertise one price and bill another. Null when the plan is not
+   * found or is not for sale.
+   */
+  getPlanPrice?(planId: string): Promise<PlanPrice | null>;
 }
+
+export type PlanPrice = { amount: number; currency: string; interval: 'month' | 'year' | 'other' };
 
 /** Thrown when a webhook cannot be trusted. Handler responds 400. */
 export class WebhookVerificationError extends Error {

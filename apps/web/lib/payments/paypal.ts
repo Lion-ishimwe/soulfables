@@ -7,6 +7,7 @@ import {
   type PaymentEvent,
   type PaymentProvider,
   type SubscriptionRequest,
+  type PlanPrice,
 } from './provider';
 
 /**
@@ -316,6 +317,32 @@ export class PayPalProvider implements PaymentProvider {
     const approve = created.links?.find((l) => l.rel === 'approve');
     if (!approve) throw new Error('PayPal returned a subscription with no approval link.');
     return { subscriptionId: created.id, approvalUrl: approve.href };
+  }
+
+  /** The plan as PayPal holds it: its regular cycle's fixed price, in minor units. */
+  async getPlanPrice(planId: string): Promise<PlanPrice | null> {
+    let plan: {
+      status?: string;
+      billing_cycles?: {
+        tenure_type?: string;
+        frequency?: { interval_unit?: string; interval_count?: number };
+        pricing_scheme?: { fixed_price?: { value?: string; currency_code?: string } };
+      }[];
+    };
+    try {
+      plan = await this.call('GET', `/v1/billing/plans/${encodeURIComponent(planId)}`);
+    } catch {
+      return null;
+    }
+    if (plan.status !== 'ACTIVE') return null;
+    const cycles = plan.billing_cycles ?? [];
+    const regular = cycles.find((c) => c.tenure_type === 'REGULAR') ?? cycles[0];
+    const price = regular?.pricing_scheme?.fixed_price;
+    if (!price?.value || !price.currency_code) return null;
+    const unit = regular?.frequency?.interval_unit;
+    const count = regular?.frequency?.interval_count ?? 1;
+    const interval = unit === 'MONTH' && count === 1 ? 'month' : unit === 'YEAR' && count === 1 ? 'year' : 'other';
+    return { amount: Math.round(Number(price.value) * 100), currency: price.currency_code, interval };
   }
 
   async getSubscription(id: string): Promise<SubscriptionFacts> {
