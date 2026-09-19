@@ -17,7 +17,10 @@ import { createAdminClient } from './supabase/admin';
 
 type SendResult = { sent: boolean; error?: string; messageId?: string; skipped?: boolean };
 
-const FROM = process.env.EMAIL_FROM ?? 'Soulfables <hello@soulfables.co>';
+// A value pasted into Parameter Store with its own quotes arrives here
+// still wearing them, and a sender wearing quotes is refused by the
+// provider. They are taken off.
+const FROM = (process.env.EMAIL_FROM ?? 'Soulfables <hello@soulfables.co>').trim().replace(/^["']+|["']+$/g, '');
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://soulfables.co';
 
 async function record(
