@@ -236,3 +236,75 @@ export async function sendLetterConfirmation(to: string, token: string): Promise
   });
   return result;
 }
+
+const escapeHtml = (t: string) => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] ?? c);
+
+/** The shop desk learns a reader has asked for a refund. */
+export async function sendRefundRequestEmail(opts: {
+  to: string;
+  orderReference: string;
+  orderId: string;
+  buyer: string;
+  items: string[];
+  amountLabel: string;
+  reason: string;
+  message: string;
+  daysSincePaid: number;
+  downloads: number;
+}): Promise<SendResult> {
+  const subject = `Refund asked: ${opts.orderReference} · ${opts.amountLabel}`;
+  const what = opts.items.join(', ') || 'an order';
+  const days = `${opts.daysSincePaid} day${opts.daysSincePaid === 1 ? '' : 's'} ago`;
+  const body = `<p>${escapeHtml(opts.buyer)} asks for a refund on <strong>${escapeHtml(what)}</strong>, ${escapeHtml(opts.amountLabel)}, paid ${days}.</p>
+    <p><strong>${escapeHtml(opts.reason)}.</strong>${opts.message ? ` &ldquo;${escapeHtml(opts.message)}&rdquo;` : ''}</p>
+    <p style="color:#8A8A8A;font-size:13px">Files downloaded: ${opts.downloads}. Order ${escapeHtml(opts.orderReference)}.</p>`;
+  const text = `${opts.buyer} asks for a refund on ${what}, ${opts.amountLabel}, paid ${days}.\n\n${opts.reason}.${opts.message ? ` "${opts.message}"` : ''}\n\nFiles downloaded: ${opts.downloads}. Order ${opts.orderReference}.\n\n${SITE}/admin/refunds`;
+  const result = await deliver(
+    opts.to,
+    subject,
+    shell('A refund is asked for.', body, { url: `${SITE}/admin/refunds`, label: 'Open the refund desk' }),
+    text,
+  );
+  await record('refund_request', opts.to, result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed', {
+    orderId: opts.orderId,
+    messageId: result.messageId,
+    error: result.sent ? undefined : result.error,
+  });
+  return result;
+}
+
+/** The reader hears the decision. */
+export async function sendRefundDecisionEmail(opts: {
+  to: string;
+  orderReference: string;
+  orderId: string;
+  refunded: boolean;
+  amountLabel: string;
+  note: string;
+}): Promise<SendResult> {
+  const receipt = `${SITE}/account/orders/${encodeURIComponent(opts.orderReference)}`;
+  const subject = opts.refunded ? `Refunded: ${opts.orderReference}` : `About your refund request, ${opts.orderReference}`;
+  const body = opts.refunded
+    ? `<p>${escapeHtml(opts.amountLabel)} is on its way back to the way you paid. It usually shows within five to ten days, depending on your bank.</p>
+       <p>The book has left your library. If you ever want it again, it will be in the Bookshop.</p>
+       ${opts.note ? `<p>&ldquo;${escapeHtml(opts.note)}&rdquo;</p>` : ''}
+       <p style="color:#8A8A8A;font-size:13px">Order ${escapeHtml(opts.orderReference)} &middot; <a href="${receipt}" style="color:#C89528">refund receipt</a></p>`
+    : `<p>We read your request about order ${escapeHtml(opts.orderReference)} and cannot refund it this time.</p>
+       <p>&ldquo;${escapeHtml(opts.note)}&rdquo;</p>
+       <p>If there is something we have missed, reply to this email and a person will read it.</p>`;
+  const text = opts.refunded
+    ? `${opts.amountLabel} is on its way back to the way you paid. It usually shows within five to ten days.\n\nThe book has left your library.\n${opts.note ? `\n"${opts.note}"\n` : ''}\nOrder ${opts.orderReference}\n${receipt}`
+    : `We read your request about order ${opts.orderReference} and cannot refund it this time.\n\n"${opts.note}"\n\nIf there is something we have missed, reply to this email and a person will read it.`;
+  const result = await deliver(
+    opts.to,
+    subject,
+    shell(opts.refunded ? 'Your money is on its way back.' : 'About your request.', body, { url: receipt, label: 'See the receipt' }),
+    text,
+  );
+  await record(opts.refunded ? 'refund_granted' : 'refund_declined', opts.to, result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed', {
+    orderId: opts.orderId,
+    messageId: result.messageId,
+    error: result.sent ? undefined : result.error,
+  });
+  return result;
+}

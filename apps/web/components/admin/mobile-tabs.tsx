@@ -34,6 +34,7 @@ const MORE = [
     { href: '/admin/authors', label: 'Authors', icon: 'people' },
   ]},
   { heading: 'Commerce', items: [
+    { href: '/admin/refunds', label: 'Refunds', icon: 'cart' },
     { href: '/admin/entitlements', label: 'Entitlements', icon: 'book' },
     { href: '/admin/subscriptions', label: 'Residency', icon: 'people' },
   ]},

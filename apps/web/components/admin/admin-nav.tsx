@@ -32,6 +32,7 @@ const GROUPS = [
     items: [
       { href: '/admin/products', label: 'Products', icon: 'box' },
       { href: '/admin/orders', label: 'Orders', icon: 'cart' },
+      { href: '/admin/refunds', label: 'Refunds', icon: 'cart' },
       { href: '/admin/entitlements', label: 'Entitlements', icon: 'book' },
       { href: '/admin/subscriptions', label: 'Residency', icon: 'people' },
     ],

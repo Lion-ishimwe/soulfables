@@ -7,6 +7,8 @@ import { getMyOrder } from '@/lib/orders';
 import { getHouseSettings } from '@/lib/settings';
 import { formatMoney } from '@/lib/format';
 import { PrintButton } from '@/components/print-button';
+import { getMyRefundRequest, refundWindow, REASON_LABELS } from '@/lib/refunds';
+import { RefundRequestForm } from '@/components/refund-request-form';
 
 export const metadata: Metadata = { title: 'Receipt', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -29,6 +31,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ refere
   const viewer = await requireViewer(`/account/orders/${reference}`);
   const [order, house] = await Promise.all([getMyOrder(reference), getHouseSettings()]);
   if (!order || (order.status !== 'paid' && order.status !== 'refunded')) notFound();
+  const [request, window] = await Promise.all([getMyRefundRequest(order.id), refundWindow(order)]);
 
   const seller = house.legalName ?? house.siteName;
   const provider = order.provider === 'paypal' ? 'PayPal' : order.provider === 'stripe' ? 'Stripe' : order.provider;
@@ -126,6 +129,43 @@ export default async function ReceiptPage({ params }: { params: Promise<{ refere
           {order.refundedAt && ` Refunded ${longDate(order.refundedAt)}.`}
         </p>
       </article>
+
+      {/*
+        The refund desk, from the reader's side. A paid order within the
+        thirty-day window offers the form; a request already made shows
+        where it stands; an older order is pointed to the shop's address.
+       */}
+      <section className="mt-8 print:hidden">
+        {request ? (
+          <p className="border-l-2 border-gold/60 bg-ink-raised px-4 py-3 font-ui text-sm text-ivory">
+            {request.status === 'open' && (
+              <>Refund asked on {longDate(request.createdAt)} ({REASON_LABELS[request.reason].toLowerCase()}). The House reads it within a few days.</>
+            )}
+            {request.status === 'refunded' && <>Refunded{request.decidedAt ? ` on ${longDate(request.decidedAt)}` : ''}. The money returns the way it was paid.</>}
+            {request.status === 'declined' && (
+              <>
+                The House could not refund this order{request.decidedAt ? ` (${longDate(request.decidedAt)})` : ''}.
+                {request.decisionNote && <span className="mt-1 block text-grey">&ldquo;{request.decisionNote}&rdquo;</span>}
+              </>
+            )}
+          </p>
+        ) : order.status === 'paid' && window.faultyOpen ? (
+          <RefundRequestForm
+            orderId={order.id}
+            faultyOpen={window.faultyOpen}
+            changeOfMindOpen={window.changeOfMindOpen}
+            downloaded={window.downloads > 0}
+          />
+        ) : order.status === 'paid' ? (
+          <p className="font-ui text-xs leading-relaxed text-grey-muted">
+            The refund windows for this order have closed. If something is wrong with it, write to{' '}
+            <a href={`mailto:${house.supportEmailShop}`} className="text-gold transition-colors hover:text-gold-soft">
+              {house.supportEmailShop}
+            </a>{' '}
+            with the reference and a person will read it.
+          </p>
+        ) : null}
+      </section>
     </div>
   );
 }

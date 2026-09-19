@@ -121,7 +121,25 @@ export interface PaymentProvider {
    * found or is not for sale.
    */
   getPlanPrice?(planId: string): Promise<PlanPrice | null>;
+  /**
+   * Send a payment back, in full or in part. Throws when the provider
+   * refuses; the caller changes nothing in that case. The provider's
+   * own webhook follows and finds the order already settled.
+   */
+  refundPayment?(req: RefundRequest): Promise<{ refundId: string }>;
 }
+
+export type RefundRequest = {
+  /** The provider's id for the payment: PayPal's capture id. */
+  paymentId: string;
+  /** Minor units. */
+  amount: number;
+  currency: string;
+  /** A line the payer may see. */
+  note: string;
+  /** Deduplicates a retried click. */
+  requestId: string;
+};
 
 export type PlanPrice = { amount: number; currency: string; interval: 'month' | 'year' | 'other' };
 

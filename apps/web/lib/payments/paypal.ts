@@ -8,6 +8,7 @@ import {
   type PaymentProvider,
   type SubscriptionRequest,
   type PlanPrice,
+  type RefundRequest,
 } from './provider';
 
 /**
@@ -317,6 +318,23 @@ export class PayPalProvider implements PaymentProvider {
     const approve = created.links?.find((l) => l.rel === 'approve');
     if (!approve) throw new Error('PayPal returned a subscription with no approval link.');
     return { subscriptionId: created.id, approvalUrl: approve.href };
+  }
+
+  /** A capture, sent back. PayPal answers with the refund's own id. */
+  async refundPayment(req: RefundRequest): Promise<{ refundId: string }> {
+    const refund = await this.call<{ id: string; status: string }>(
+      'POST',
+      `/v2/payments/captures/${encodeURIComponent(req.paymentId)}/refund`,
+      {
+        amount: { value: (req.amount / 100).toFixed(2), currency_code: req.currency },
+        note_to_payer: req.note.slice(0, 255),
+      },
+      req.requestId,
+    );
+    if (refund.status === 'FAILED' || refund.status === 'CANCELLED') {
+      throw new Error(`PayPal refund ${refund.status}`);
+    }
+    return { refundId: refund.id };
   }
 
   /** The plan as PayPal holds it: its regular cycle's fixed price, in minor units. */
