@@ -167,6 +167,30 @@ export async function saveEntry(
    * reported, not swallowed: the reflection is safe, and the reader
    * should know the line was not.
    */
+  /*
+   * A guided journal's day, written: the journey moves on. The prompt id
+   * carries the journey and the day; nothing else about the entry is
+   * different, and the entry itself belongs to the reader like any other.
+   */
+  if (d.promptId?.startsWith('guided:')) {
+    const [, slug, dayText] = d.promptId.split(':');
+    const dayN = Number(dayText) || 0;
+    const { data: journey } = await supabase.from('guided_journals').select('id').eq('slug', slug ?? '').maybeSingle();
+    if (journey && dayN > 0) {
+      const { data: prog } = await supabase
+        .from('guided_journal_progress')
+        .select('last_day')
+        .eq('journal_id', journey.id)
+        .maybeSingle();
+      const last = Math.max(Number(prog?.last_day ?? 0), dayN);
+      await supabase
+        .from('guided_journal_progress')
+        .upsert({ user_id: viewer.id, journal_id: journey.id, last_day: last, updated_at: new Date().toISOString() }, { onConflict: 'user_id,journal_id' });
+      revalidatePath('/journal/guided');
+      revalidatePath(`/journal/guided/${slug}`);
+    }
+  }
+
   let kept = 'Kept.';
   if (d.quote && row.story_id) {
     const { error: passageError } = await supabase.from('saved_passages').insert({

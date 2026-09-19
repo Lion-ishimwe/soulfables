@@ -17,6 +17,7 @@ import { ReviewPanel } from '@/components/admin/review-panel';
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import { discardStory, approveStory } from '@/app/actions/workflow';
 import { formatDate } from '@/lib/format';
+import { listAdminSeries } from '@/lib/series';
 
 export const metadata: Metadata = { title: 'Edit story' };
 export const dynamic = 'force-dynamic';
@@ -152,6 +153,7 @@ export default async function EditStoryPage({
         authors={authors.map((a) => ({ value: a.slug, label: a.name }))}
         shelves={shelves.map((s) => ({ value: s.slug, label: s.label }))}
         themes={themes.map((t) => ({ value: t.id, label: t.label }))}
+          series={(await listAdminSeries()).map((x) => ({ value: x.slug, label: x.title }))}
       />
 
       <AudioField

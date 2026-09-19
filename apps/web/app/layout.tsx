@@ -6,6 +6,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { PublicChrome } from '@/components/public-chrome';
 import { getHouseSettings } from '@/lib/settings';
 import { getReaderTheme } from '@/lib/reader-settings';
+import { PwaRegister } from '@/components/pwa-register';
 import './globals.css';
 
 /*
@@ -48,6 +49,7 @@ export const metadata: Metadata = {
   description:
     'A quiet place for modern folktales about love, loss, healing, identity, hope, and becoming.',
   applicationName: 'Soulfables',
+  manifest: '/manifest.webmanifest',
   authors: [{ name: 'Apophia Kamwine' }],
   openGraph: {
     type: 'website',
@@ -106,6 +108,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           Skip to content
         </a>
+        <PwaRegister />
         <DemoBanner />
         <PublicChrome>
           <SiteHeader />

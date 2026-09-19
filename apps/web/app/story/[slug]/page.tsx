@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getStories, getStory, getShelf, getResidents } from '@/lib/content';
@@ -6,6 +6,8 @@ import { StoryBody } from '@/lib/story-body';
 import { ReaderControls } from '@/components/reader-controls';
 import { ReaderToolkit } from '@/components/reader-toolkit';
 import { AudioPlayer } from '@/components/audio-player';
+import { KeepOffline } from '@/components/keep-offline';
+import { canUseSoulAI } from '@/lib/ai/access';
 import { StoryHero } from '@/components/story-hero';
 import { getListeningPosition } from '@/lib/library';
 import { track } from '@/lib/analytics';
@@ -121,6 +123,8 @@ export default async function StoryPage({
 
   // The byline leads to the writer's page, when they have one.
   const authorSlug = (await getResidents()).find((a) => a.name === story.author)?.slug ?? null;
+  // Keeping a story offline is Premium; the button only appears for them.
+  const offline = !story.locked && (await canUseSoulAI());
 
   // Structured data so a story is a first-class Article in search results.
   const jsonLd = {
@@ -157,6 +161,14 @@ export default async function StoryPage({
       />
 
       <article className="mx-auto max-w-content px-5 sm:px-8">
+        {story.series && (
+          <p className="mx-auto mt-6 max-w-measure font-ui text-xs text-grey-muted">
+            {story.series.episode ? `Episode ${story.series.episode} of ` : 'Part of '}
+            <Link href={`/series/${story.series.slug}` as Route} className="text-gold transition-colors hover:text-gold-soft">
+              {story.series.title}
+            </Link>
+          </p>
+        )}
         <ReaderControls />
 
         {story.audio && !story.locked && !story.audio.locked && (
@@ -226,6 +238,9 @@ export default async function StoryPage({
           </div>
 
           <div className="mt-6 flex flex-wrap justify-center gap-4">
+            {offline && (
+              <KeepOffline pageUrl={`/story/${story.slug}`} audioUrl={story.audio && !story.audio.locked ? story.audio.src : null} />
+            )}
             <Link
               href={`/journal?story=${story.slug}`}
               className="border border-gold/40 px-8 py-3.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"

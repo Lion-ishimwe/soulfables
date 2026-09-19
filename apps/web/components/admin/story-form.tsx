@@ -25,6 +25,10 @@ export type StoryDraft = {
   seoTitle?: string | null;
   seoDescription?: string | null;
   releaseMode?: string;
+  /** The series slug, the episode number, and whether it is a sleep story. */
+  seriesId?: string | null;
+  episodeNumber?: number | null;
+  forSleep?: boolean;
   /** Theme ids already on the story. See ThemePicker below. */
   themeIds?: string[];
 };
@@ -64,12 +68,14 @@ export function StoryForm({
   authors,
   shelves,
   themes = [],
+  series = [],
 }: {
   draft: StoryDraft;
   authors: Option[];
   shelves: Option[];
   /** Empty in demo mode, where there is no taxonomy to save against. */
   themes?: Option[];
+  series?: Option[];
 }) {
   const [state, formAction] = useActionState<StoryActionResult, FormData>(
     saveStory,
@@ -254,6 +260,33 @@ export function StoryForm({
             options={[{ value: '', label: '— none —' }, ...shelves]}
             hint="The primary shelf. Drives breadcrumbs and the canonical URL."
           />
+
+          <div className="grid gap-x-5 sm:grid-cols-2">
+            <Select
+              label="Series"
+              name="seriesId"
+              defaultValue={draft.seriesId ?? ''}
+              options={[{ value: '', label: '— none —' }, ...series]}
+              hint="A Premium series keeps every episode for Premium."
+            />
+            <Field
+              label="Episode"
+              name="episodeNumber"
+              type="number"
+              defaultValue={draft.episodeNumber ?? ''}
+              hint="Its place in the series. Leave empty if none."
+            />
+          </div>
+
+          <label className="mb-5 flex items-start gap-3 rounded border border-rule bg-ink px-4 py-3.5">
+            <input type="checkbox" name="forSleep" defaultChecked={Boolean(draft.forSleep)} className="mt-1 h-3.5 w-3.5 flex-none accent-[#C89528]" />
+            <span className="min-w-0">
+              <span className="block font-ui text-sm text-ivory">Sleep story</span>
+              <span className="mt-0.5 block font-ui text-xs leading-relaxed text-grey-muted">
+                Shown on the Sleep Stories page. Its narration is for Premium, and the player offers a sleep timer.
+              </span>
+            </span>
+          </label>
 
           {themes.length > 0 && (
             <div className="mb-5">

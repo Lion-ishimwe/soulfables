@@ -106,6 +106,8 @@ const nextConfig = {
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "object-src 'none'",
+      "worker-src 'self'",
+      "manifest-src 'self'",
     ].join('; ');
     return [
       {

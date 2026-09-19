@@ -18,6 +18,8 @@ import { LISTEN_EVENT } from '@/components/listen-link';
  */
 
 const SPEEDS = [0.75, 1, 1.25, 1.5] as const;
+const SLEEP_MINUTES = [15, 30, 45, 60] as const;
+const FADE_SECONDS = 20;
 const SAVE_INTERVAL_MS = 10_000;
 
 function clock(seconds: number): string {
@@ -52,6 +54,9 @@ export function AudioPlayer({
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState<number>(1);
   const [resumed, setResumed] = useState(false);
+  /* The sleep timer: when it runs out, the voice fades over a few seconds and stops. */
+  const [sleepUntil, setSleepUntil] = useState<number | null>(null);
+  const [sleepLeft, setSleepLeft] = useState(0);
 
   const save = useCallback(
     (seconds: number, force = false) => {
@@ -90,6 +95,27 @@ export function AudioPlayer({
     window.addEventListener(LISTEN_EVENT, onListen);
     return () => window.removeEventListener(LISTEN_EVENT, onListen);
   }, []);
+
+  useEffect(() => {
+    if (!sleepUntil) return;
+    const tick = () => {
+      const el = audioRef.current;
+      const left = Math.max(0, (sleepUntil - Date.now()) / 1000);
+      setSleepLeft(left);
+      if (el && left <= FADE_SECONDS) el.volume = Math.max(0, left / FADE_SECONDS);
+      if (left <= 0) {
+        if (el) {
+          el.pause();
+          save(el.currentTime, true);
+          el.volume = 1;
+        }
+        setSleepUntil(null);
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [sleepUntil, save]);
 
   // Save on the way out, whatever the reason.
   useEffect(() => {
@@ -260,6 +286,42 @@ export function AudioPlayer({
               }`}
             >
               {s}×
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* The sleep timer: for the night, when nobody wants to reach for the phone. */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-4">
+        <p className="font-ui text-xs text-grey-muted">
+          Sleep timer
+          {sleepUntil && (
+            <span className="ml-2 tabular-nums text-ivory">· stops in {clock(sleepLeft)}</span>
+          )}
+        </p>
+        <div className="flex items-center gap-1.5" role="group" aria-label="Sleep timer">
+          <button
+            type="button"
+            onClick={() => {
+              setSleepUntil(null);
+              if (audioRef.current) audioRef.current.volume = 1;
+            }}
+            aria-pressed={sleepUntil === null}
+            className={`px-2 py-1 font-ui text-xs transition-colors ${sleepUntil === null ? 'text-gold' : 'text-grey-muted hover:text-ivory'}`}
+          >
+            Off
+          </button>
+          {SLEEP_MINUTES.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                if (audioRef.current) audioRef.current.volume = 1;
+                setSleepUntil(Date.now() + m * 60_000);
+              }}
+              className="px-2 py-1 font-ui text-xs tabular-nums text-grey-muted transition-colors hover:text-ivory"
+            >
+              {m} min
             </button>
           ))}
         </div>

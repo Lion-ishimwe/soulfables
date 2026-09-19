@@ -13,6 +13,8 @@ const COLUMNS = [
       { href: '/library', label: 'Library' },
       { href: '/wander', label: 'Wander' },
       { href: '/shelves', label: 'Shelves' },
+      { href: '/series', label: 'Series' },
+      { href: '/sleep', label: 'Sleep Stories' },
       { href: '/residents', label: 'Residents' },
     ],
   },
@@ -20,6 +22,7 @@ const COLUMNS = [
     heading: 'Reading Room',
     links: [
       { href: '/journal', label: 'Reading Journal' },
+      { href: '/journal/guided', label: 'Guided Journals' },
       { href: '/letter', label: 'Weekly Letter' },
       // The drawer of quiet questions, as the first House named it. The
       // printable deck of 52 is a product, and lives in the Bookshop.

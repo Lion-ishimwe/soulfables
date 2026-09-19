@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { listAdminAuthors, listAdminShelves, listThemes } from '@/lib/admin-data';
+import { listAdminSeries } from '@/lib/series';
 import { PageHeader } from '@/components/admin/ui';
 import { StoryForm } from '@/components/admin/story-form';
 import { TemplatePanel } from '@/components/studio/template-panel';
@@ -32,6 +33,7 @@ export default async function NewStoryPage() {
           authors={authors.map((a) => ({ value: a.slug, label: a.name }))}
           shelves={shelves.map((s) => ({ value: s.slug, label: s.label }))}
           themes={themes.map((t) => ({ value: t.id, label: t.label }))}
+          series={(await listAdminSeries()).map((x) => ({ value: x.slug, label: x.title }))}
         />
       </div>
     </>

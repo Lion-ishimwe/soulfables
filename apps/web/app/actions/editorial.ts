@@ -627,3 +627,70 @@ export async function setAuthorAiAccess(formData: FormData): Promise<void> {
     `/admin/settings/access?changed=${encodeURIComponent((data?.name as string) ?? slug)}&to=${allow ? 'on' : 'off'}` as Route,
   );
 }
+
+// =====================================================================
+// Series
+// =====================================================================
+
+const seriesSchema = z.object({
+  slug: slugRule,
+  title: z.string().trim().min(1, 'A series needs a title.').max(200),
+  description: z.string().trim().max(1000).optional().or(z.literal('')),
+  access: z.enum(['free', 'premium']).catch('free'),
+  status: z.enum(['draft', 'published', 'archived']).catch('draft'),
+  sortOrder: z.coerce.number().int().min(0).max(999).catch(0),
+});
+
+export async function saveSeries(_prev: EditorialResult, formData: FormData): Promise<EditorialResult> {
+  await requireStaff();
+  if (isDemoMode()) return { error: 'The demo has no series to change.' };
+  const original = field(formData, 'originalSlug') || null;
+  const parsed = seriesSchema.safeParse({
+    slug: field(formData, 'slug'),
+    title: field(formData, 'title'),
+    description: field(formData, 'description'),
+    access: field(formData, 'access'),
+    status: field(formData, 'status'),
+    sortOrder: field(formData, 'sortOrder'),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  const supabase = await createClient();
+  const row = {
+    slug: d.slug,
+    title: d.title,
+    description: d.description || null,
+    access: d.access,
+    status: d.status,
+    sort_order: d.sortOrder,
+  };
+  const { error } = original
+    ? await supabase.from('series').update(row).eq('slug', original)
+    : await supabase.from('series').insert(row);
+  if (error) {
+    return { error: error.code === '23505' ? 'Another series already uses that web address.' : error.message };
+  }
+
+  revalidateTag('content');
+  revalidatePath('/series');
+  revalidatePath(`/series/${d.slug}`);
+  if (original && original !== d.slug) revalidatePath(`/series/${original}`);
+  redirect(`/admin/series?saved=${encodeURIComponent(d.title)}` as Route);
+}
+
+export async function deleteSeries(formData: FormData): Promise<void> {
+  await requireStaff();
+  if (isDemoMode()) return;
+  const slug = field(formData, 'slug');
+  if (!slug) return;
+  const supabase = await createClient();
+  const { data: series } = await supabase.from('series').select('id, title').eq('slug', slug).maybeSingle();
+  if (!series) return;
+  const { count } = await supabase.from('stories').select('id', { count: 'exact', head: true }).eq('series_id', series.id);
+  if ((count ?? 0) > 0) redirect('/admin/series?kept=1' as Route);
+  await supabase.from('series').delete().eq('id', series.id);
+  revalidateTag('content');
+  revalidatePath('/series');
+  redirect(`/admin/series?deleted=${encodeURIComponent(series.title as string)}` as Route);
+}

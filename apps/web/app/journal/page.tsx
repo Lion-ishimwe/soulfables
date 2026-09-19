@@ -20,6 +20,7 @@ import { getAffirmationOfTheDay } from '@/lib/affirmations';
 import { canUseSoulAI } from '@/lib/ai/access';
 import { JournalInsights } from '@/components/journal-insights';
 import { MoodStrip } from '@/components/mood-strip';
+import { getGuidedJournal } from '@/lib/guided';
 
 export const metadata: Metadata = {
   title: 'Your Reading Room',
@@ -76,9 +77,9 @@ const BookMark = () => (
 export default async function JournalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; all?: string; story?: string }>;
+  searchParams: Promise<{ q?: string; all?: string; story?: string; guided?: string; day?: string }>;
 }) {
-  const { q, all, story: fromStory } = await searchParams;
+  const { q, all, story: fromStory, guided, day } = await searchParams;
   const offset = Math.max(0, Math.min(99, Number(q) || 0));
   const showAll = all === '1';
 
@@ -103,6 +104,22 @@ export default async function JournalPage({
    * library. Ids come from the catalogue, because the shelf rows carry
    * slugs and the journal stores ids.
    */
+  /*
+   * A guided journal's day, when the reader arrived from one. The
+   * prompt's id names the journey and the day, so saving the page moves
+   * them on. Premium only; anyone else sees the ordinary question.
+   */
+  let guidedPrompt: { id: string; body: string } | null = null;
+  let guidedEyebrow: string | undefined;
+  if (guided && soul) {
+    const journey = await getGuidedJournal(guided);
+    const n = Math.max(1, Math.min(journey?.days ?? 1, Number(day) || 1));
+    const step = journey?.steps.find((st) => st.day === n);
+    if (journey && step) {
+      guidedPrompt = { id: `guided:${journey.slug}:${n}`, body: step.prompt };
+      guidedEyebrow = `${journey.title} · day ${n} of ${journey.days}`;
+    }
+  }
   const idOf = new Map(catalogue.filter((s) => s.id).map((s) => [s.slug, s.id as string]));
   const seen = new Set<string>();
   const shelf: StoryOption[] = [];
@@ -183,7 +200,8 @@ export default async function JournalPage({
 
       <JournalComposer
         moods={moods}
-        prompt={prompt}
+        prompt={guidedPrompt ?? prompt}
+        promptEyebrow={guidedEyebrow}
         anotherHref={`/journal?q=${offset + 1}`}
         stories={shelf}
         library={library}

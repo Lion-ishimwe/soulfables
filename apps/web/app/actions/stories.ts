@@ -54,6 +54,9 @@ const storySchema = z.object({
   status: z.enum(['draft', 'in_review', 'scheduled', 'published', 'archived']),
   coverImage: z.string().trim().max(600).optional().or(z.literal('')),
   releaseMode: z.enum(['full', 'serial']).catch('full'),
+  seriesId: z.string().trim().max(120).optional().or(z.literal('')),
+  episodeNumber: z.coerce.number().int().min(0).max(9999).catch(0),
+  forSleep: z.boolean().default(false),
   seoTitle: z.string().trim().max(200).optional().or(z.literal('')),
   seoDescription: z.string().trim().max(320).optional().or(z.literal('')),
 });
@@ -152,6 +155,9 @@ export async function saveStory(
     access: field(formData, 'access'),
     status: field(formData, 'status'),
     releaseMode: field(formData, 'releaseMode'),
+    seriesId: field(formData, 'seriesId'),
+    episodeNumber: field(formData, 'episodeNumber') || '0',
+    forSleep: checkbox(formData, 'forSleep'),
     coverImage: field(formData, 'coverImage'),
     seoTitle: field(formData, 'seoTitle'),
     seoDescription: field(formData, 'seoDescription'),
@@ -239,7 +245,7 @@ export async function saveStory(
    * in the slug field — that is the new address, and looking the story up
    * by it would miss the row whenever somebody renames a story.
    */
-  const [storyRes, authorRes, shelfRes] = await Promise.all([
+  const [storyRes, authorRes, shelfRes, seriesRes] = await Promise.all([
     id
       ? supabase.from('stories').select('id').eq('slug', id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -249,11 +255,15 @@ export async function saveStory(
     d.shelfId
       ? supabase.from('shelves').select('id').eq('slug', d.shelfId).maybeSingle()
       : Promise.resolve({ data: null }),
+    d.seriesId
+      ? supabase.from('series').select('id').eq('slug', d.seriesId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const existingId = (storyRes.data as { id?: string } | null)?.id ?? null;
   const authorId = (authorRes.data as { id?: string } | null)?.id ?? null;
   const shelfId = (shelfRes.data as { id?: string } | null)?.id ?? null;
+  const seriesId = (seriesRes.data as { id?: string } | null)?.id ?? null;
 
   if (id && !existingId) {
     return { error: 'That story no longer exists. It may have been deleted.' };
@@ -287,6 +297,9 @@ export async function saveStory(
     word_count: words,
     reading_minutes: Math.max(1, Math.ceil(words / WORDS_PER_MINUTE)),
     cover_image: d.coverImage || null,
+    series_id: seriesId,
+    episode_number: seriesId && d.episodeNumber > 0 ? d.episodeNumber : null,
+    for_sleep: d.forSleep,
     seo_title: d.seoTitle || null,
     seo_description: d.seoDescription || null,
     // The schema refuses a published row without a date, so set one at

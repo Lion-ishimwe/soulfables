@@ -23,6 +23,7 @@ const GROUPS = [
       { href: '/admin/submissions', label: 'Submissions', icon: 'draft' },
       { href: '/admin/stories', label: 'Stories', icon: 'book' },
       { href: '/admin/shelves', label: 'Shelves', icon: 'layers' },
+      { href: '/admin/series', label: 'Series', icon: 'book' },
       { href: '/admin/authors', label: 'Authors', icon: 'people' },
     ],
   },

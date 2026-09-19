@@ -83,6 +83,7 @@ export function JournalComposer({
   shelves,
   sections,
   signedIn,
+  promptEyebrow,
   initialStoryId = '',
 }: {
   moods: Mood[];
@@ -95,6 +96,8 @@ export function JournalComposer({
   shelves: { slug: string; label: string }[];
   sections: SectionOption[];
   signedIn: boolean;
+  /** What to call the question: a guided journal names its day. */
+  promptEyebrow?: string;
   /** Arrived from a story's page: that story, already chosen. */
   initialStoryId?: string;
 }) {
@@ -203,7 +206,7 @@ export function JournalComposer({
       {prompt && (
         <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className={eyebrow}>Today&rsquo;s reflection</p>
+            <p className={eyebrow}>{promptEyebrow ?? 'Today\u2019s reflection'}</p>
             <p className="mt-3 max-w-measure font-display text-2xl font-light italic leading-snug text-ivory sm:text-3xl">
               {prompt.body}
             </p>

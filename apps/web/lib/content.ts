@@ -62,6 +62,10 @@ export type StoryCard = {
   hasAudio?: boolean;
   /** Length of the narration, in minutes, when there is one and it is known. */
   audioMinutes?: number | null;
+  /** A sleep story: read slowly for the night; listening is for Premium. */
+  forSleep?: boolean;
+  /** The series it belongs to, and which episode it is. */
+  series?: { slug: string; title: string; episode: number | null; access: 'free' | 'premium' } | null;
   /** A scheduled story, open early to Premium. */
   earlyAccess?: boolean;
   scheduledFor?: string | null;
@@ -315,11 +319,12 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
   const shelfJoin = shelfSlug
     ? 'story_shelves!inner(is_primary, shelves!inner(slug))'
     : 'story_shelves(is_primary, shelves(slug))';
+  const seriesJoin = 'for_sleep, episode_number, series(slug, title, access)';
   let query = supabase
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
     // bodies, so a premium body cannot leak through a card.
-    .select(`id, slug, title, subtitle, reading_minutes, access, cover_image, view_count, published_at, authors!stories_author_id_fkey(name), story_themes(themes(slug, label)), ${shelfJoin}, story_audio(duration_seconds)`)
+    .select(`id, slug, title, subtitle, reading_minutes, access, cover_image, view_count, published_at, authors!stories_author_id_fkey(name), story_themes(themes(slug, label)), ${shelfJoin}, ${seriesJoin}, story_audio(duration_seconds)`)
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
@@ -357,6 +362,8 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
       themes: themesOf(r.story_themes),
       views: Number(r.view_count ?? 0),
       publishedAt: (r.published_at as string) ?? null,
+      forSleep: Boolean(r.for_sleep),
+      series: seriesOf(r.series, r.episode_number),
       // Live cards never knew they were narrated: the badge read only the
       // demo's list. Now the row says, and how long for.
       ...audioOf(r.story_audio),
@@ -474,6 +481,17 @@ export async function searchStories(query: string): Promise<StoryCard[]> {
 }
 
 /** The narration facts a card carries, from the joined story_audio rows. */
+function seriesOf(joined: unknown, episode: unknown): StoryCard['series'] {
+  const row = (Array.isArray(joined) ? joined[0] : joined) as { slug?: string; title?: string; access?: string } | null;
+  if (!row?.slug) return null;
+  return {
+    slug: row.slug,
+    title: row.title ?? row.slug,
+    episode: typeof episode === 'number' ? episode : null,
+    access: row.access === 'premium' ? 'premium' : 'free',
+  };
+}
+
 function audioOf(joined: unknown): { hasAudio: boolean; audioMinutes: number | null } {
   const rows = (joined as { duration_seconds?: number | null }[] | null) ?? [];
   if (rows.length === 0) return { hasAudio: false, audioMinutes: null };
@@ -668,6 +686,8 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     locked,
     earlyAccess: Boolean(row.early_access),
     scheduledFor: (row.scheduled_for as string | null) ?? null,
+    forSleep: Boolean(row.for_sleep),
+    series: seriesOf(row.series, (row.series as { episode?: number } | null)?.episode ?? null),
     // Withheld server-side, not hidden with CSS — and withheld by the
     // database, not only by this line.
     body,

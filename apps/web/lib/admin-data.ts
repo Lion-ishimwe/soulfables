@@ -119,7 +119,7 @@ export async function getStory(id: string) {
   const { data, error } = await supabase
     .from('stories')
     .select(
-      'id, title, slug, subtitle, excerpt, author_id, access, status, seo_title, seo_description, story_shelves(shelf_id, is_primary)',
+      'id, title, slug, subtitle, excerpt, author_id, access, status, seo_title, seo_description, series_id, episode_number, for_sleep, series(slug), story_shelves(shelf_id, is_primary)',
     )
     .eq('id', id)
     .single();
@@ -156,6 +156,9 @@ export async function getStory(id: string) {
     status: data.status as string,
     seoTitle: data.seo_title as string | null,
     seoDescription: data.seo_description as string | null,
+    seriesId: ((data.series as { slug?: string } | null)?.slug as string | undefined) ?? null,
+    episodeNumber: (data.episode_number as number | null) ?? null,
+    forSleep: Boolean(data.for_sleep),
   };
 }
 
