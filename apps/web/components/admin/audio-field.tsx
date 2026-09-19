@@ -7,7 +7,7 @@ import {
   generateStoryAudio,
   removeStoryAudio,
   type AudioActionResult,
-} from '@/app/actions/audio';
+ setNarrationAccess } from '@/app/actions/audio';
 
 export type Narration = {
   narrator: string | null;
@@ -150,7 +150,25 @@ export function AudioField({
             {narration.narrator && <span className="text-grey-muted"> · {narration.narrator}</span>}
           </span>
           <span className="font-ui text-xs text-grey-muted">{narration.format.toUpperCase()} · {clock(narration.durationSeconds)}</span>
-          <span className="font-ui text-xs text-grey-muted">{narration.access === 'premium' ? 'Residents only' : 'Free to hear'}</span>
+          <form action={setNarrationAccess} className="ml-auto flex items-center gap-2">
+            <input type="hidden" name="storySlug" value={storySlug} />
+            <label htmlFor="narration-access" className="font-ui text-xs text-grey-muted">Who may hear it</label>
+            <select
+              id="narration-access"
+              name="access"
+              defaultValue={narration.access}
+              className="border border-rule bg-ink px-2.5 py-1.5 font-ui text-xs text-ivory outline-none focus:border-gold/50"
+            >
+              <option value="free" className="bg-ink">Everyone</option>
+              <option value="premium" className="bg-ink">Premium only</option>
+            </select>
+            <button
+              type="submit"
+              className="border border-gold/50 px-3 py-1.5 font-ui text-[0.65rem] uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink"
+            >
+              Save
+            </button>
+          </form>
         </div>
       ) : (
         <p className="mb-6 font-ui text-sm text-grey-muted">No narration yet. Readers see no player.</p>

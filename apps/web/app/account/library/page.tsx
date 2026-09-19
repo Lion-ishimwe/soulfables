@@ -126,11 +126,26 @@ export default async function MyLibraryPage({
                   <p className="mt-1.5 text-sm text-grey-muted">{p.subtitle}</p>
                 )}
 
+                {p.stories.length > 0 && (
+                  <div className="mt-5 flex flex-wrap gap-2.5">
+                    {p.stories.map((st) => (
+                      <Link
+                        key={st.slug}
+                        href={`/story/${st.slug}`}
+                        className="border border-gold/50 px-4 py-2 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
+                      >
+                        Read {p.stories.length > 1 ? st.title : 'it'} →
+                      </Link>
+                    ))}
+                  </div>
+                )}
                 {p.files.length === 0 ? (
-                  <p className="mt-5 text-xs text-grey-muted">
-                    The files for this one are being prepared. It will appear
-                    here without you having to do anything.
-                  </p>
+                  p.stories.length === 0 && (
+                    <p className="mt-5 text-xs text-grey-muted">
+                      The files for this one are being prepared. It will appear
+                      here without you having to do anything.
+                    </p>
+                  )
                 ) : (
                   <div className="mt-5 flex flex-wrap gap-2.5">
                     {p.files.map((f) => (

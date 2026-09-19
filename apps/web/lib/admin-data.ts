@@ -156,6 +156,7 @@ export async function getStory(id: string) {
     status: data.status as string,
     seoTitle: data.seo_title as string | null,
     seoDescription: data.seo_description as string | null,
+    price: await priceOfStory(supabase, data.id as string),
     seriesId: ((data.series as { slug?: string } | null)?.slug as string | undefined) ?? null,
     episodeNumber: (data.episode_number as number | null) ?? null,
     forSleep: Boolean(data.for_sleep),
@@ -982,4 +983,19 @@ export async function getStoryNarration(slug: string): Promise<{
     generated: Boolean(r.generated),
     createdAt: r.created_at as string,
   };
+}
+
+/** What the story is sold for, if a published product is linked to it. Major units. */
+async function priceOfStory(supabase: Awaited<ReturnType<typeof createClient>>, storyId: string): Promise<number | null> {
+  const { data } = await supabase
+    .from('product_stories')
+    .select('products(status, product_prices(unit_amount, is_default, is_active))')
+    .eq('story_id', storyId)
+    .limit(1)
+    .maybeSingle();
+  const p = (data?.products as { status?: string; product_prices?: { unit_amount: number; is_default: boolean; is_active: boolean }[] } | null) ?? null;
+  if (!p || p.status !== 'published') return null;
+  const prices = (p.product_prices ?? []).filter((x) => x.is_active !== false);
+  const price = prices.find((x) => x.is_default) ?? prices[0];
+  return price ? price.unit_amount / 100 : null;
 }

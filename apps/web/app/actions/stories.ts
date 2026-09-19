@@ -50,7 +50,8 @@ const storySchema = z.object({
    */
   authorId: z.string().trim().max(120).optional().or(z.literal('')),
   shelfId: z.string().trim().max(120).optional().or(z.literal('')),
-  access: z.enum(['free', 'premium']),
+  access: z.enum(['free', 'premium', 'paid']),
+  price: z.coerce.number().min(0).max(10000).catch(0),
   status: z.enum(['draft', 'in_review', 'scheduled', 'published', 'archived']),
   coverImage: z.string().trim().max(600).optional().or(z.literal('')),
   releaseMode: z.enum(['full', 'serial']).catch('full'),
@@ -153,6 +154,7 @@ export async function saveStory(
     authorId: field(formData, 'authorId'),
     shelfId: field(formData, 'shelfId'),
     access: field(formData, 'access'),
+    price: field(formData, 'price') || '0',
     status: field(formData, 'status'),
     releaseMode: field(formData, 'releaseMode'),
     seriesId: field(formData, 'seriesId'),
@@ -200,7 +202,7 @@ export async function saveStory(
       authorSlug: d.authorId || null,
       assignedAuthorSlug: existing?.assignedAuthorSlug ?? (d.authorId || null),
       shelfSlug: d.shelfId || existing?.shelfSlug || 'heartbreak',
-      access: d.access,
+      access: d.access === 'paid' ? 'premium' : d.access,
       status:
         d.status === 'published'
           ? 'published'
@@ -280,6 +282,9 @@ export async function saveStory(
    */
   if (d.shelfId && !shelfId) {
     return { error: 'That shelf no longer exists. Choose another before saving.' };
+  }
+  if (d.access === 'paid' && !(d.price > 0)) {
+    return { error: 'Set a price to sell it. Readers buy it from the Bookshop at that price.' };
   }
   if ((d.status === 'published' || d.status === 'scheduled') && !shelfId) {
     return { error: 'Choose a shelf before publishing. Readers find every story through its shelf.' };
@@ -397,6 +402,20 @@ export async function saveStory(
     });
   }
 
+  // For sale: a book of it in the Bookshop, kept in step with the story.
+  await syncStoryProduct(supabase, {
+    storyId,
+    slug: d.slug,
+    title: d.title,
+    subtitle: d.subtitle || null,
+    excerpt: d.excerpt || null,
+    coverImage: d.coverImage || null,
+    authorId,
+    shelfId,
+    forSale: d.access === 'paid',
+    price: d.price,
+  });
+
   /*
    * Themes. Replaced wholesale, like sections — the join table carries
    * nothing of its own, so there is nothing to preserve by diffing.
@@ -442,4 +461,95 @@ export async function deleteStory(formData: FormData): Promise<void> {
   revalidateTag('content');
   revalidatePath('/admin/stories');
   redirect('/admin/stories?deleted=1');
+}
+
+/**
+ * The book a story is sold as.
+ *
+ * A story marked for sale gets a product in the Bookshop — same title,
+ * cover and shelf, kind "ebook", the story linked through
+ * product_stories so a purchase opens it. Change the price and the shop
+ * changes; take it off sale and the product is archived, never deleted,
+ * because orders point at it and readers who bought it keep it.
+ */
+async function syncStoryProduct(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: {
+    storyId: string;
+    slug: string;
+    title: string;
+    subtitle: string | null;
+    excerpt: string | null;
+    coverImage: string | null;
+    authorId: string | null;
+    shelfId: string | null;
+    forSale: boolean;
+    price: number;
+  },
+) {
+  const { data: link } = await supabase
+    .from('product_stories')
+    .select('product_id')
+    .eq('story_id', input.storyId)
+    .limit(1)
+    .maybeSingle();
+  const linkedId = (link?.product_id as string | undefined) ?? null;
+
+  if (!input.forSale) {
+    if (linkedId) {
+      await supabase.from('products').update({ status: 'archived' }).eq('id', linkedId);
+    }
+    return;
+  }
+
+  const row = {
+    title: input.title,
+    subtitle: input.subtitle,
+    kind: 'ebook',
+    eyebrow: 'Soulfables Original',
+    pull_quote: input.excerpt ?? input.subtitle ?? '',
+    cta_label: 'Read it',
+    status: 'published',
+    cover_image: input.coverImage,
+    author_id: input.authorId,
+  };
+
+  let productId = linkedId;
+  if (productId) {
+    const { error } = await supabase.from('products').update(row).eq('id', productId);
+    if (error) console.error('[stories] product update', error.message);
+  } else {
+    // A slug of its own: the story's, unless a product already has it.
+    const { data: taken } = await supabase.from('products').select('id').eq('slug', input.slug).maybeSingle();
+    const slug = taken ? `${input.slug}-book` : input.slug;
+    const { data: created, error } = await supabase.from('products').insert({ ...row, slug }).select('id').single();
+    if (error || !created) {
+      console.error('[stories] product insert', error?.message);
+      return;
+    }
+    productId = created.id as string;
+    await supabase.from('product_stories').insert({ product_id: productId, story_id: input.storyId, sort_order: 0 });
+  }
+
+  // The price: one default USD row, kept current.
+  const amount = Math.round(input.price * 100);
+  const { data: existingPrice } = await supabase
+    .from('product_prices')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('is_default', true)
+    .maybeSingle();
+  if (existingPrice) {
+    await supabase.from('product_prices').update({ unit_amount: amount, currency: 'USD', is_active: true }).eq('id', existingPrice.id);
+  } else {
+    await supabase.from('product_prices').insert({ product_id: productId, currency: 'USD', unit_amount: amount, provider: 'paypal', is_default: true, is_active: true });
+  }
+
+  // The shelf: the story's own.
+  await supabase.from('product_shelves').delete().eq('product_id', productId);
+  if (input.shelfId) {
+    await supabase.from('product_shelves').insert({ product_id: productId, shelf_id: input.shelfId });
+  }
+  revalidatePath('/shop');
+  revalidatePath(`/shop/${input.slug}`);
 }

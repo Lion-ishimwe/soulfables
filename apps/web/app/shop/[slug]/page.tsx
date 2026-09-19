@@ -227,6 +227,16 @@ export default async function ProductPage({
                       </span>
                     </li>
                   ))
+                ) : (product.stories?.length ?? 0) > 0 ? (
+                  <li className="flex items-start gap-3 sm:col-span-2">
+                    <span aria-hidden="true" className="mt-1 flex h-7 w-11 shrink-0 items-center justify-center rounded border border-gold/40 font-mono text-micro text-gold">✦</span>
+                    <span className="min-w-0">
+                      <span className="block font-ui text-sm text-ivory">Read here, in the House</span>
+                      <span className="block font-ui text-xs text-grey-muted">
+                        The story opens in your library the moment payment clears — no file to manage, and it is read aloud where a narration exists.
+                      </span>
+                    </span>
+                  </li>
                 ) : (
                   <li className="font-ui text-sm text-grey-muted sm:col-span-2">
                     The files are being prepared. Every format the {kindLabel(product.kind).toLowerCase()} ships in is included in the price.

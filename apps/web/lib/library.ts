@@ -30,6 +30,8 @@ export type OwnedProduct = {
   source: string;
   grantedAt: string;
   files: { id: string; format: string; sizeBytes: number | null }[];
+  /** Stories the purchase opens, when the book is a story rather than a file. */
+  stories: { slug: string; title: string }[];
 };
 
 export type ReadingRow = {
@@ -54,7 +56,7 @@ export async function getOwnedProducts(): Promise<OwnedProduct[]> {
   const { data, error } = await supabase
     .from('entitlements')
     .select(
-      'product_id, source, granted_at, products(slug, title, subtitle, cover_image, product_files(id, format, file_size_bytes, is_active))',
+      'product_id, source, granted_at, products(slug, title, subtitle, cover_image, product_files(id, format, file_size_bytes, is_active), product_stories(stories(slug, title)))',
     )
     .is('revoked_at', null)
     // A lapsed grant is not owned; the download route would refuse it anyway.
@@ -90,6 +92,10 @@ export async function getOwnedProducts(): Promise<OwnedProduct[]> {
         title: p.title as string,
         subtitle: (p.subtitle as string) ?? null,
         coverImage: (p.cover_image as string) ?? null,
+        stories: (((p.product_stories as { stories?: { slug?: string; title?: string } | { slug?: string; title?: string }[] | null }[]) ?? [])
+          .map((l) => (Array.isArray(l.stories) ? l.stories[0] : l.stories))
+          .filter((st): st is { slug: string; title: string } => Boolean(st?.slug))
+          .map((st) => ({ slug: st.slug, title: st.title ?? st.slug }))),
         source: row.source as string,
         grantedAt: row.granted_at as string,
         files,

@@ -191,7 +191,9 @@ export default async function StoryPage({
               <p className="font-ui text-sm text-ivory">
                 This story is narrated{story.audio.narrator ? ` by ${story.audio.narrator}` : ''}.
                 <span className="text-grey-muted">
-                  {story.audio.reason === 'sign_in'
+                  {story.audio.reason === 'paid'
+                    ? ' Listening comes with the book.'
+                    : story.audio.reason === 'sign_in'
                     ? ' Sign in to listen; Free readers may listen to a few narrated stories a month.'
                     : story.audio.reason === 'allowance'
                       ? ' You have listened to your narrated stories for this month. Premium listens without limit.'
@@ -199,10 +201,10 @@ export default async function StoryPage({
                 </span>
               </p>
               <Link
-                href={story.audio.reason === 'sign_in' ? `/signin?next=/story/${story.slug}` : '/membership'}
+                href={story.audio.reason === 'sign_in' ? `/signin?next=/story/${story.slug}` : story.audio.reason === 'paid' && story.product ? `/shop/${story.product.slug}` : '/membership'}
                 className="font-ui text-xs uppercase tracking-[0.16em] text-gold transition-colors hover:text-gold-soft"
               >
-                {story.audio.reason === 'sign_in' ? 'Sign in →' : 'See Premium →'}
+                {story.audio.reason === 'sign_in' ? 'Sign in →' : story.audio.reason === 'paid' ? 'Buy the book →' : 'See Premium →'}
               </Link>
             </div>
           </div>
@@ -216,7 +218,7 @@ export default async function StoryPage({
 
         <div className="mx-auto py-12">
           {story.locked || !story.body ? (
-            <Paywall title={story.title} />
+            <Paywall title={story.title} product={story.access === 'paid' ? (story.product ?? null) : null} />
           ) : (
             <StoryBody body={story.body} />
           )}
@@ -324,25 +326,25 @@ export default async function StoryPage({
  * The premium wall. Shows the promise, never the prose — the body never
  * reached the browser to begin with.
  */
-function Paywall({ title }: { title: string }) {
+function Paywall({ title, product }: { title: string; product: { slug: string; priceLabel: string } | null }) {
   return (
     <div className="mx-auto max-w-measure border border-gold/25 bg-gold-dim p-10 text-center">
       <p className="text-gold" aria-hidden="true">
         ✦
       </p>
-      <p className="sf-eyebrow mt-5">For Premium</p>
+      <p className="sf-eyebrow mt-5">{product ? 'A book from the House' : 'For Premium'}</p>
       <h2 className="mt-4 font-display text-3xl font-light text-ivory">
-        “{title}” is kept for Premium readers.
+        {product ? <>“{title}” is a book from the House.</> : <>“{title}” is kept for Premium readers.</>}
       </h2>
       <p className="mx-auto mt-5 text-sm leading-normal text-grey-muted">
-        Premium readers have the run of the House — every story, the narrated
-        editions, and the companion.
-      </p>
+        {product
+          ? `Buy it for ${product.priceLabel} and it opens here, in your library, the moment payment clears — or read everything with Premium.`
+          : 'Premium readers have the run of the House — every story, the narrated editions, the companion, and what is coming before its day.'}</p>
       <Link
-        href="/membership"
+        href={(product ? `/shop/${product.slug}` : '/membership') as Route}
         className="mt-8 inline-block border border-gold/50 px-8 py-3.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
       >
-        Become Premium
+        {product ? `Buy it · ${product.priceLabel}` : 'Become Premium'}
       </Link>
     </div>
   );

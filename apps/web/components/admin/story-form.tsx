@@ -20,7 +20,9 @@ export type StoryDraft = {
   bodyMdx?: string | null;
   authorId?: string | null;
   shelfId?: string | null;
-  access?: 'free' | 'premium';
+  access?: 'free' | 'premium' | 'paid';
+  /** The price in major units when the story is for sale. */
+  price?: number | null;
   status?: string;
   seoTitle?: string | null;
   seoDescription?: string | null;
@@ -242,8 +244,18 @@ export function StoryForm({
             options={[
               { value: 'free', label: 'Free to everyone' },
               { value: 'premium', label: 'Premium only' },
+              { value: 'paid', label: 'For sale in the Bookshop' },
             ]}
-            hint="Premium hides the body, never the listing — the blurb stays indexable."
+            hint="Premium and for-sale hide the body, never the listing — the blurb stays indexable. For sale makes a book of it in the Bookshop at the price below; Premium readers read it anyway."
+          />
+
+          <Field
+            label="Price (USD, including VAT)"
+            name="price"
+            type="number"
+            defaultValue={draft.price ?? ''}
+            placeholder="7.99"
+            hint="Only used when the story is for sale. Changing it changes the shop; readers who already bought it keep it."
           />
 
           <Select

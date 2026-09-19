@@ -65,7 +65,7 @@ export type EditorialStory = {
   /** Who is writing it now — may differ from the byline. */
   assignedAuthorSlug: string | null;
   shelfSlug: string;
-  access: 'free' | 'premium';
+  access: 'free' | 'premium' | 'paid';
   status: 'draft' | 'in_review' | 'scheduled' | 'published' | 'archived';
   releaseMode: 'full' | 'serial';
   chapters: EditorialChapter[];

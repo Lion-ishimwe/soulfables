@@ -267,3 +267,34 @@ export async function narrateEverything(_prev: NarrateAllResult, _formData: Form
     message: `Reading ${missing} ${missing === 1 ? 'story' : 'stories'} aloud now. Each takes a few seconds; refresh the Stories page in a minute or two.`,
   };
 }
+
+/**
+ * Who may hear the narration that already exists.
+ *
+ * The two "who may hear it" selects on the story page belong to the
+ * reading and the upload, and only applied when one of those ran.
+ * Changing the answer for a narration the House already has needs its
+ * own save, which this is.
+ */
+export async function setNarrationAccess(formData: FormData): Promise<void> {
+  const viewer = await requireStaff();
+  if (isDemoMode()) return;
+  const slug = field(formData, 'storySlug') ?? '';
+  const access = field(formData, 'access') === 'premium' ? 'premium' : 'free';
+  if (!slug) return;
+  const db = createAdminClient();
+  const { data: story } = await db.from('stories').select('id').eq('slug', slug).maybeSingle();
+  if (!story) return;
+  const { error } = await db.from('story_audio').update({ access }).eq('story_id', story.id);
+  if (error) {
+    console.error('[audio] setNarrationAccess', error.message);
+    return;
+  }
+  await db
+    .from('audit_log')
+    .insert({ action: 'story.narration.access', entity_type: 'story', entity_id: story.id, actor_id: viewer.id, actor_email: viewer.email ?? null, after: { access } })
+    .then(() => undefined, () => undefined);
+  revalidateTag('content');
+  revalidatePath(`/admin/stories/${slug}`);
+  revalidatePath(`/story/${slug}`);
+}

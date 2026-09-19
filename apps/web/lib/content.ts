@@ -57,7 +57,9 @@ export type StoryCard = {
   author: string;
   readingMinutes: number;
   shelf: string;
-  access: 'free' | 'premium';
+  access: 'free' | 'premium' | 'paid';
+  /** For a story that is sold: what it costs, for the badge. */
+  price?: { label: string } | null;
   /** Whether a narrated edition exists. */
   hasAudio?: boolean;
   /** Length of the narration, in minutes, when there is one and it is known. */
@@ -113,6 +115,8 @@ export type Product = {
   shelf?: string;
   /** When it went on sale, so the Library can sort it among the stories. */
   createdAt?: string | null;
+  /** The stories a purchase opens, when the book is a story rather than a file. */
+  stories?: { slug: string; title: string }[];
 };
 
 /** Demo mode swaps the whole data source; see lib/demo/mode.ts. */
@@ -325,7 +329,7 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
   const shelfJoin = shelfSlug
     ? 'story_shelves!inner(is_primary, shelves!inner(slug))'
     : 'story_shelves(is_primary, shelves(slug))';
-  const seriesJoin = 'for_sleep, episode_number, series(slug, title, access)';
+  const seriesJoin = 'for_sleep, episode_number, series(slug, title, access), product_stories(products(slug, status, product_prices(unit_amount, currency, is_default, is_active)))';
   let query = supabase
     .from('stories')
     // Note: body_mdx is NOT selected here. Listings never carry story
@@ -366,13 +370,14 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
       author: ((r.authors as { name?: string } | null)?.name) ?? 'Soulfables',
       readingMinutes: (r.reading_minutes as number) ?? 0,
       shelf: joined?.slug ?? shelfSlug ?? '',
-      access: (r.access as 'free' | 'premium') ?? 'free',
+      access: (r.access as StoryCard['access']) ?? 'free',
       coverImage: (r.cover_image as string) ?? null,
       themes: themesOf(r.story_themes),
       views: Number(r.view_count ?? 0),
       publishedAt: (r.published_at as string) ?? null,
       forSleep: Boolean(r.for_sleep),
       series: seriesOf(r.series, r.episode_number),
+      price: priceOf(r.product_stories),
       // Live cards never knew they were narrated: the badge read only the
       // demo's list. Now the row says, and how long for.
       ...audioOf(r.story_audio),
@@ -386,7 +391,7 @@ async function fetchGetProducts(): Promise<Product[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from('products')
-    .select('id, slug, title, subtitle, description, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, created_at, product_prices(currency, unit_amount, is_default), product_files(format, file_size_bytes, is_active), product_shelves(shelves(slug))')
+    .select('id, slug, title, subtitle, description, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, created_at, product_prices(currency, unit_amount, is_default), product_files(format, file_size_bytes, is_active), product_shelves(shelves(slug)), product_stories(stories(slug, title))')
     .eq('status', 'published')
     .order('sort_order');
 
@@ -414,8 +419,19 @@ async function fetchGetProducts(): Promise<Product[]> {
       coverImage: (r.cover_image as string) ?? null,
       shelf: shelfOfProduct(r.product_shelves),
       createdAt: (r.created_at as string) ?? null,
+      stories: storiesOfProduct(r.product_stories),
     };
   });
+}
+
+function storiesOfProduct(joined: unknown): { slug: string; title: string }[] {
+  const rows = (joined as { stories?: { slug?: string; title?: string } | { slug?: string; title?: string }[] | null }[] | null) ?? [];
+  const out: { slug: string; title: string }[] = [];
+  for (const r of rows) {
+    const one = Array.isArray(r.stories) ? r.stories[0] : r.stories;
+    if (one?.slug) out.push({ slug: one.slug, title: one.title ?? one.slug });
+  }
+  return out;
 }
 
 function shelfOfProduct(joined: unknown): string {
@@ -523,7 +539,7 @@ export async function searchStories(query: string): Promise<StoryCard[]> {
     author: (r.author_name as string) ?? 'Soulfables',
     readingMinutes: (r.reading_minutes as number) ?? 0,
     shelf: (r.shelf_slug as string) ?? '',
-    access: (r.access as 'free' | 'premium') ?? 'free',
+    access: (r.access as StoryCard['access']) ?? 'free',
     coverImage: (r.cover_image as string) ?? null,
     hasAudio: Boolean(r.has_audio),
     audioMinutes: r.audio_seconds ? Math.max(1, Math.round(Number(r.audio_seconds) / 60)) : null,
@@ -531,6 +547,19 @@ export async function searchStories(query: string): Promise<StoryCard[]> {
 }
 
 /** The narration facts a card carries, from the joined story_audio rows. */
+/** The default price of the published product a story is sold as, if any. */
+function priceOf(joined: unknown): StoryCard['price'] {
+  const links = (joined as { products?: { status?: string; product_prices?: { unit_amount: number; currency: string; is_default: boolean; is_active: boolean }[] } | null }[] | null) ?? [];
+  for (const l of links) {
+    const p = l.products;
+    if (!p || p.status !== 'published') continue;
+    const prices = (p.product_prices ?? []).filter((x) => x.is_active !== false);
+    const price = prices.find((x) => x.is_default) ?? prices[0];
+    if (price) return { label: formatMoney(price.unit_amount, price.currency) };
+  }
+  return null;
+}
+
 function seriesOf(joined: unknown, episode: unknown): StoryCard['series'] {
   const row = (Array.isArray(joined) ? joined[0] : joined) as { slug?: string; title?: string; access?: string } | null;
   if (!row?.slug) return null;
@@ -562,7 +591,7 @@ export type FullStory = StoryCard & {
     generated: boolean;
     locked: boolean;
     /** Why it is locked: for Premium, sign in first, or this month's allowance is spent. */
-    reason: 'premium' | 'sign_in' | 'allowance' | null;
+    reason: 'premium' | 'sign_in' | 'allowance' | 'paid' | null;
     /** Free readers: how many narrated stories they may still start this month. */
     listensLeft: number | null;
     durationSeconds: number | null;
@@ -574,6 +603,10 @@ export type FullStory = StoryCard & {
    */
   body: string | null;
   locked: boolean;
+  /** This reader bought it. */
+  owned?: boolean;
+  /** The book it is sold as, for the paywall's button. */
+  product?: { slug: string; priceLabel: string } | null;
 };
 
 /**
@@ -719,9 +752,10 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     duration_seconds?: number;
     generated?: boolean;
     locked?: boolean;
-    reason?: 'premium' | 'sign_in' | 'allowance' | null;
+    reason?: 'premium' | 'sign_in' | 'allowance' | 'paid' | null;
     listens_left?: number | null;
   } | null;
+  const product = row.product as { slug?: string; unit_amount?: number | null; currency?: string | null } | null;
 
   return {
     id: row.id as string,
@@ -731,13 +765,16 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     author: (row.author as string) ?? 'Soulfables',
     readingMinutes: (row.reading_minutes as number) ?? 0,
     shelf: (row.shelf as string) ?? '',
-    access: (row.access as 'free' | 'premium') ?? 'free',
+    access: (row.access as StoryCard['access']) ?? 'free',
     coverImage: (row.cover_image as string) ?? null,
     locked,
     earlyAccess: Boolean(row.early_access),
     scheduledFor: (row.scheduled_for as string | null) ?? null,
     forSleep: Boolean(row.for_sleep),
     series: seriesOf(row.series, (row.series as { episode?: number } | null)?.episode ?? null),
+    owned: Boolean(row.owned),
+    product: product?.slug ? { slug: product.slug, priceLabel: typeof product.unit_amount === 'number' ? formatMoney(product.unit_amount, product.currency ?? 'USD') : '' } : null,
+    price: product?.slug && typeof product.unit_amount === 'number' ? { label: formatMoney(product.unit_amount, product.currency ?? 'USD') } : null,
     // Withheld server-side, not hidden with CSS — and withheld by the
     // database, not only by this line.
     body,
@@ -848,7 +885,7 @@ export async function getEarlyAccessStories(): Promise<StoryCard[]> {
     author: (r.author_name as string) ?? 'Soulfables',
     readingMinutes: (r.reading_minutes as number) ?? 0,
     shelf: (r.shelf_slug as string) ?? '',
-    access: (r.access as 'free' | 'premium') ?? 'free',
+    access: (r.access as StoryCard['access']) ?? 'free',
     coverImage: (r.cover_image as string) ?? null,
     hasAudio: Boolean(r.has_audio),
     earlyAccess: true,

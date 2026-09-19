@@ -51,7 +51,7 @@ export function StoryHero({
   /** The writer's page, when they have one. */
   authorHref?: string;
   /** Narration exists: offer it here, or say who it is for. */
-  listen?: { minutes: number | null; locked: boolean; reason?: 'premium' | 'sign_in' | 'allowance' | null } | null;
+  listen?: { minutes: number | null; locked: boolean; reason?: 'premium' | 'sign_in' | 'allowance' | 'paid' | null } | null;
 }) {
   const art = story.coverImage ?? null;
 
@@ -95,7 +95,7 @@ export function StoryHero({
       {listen && (
         <div className="mt-6 flex justify-center">
           {listen.locked ? (
-            <span className="font-ui text-xs text-grey-muted">♪ Narrated · {listen.reason === 'sign_in' ? 'sign in to listen' : listen.reason === 'allowance' ? 'your free listens are used this month' : 'listening is for Premium'}</span>
+            <span className="font-ui text-xs text-grey-muted">♪ Narrated · {listen.reason === 'sign_in' ? 'sign in to listen' : listen.reason === 'paid' ? 'listening comes with the book' : listen.reason === 'allowance' ? 'your free listens are used this month' : 'listening is for Premium'}</span>
           ) : (
             <ListenLink minutes={listen.minutes} />
           )}
