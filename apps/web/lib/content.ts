@@ -330,7 +330,10 @@ async function fetchGetStories(shelfSlug?: string): Promise<StoryCard[]> {
 
   if (shelfSlug) query = query.eq('story_shelves.shelves.slug', shelfSlug);
 
-  const { data } = await query;
+  const { data, error } = await query;
+  // A listing that fails must say so. This once returned [] on a
+  // permissions error and the library simply looked empty.
+  if (error) console.error('[content] getStories', error.message);
 
   return (data ?? []).map((r: Record<string, unknown>) => {
     /*
