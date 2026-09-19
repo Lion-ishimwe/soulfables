@@ -165,7 +165,7 @@ export async function sendWelcomeEmail(to: string, userId: string): Promise<Send
     'Welcome to Soulfables',
     shell(
       'Come in.',
-      `<p>The library is open. Thirty-two folktales, arranged by feeling rather than by genre — start wherever your heart is.</p>
+      `<p>The library is open: modern folktales arranged by feeling rather than by genre. Start wherever your heart is.</p>
        <p>Anything you save, and anything you write in your journal, is yours and private.</p>`,
       { url: `${SITE}/library`, label: 'Enter the library' },
     ),
