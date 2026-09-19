@@ -8,6 +8,9 @@ import { myAuthor } from '@/lib/author-accounts';
 import { createClient } from '@/lib/supabase/server';
 import { isDemoMode } from '@/lib/demo/mode';
 import { DeleteAccount } from '@/components/account/delete-account';
+import { ThemeChooser } from '@/components/account/theme-chooser';
+import { getChosenTheme } from '@/lib/reader-settings';
+import { isStaff } from '@/lib/auth';
 
 export const metadata: Metadata = {
   title: 'Account',
@@ -25,10 +28,12 @@ export const dynamic = 'force-dynamic';
  * than honouring it.
  */
 export default async function AccountSettingsPage() {
-  const [viewer, plan] = await Promise.all([
+  const [viewer, plan, chosenTheme] = await Promise.all([
     requireViewer('/account/settings'),
     getPlan(),
+    getChosenTheme(),
   ]);
+  const premium = plan === 'resident' || isStaff(viewer.role);
 
   const links = [
     { href: '/account/library', label: 'My Library', copy: 'What you own, kept, and are part-way through' },
@@ -80,7 +85,7 @@ export default async function AccountSettingsPage() {
             <dt className="font-ui text-sm text-grey-muted">Tier</dt>
             <dd className="flex items-center gap-3">
               <span className="text-ivory">
-                {plan === 'resident' ? 'Resident' : 'Reader'}
+                {plan === 'resident' ? 'Premium' : 'Free'}
               </span>
               <Link
                 href="/membership"
@@ -118,6 +123,8 @@ export default async function AccountSettingsPage() {
           authorSlug={author?.slug ?? null}
         />
       </div>
+
+      <ThemeChooser current={chosenTheme} allowed={premium} />
 
       <section className="mb-10">
         <h2 className="sf-eyebrow mb-4">Elsewhere</h2>

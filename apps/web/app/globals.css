@@ -63,6 +63,26 @@
     color-scheme: light;
   }
 
+  /*
+   * Lamplight. A reader's own choice, for Premium: warm paper, brown
+   * ink, and a gold a shade deeper still. For long reads.
+   */
+  :root[data-theme='sepia'] {
+    --c-ink: 243 233 214;
+    --c-ink-raised: 249 241 226;
+    --c-ink-hover: 236 224 200;
+    --c-ivory: 44 34 24;
+    --c-gold: 158 108 22;
+    --c-gold-soft: 190 140 40;
+    --c-gold-dim: rgba(158, 108, 22, 0.14);
+    --c-grey: 80 66 50;
+    --c-grey-muted: 122 106 88;
+    --c-grey-faint: rgba(122, 106, 88, 0.55);
+    --c-rule: rgba(44, 34, 24, 0.12);
+    --c-rule-strong: rgba(44, 34, 24, 0.22);
+    color-scheme: light;
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

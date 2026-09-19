@@ -235,7 +235,7 @@ export function StoryForm({
             defaultValue={draft.access ?? 'free'}
             options={[
               { value: 'free', label: 'Free to everyone' },
-              { value: 'premium', label: 'Residents only' },
+              { value: 'premium', label: 'Premium only' },
             ]}
             hint="Premium hides the body, never the listing — the blurb stays indexable."
           />

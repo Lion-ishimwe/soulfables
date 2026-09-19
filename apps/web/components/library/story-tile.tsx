@@ -47,7 +47,12 @@ export function StoryTile({
             <span>☕ {story.readingMinutes} min</span>
             {story.access === 'premium' && (
               <span className="border border-gold/45 px-1.5 py-px font-ui text-micro uppercase tracking-[0.12em] text-gold">
-                Residents
+                Premium
+              </span>
+            )}
+            {story.earlyAccess && (
+              <span className="border border-gold/45 bg-gold-dim px-1.5 py-px font-ui text-micro uppercase tracking-[0.12em] text-gold">
+                Early access
               </span>
             )}
             {story.hasAudio && (
@@ -127,7 +132,7 @@ export function StoryListRow({ story }: { story: StoryCardType }) {
         <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-ui text-xs text-grey-muted">
           <span>{story.author}</span>
           <span>☕ {story.readingMinutes} min</span>
-          {story.access === 'premium' && <span className="text-gold">Residents</span>}
+          {story.access === 'premium' && <span className="text-gold">Premium</span>}
           {views > 0 && (
             <span className="tabular-nums">👁 {formatCount(views)}</span>
           )}

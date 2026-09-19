@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { getShelves, getStories, type StoryCard } from '@/lib/content';
+import { getEarlyAccessStories, getShelves, getStories, type StoryCard } from '@/lib/content';
 import { getFeatured, applyOrder } from '@/lib/featured';
 import { LibraryBackdrop } from '@/components/library-backdrop';
 import { StoryTile, StoryListRow } from '@/components/library/story-tile';
@@ -124,6 +124,8 @@ export default async function LibraryPage({
 
   const activeShelf = shelves.find((s) => s.slug === shelf);
   const filtered = Boolean(q || shelf);
+  // What is coming, for Premium readers and staff; empty for everyone else.
+  const early = filtered ? [] : await getEarlyAccessStories();
 
   return (
     <>
@@ -155,6 +157,22 @@ export default async function LibraryPage({
       </header>
 
       <div className="mx-auto max-w-page px-5 sm:px-8">
+        {early.length > 0 && (
+          <section className="border-b border-rule py-8">
+            <p className="sf-eyebrow">Early access</p>
+            <p className="mt-1 font-display text-base italic text-grey-muted">
+              Yours before their day. {early.length === 1 ? 'One story is' : `${early.length} stories are`} on the way.
+            </p>
+            <ul className="mt-5 grid gap-px bg-rule sm:grid-cols-2 lg:grid-cols-3">
+              {early.map((story) => (
+                <li key={story.slug} className="bg-ink">
+                  <StoryTile story={story} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* ---- Shelves ----------------------------------------------- */}
         <div className="py-7">
           <ShelfChips

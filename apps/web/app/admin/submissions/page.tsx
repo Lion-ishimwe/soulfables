@@ -88,7 +88,7 @@ export default async function SubmissionsPage({
                     <span>{s.shelfLabel ?? 'No shelf'}</span>
                     <span>☕ {s.readingMinutes} min</span>
                     {s.access === 'premium' && (
-                      <span className="text-gold">Residents only</span>
+                      <span className="text-gold">Premium only</span>
                     )}
                   </p>
                 </div>

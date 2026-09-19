@@ -107,3 +107,61 @@ export async function saveHouseSettings(
 
   return { message: 'Saved. Readers see this everywhere it appears.' };
 }
+
+// ---------------------------------------------------------------------
+// Settings → Membership: what Premium costs and how it is sold.
+// ---------------------------------------------------------------------
+
+const membershipSchema = z.object({
+  monthly: z.coerce.number().min(0).max(100000),
+  yearly: z.coerce.number().min(0).max(1000000),
+  monthlyPlanId: z.string().trim().max(60).optional().or(z.literal('')),
+  yearlyPlanId: z.string().trim().max(60).optional().or(z.literal('')),
+  freeAudioPerMonth: z.coerce.number().int().min(0).max(1000),
+});
+
+export async function saveMembership(_prev: SettingsResult, formData: FormData): Promise<SettingsResult> {
+  const viewer = await requireStaff();
+  const parsed = membershipSchema.safeParse({
+    monthly: field(formData, 'monthly'),
+    yearly: field(formData, 'yearly'),
+    monthlyPlanId: field(formData, 'monthlyPlanId'),
+    yearlyPlanId: field(formData, 'yearlyPlanId'),
+    freeAudioPerMonth: field(formData, 'freeAudioPerMonth'),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (isDemoMode()) return { error: 'The demo keeps its prices as they are.' };
+  const d = parsed.data;
+
+  const supabase = await createClient();
+  const { data: plan } = await supabase.from('plans').select('id').eq('slug', 'resident').single();
+  if (!plan) return { error: 'The Premium plan row is missing.' };
+
+  for (const [interval, amount, planId] of [
+    ['month', Math.round(d.monthly * 100), d.monthlyPlanId || null],
+    ['year', Math.round(d.yearly * 100), d.yearlyPlanId || null],
+  ] as const) {
+    const { data: existing } = await supabase
+      .from('plan_prices')
+      .select('id')
+      .eq('plan_id', plan.id)
+      .eq('interval', interval)
+      .maybeSingle();
+    const row = { plan_id: plan.id, currency: 'USD', unit_amount: amount, interval, provider: 'paypal', provider_price_id: planId, is_default: interval === 'month', is_active: true };
+    const { error } = existing
+      ? await supabase.from('plan_prices').update(row).eq('id', existing.id)
+      : await supabase.from('plan_prices').insert(row);
+    if (error) return { error: error.message };
+  }
+
+  const { error: houseError } = await supabase
+    .from('house_settings')
+    .update({ free_audio_per_month: d.freeAudioPerMonth, updated_by: viewer.id })
+    .eq('id', 1);
+  if (houseError) return { error: houseError.message };
+
+  revalidateTag('settings');
+  revalidatePath('/membership');
+  revalidatePath('/admin/settings/membership');
+  return { message: 'Saved. The membership page shows it now.' };
+}

@@ -37,7 +37,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 
   const row = (Array.isArray(data) ? data[0] : data) as
-    | { storage_path: string; format: string; locked: boolean }
+    | { storage_path: string; format: string; locked: boolean; count_listen: boolean; story_id: string }
     | undefined;
 
   // 404 for both "no narration" and "not for you": the difference is
@@ -47,6 +47,23 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 
   const admin = createAdminClient();
+
+  /*
+   * A Free reader's allowance is counted here, at the moment the file is
+   * handed over: one row per reader, story and month, so the same story
+   * twice costs one. Premium and staff are never counted.
+   */
+  if (row.count_listen) {
+    const { data: who } = await supabase.auth.getUser();
+    if (who.user) {
+      const month = new Date();
+      const first = `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}-01`;
+      await admin
+        .from('narration_listens')
+        .upsert({ user_id: who.user.id, story_id: row.story_id, month: first }, { onConflict: 'user_id,story_id,month', ignoreDuplicates: true });
+    }
+  }
+
   const { data: signed, error: signError } = await admin.storage
     .from('protected-media')
     .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS);

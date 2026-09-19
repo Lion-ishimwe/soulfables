@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { PublicChrome } from '@/components/public-chrome';
 import { getHouseSettings } from '@/lib/settings';
+import { getReaderTheme } from '@/lib/reader-settings';
 import './globals.css';
 
 /*
@@ -75,8 +76,9 @@ export const metadata: Metadata = {
  * same cached settings row the layout reads.
  */
 export async function generateViewport(): Promise<Viewport> {
-  const { theme } = await getHouseSettings();
-  return theme === 'light'
+  const [{ theme: house }, mine] = await Promise.all([getHouseSettings(), getReaderTheme()]);
+  const theme = mine ?? house;
+  return theme === 'light' || theme === 'sepia'
     ? { themeColor: '#F7F3EA', colorScheme: 'light' }
     : { themeColor: '#0B0B0B', colorScheme: 'dark' };
 }
@@ -87,7 +89,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
    * Reading it here means every page — public, admin, Writing Room —
    * wears the same face, and switching it is one save in Settings.
    */
-  const { theme } = await getHouseSettings();
+  const [{ theme: house }, mine] = await Promise.all([getHouseSettings(), getReaderTheme()]);
+  // A Premium reader's own palette, if they chose one; the House's otherwise.
+  const theme = mine ?? house;
 
   return (
     <html

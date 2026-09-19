@@ -174,7 +174,7 @@ export function AudioField({
           <label htmlFor="tts-access" className="sf-eyebrow mb-2 mt-4 block">Who may hear it</label>
           <select id="tts-access" name="access" defaultValue="free" className={field}>
             <option value="free" className="bg-ink">Everyone</option>
-            <option value="premium" className="bg-ink">Residents only</option>
+            <option value="premium" className="bg-ink">Premium only</option>
           </select>
           <button
             type="submit"
@@ -197,7 +197,7 @@ export function AudioField({
           <label htmlFor="rec-access" className="sf-eyebrow mb-2 mt-4 block">Who may hear it</label>
           <select id="rec-access" ref={accessRef} defaultValue="free" className={field}>
             <option value="free" className="bg-ink">Everyone</option>
-            <option value="premium" className="bg-ink">Residents only</option>
+            <option value="premium" className="bg-ink">Premium only</option>
           </select>
           <input
             ref={fileRef}

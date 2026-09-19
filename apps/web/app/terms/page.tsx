@@ -62,9 +62,9 @@ export default async function TermsPage() {
         which forms part of these terms.
       </p>
 
-      <h2 className={h}>Residency</h2>
+      <h2 className={h}>Premium</h2>
       <p className={p}>
-        Residency is a subscription that opens the stories and narrations kept for Residents.
+        Premium is a subscription that opens the stories and narrations kept for Premium readers, the generated companion, guided journals, sleep stories, early access and your own theme.
         It renews until you cancel it, and cancelling stops the next renewal; what you have paid
         for stays open until the end of the period paid. Anything bought outright stays yours
         regardless.

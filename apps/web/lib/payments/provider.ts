@@ -1,4 +1,5 @@
 import 'server-only';
+import type { SubscriptionFacts } from './subscriptions';
 
 /**
  * The payment provider interface.
@@ -76,10 +77,25 @@ export type PaymentEvent =
       amount: number;
     }
   | {
+      type: 'subscription.changed';
+      providerEventId: string;
+      subscription: SubscriptionFacts;
+    }
+  | {
       type: 'ignored';
       providerEventId: string;
       rawType: string;
     };
+
+export type SubscriptionRequest = {
+  /** The provider's plan id (PayPal: P-…). */
+  planId: string;
+  /** The reader's user id, carried on every later payload. */
+  customId: string;
+  email?: string;
+  returnUrl: string;
+  cancelUrl: string;
+};
 
 export interface PaymentProvider {
   readonly name: string;
@@ -94,6 +110,11 @@ export interface PaymentProvider {
    * providers whose verification needs more than one of them.
    */
   parseWebhook(rawBody: string, signature: string | null, headers?: Headers): Promise<PaymentEvent>;
+
+  /** Subscriptions, for providers that have them. Premium needs all three. */
+  createSubscription?(req: SubscriptionRequest): Promise<{ subscriptionId: string; approvalUrl: string }>;
+  getSubscription?(id: string): Promise<SubscriptionFacts>;
+  cancelSubscription?(id: string, reason: string): Promise<void>;
 }
 
 /** Thrown when a webhook cannot be trusted. Handler responds 400. */

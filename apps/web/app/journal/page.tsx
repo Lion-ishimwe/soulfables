@@ -19,6 +19,7 @@ import { deleteEntry } from '@/app/actions/journal';
 import { getAffirmationOfTheDay } from '@/lib/affirmations';
 import { canUseSoulAI } from '@/lib/ai/access';
 import { JournalInsights } from '@/components/journal-insights';
+import { MoodStrip } from '@/components/mood-strip';
 
 export const metadata: Metadata = {
   title: 'Your Reading Room',
@@ -192,6 +193,7 @@ export default async function JournalPage({
         initialStoryId={arrived?.id ?? ''}
       />
 
+      {viewer && <MoodStrip entries={entries} />}
       {viewer && <JournalInsights allowed={soul} entries={total ?? entries.length} />}
 
       {viewer && (

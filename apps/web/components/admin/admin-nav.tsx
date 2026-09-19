@@ -48,6 +48,7 @@ const GROUPS = [
       { href: '/admin/settings', label: 'Settings', icon: 'gear' },
       { href: '/admin/settings/featured', label: 'Featured', icon: 'spark' },
       { href: '/admin/settings/questions', label: 'Questions', icon: 'spark' },
+      { href: '/admin/settings/membership', label: 'Membership', icon: 'card' },
       { href: '/admin/settings/account', label: 'Account', icon: 'people' },
       { href: '/admin/settings/billing', label: 'Billing', icon: 'card' },
       { href: '/admin/settings/report', label: 'Report', icon: 'spark' },

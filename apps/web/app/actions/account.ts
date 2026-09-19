@@ -177,3 +177,30 @@ export async function deleteOwnAccount(
   revalidatePath('/', 'layout');
   redirect('/goodbye');
 }
+
+/**
+ * Your own theme, for Premium.
+ *
+ * The choice is kept for everyone who makes it, but only worn by a
+ * Premium reader: the layout asks the plan before it asks the setting,
+ * so a reader who stops paying sees the House's palette again without
+ * losing what they chose.
+ */
+export async function saveReaderTheme(_prev: AccountResult, formData: FormData): Promise<AccountResult> {
+  const viewer = await requireViewer('/account/settings');
+  if (isDemoMode()) return { error: 'Demo mode keeps nothing. Connect a database and this becomes yours to change.' };
+  const { canUseSoulAI } = await import('@/lib/ai/access');
+  if (!(await canUseSoulAI())) return { error: 'Choosing a theme is part of Premium.' };
+
+  const raw = field(formData, 'theme') ?? '';
+  const theme = raw === 'dark' || raw === 'light' || raw === 'sepia' ? raw : null;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('user_settings')
+    .upsert({ user_id: viewer.id, reader_theme: theme, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) return { error: error.message };
+
+  revalidatePath('/', 'layout');
+  return { message: theme ? 'Worn. Every page follows.' : 'Back to the House’s own.' };
+}

@@ -31,7 +31,7 @@ export default async function SubscriptionsPage() {
 
       {people.length === 0 ? (
         <EmptyState
-          title="No Residents yet."
+          title="No Premium readers yet."
           body="Residency needs a payment provider before anybody can subscribe. Readers with accounts are listed under Settings → Report; this page is only about who is paying."
           action={{ href: '/admin/settings/report', label: 'See the readers' }}
         />
@@ -39,7 +39,7 @@ export default async function SubscriptionsPage() {
         <>
           <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-rule bg-ink-raised p-5">
-              <p className="font-ui text-xs text-grey-muted">Residents</p>
+              <p className="font-ui text-xs text-grey-muted">Premium readers</p>
               <p className="mt-2 font-display text-3xl leading-none text-ivory">
                 {active.length}
               </p>

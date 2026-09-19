@@ -6,6 +6,7 @@ import {
   WebhookVerificationError,
 } from '@/lib/payments/provider';
 import { settlePaid, settleFailed, settleRefunded } from '@/lib/payments/fulfil';
+import { syncSubscription } from '@/lib/payments/subscriptions';
 
 /**
  * The payment webhook. This is the only thing in the system that may
@@ -176,6 +177,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      case 'subscription.changed': {
+        await syncSubscription(db, event.subscription);
+        break;
+      }
       case 'payment.refunded': {
         await settleRefunded(db, event);
         await markProcessed();

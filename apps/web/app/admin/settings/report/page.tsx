@@ -199,7 +199,7 @@ export default async function ReportPage() {
                     <td className="px-5 py-3 font-ui text-sm capitalize text-grey">{r.role}</td>
                     <td className="px-5 py-3">
                       {r.plan === 'resident' ? (
-                        <StatusDot tone="active" label="Resident" />
+                        <StatusDot tone="active" label="Premium" />
                       ) : (
                         <StatusDot tone="none" label="Free" />
                       )}

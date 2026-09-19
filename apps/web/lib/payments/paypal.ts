@@ -1,10 +1,12 @@
 import 'server-only';
+import type { SubscriptionFacts } from './subscriptions';
 import {
   WebhookVerificationError,
   type CheckoutRequest,
   type CheckoutSession,
   type PaymentEvent,
   type PaymentProvider,
+  type SubscriptionRequest,
 } from './provider';
 
 /**
@@ -285,6 +287,60 @@ export class PayPalProvider implements PaymentProvider {
     };
   }
 
+  // --- Subscriptions -----------------------------------------------------
+
+  /**
+   * Premium. A subscription on a plan the House created at PayPal; the
+   * reader approves it there and comes back through our return route.
+   * custom_id carries the reader's user id so every later payload can
+   * find them without trusting the return URL.
+   */
+  async createSubscription(req: SubscriptionRequest): Promise<{ subscriptionId: string; approvalUrl: string }> {
+    const created = await this.call<{ id: string; status: string; links?: Link[] }>(
+      'POST',
+      '/v1/billing/subscriptions',
+      {
+        plan_id: req.planId,
+        custom_id: req.customId,
+        ...(req.email ? { subscriber: { email_address: req.email } } : {}),
+        application_context: {
+          brand_name: 'Soulfables',
+          user_action: 'SUBSCRIBE_NOW',
+          shipping_preference: 'NO_SHIPPING',
+          return_url: req.returnUrl,
+          cancel_url: req.cancelUrl,
+        },
+      },
+      `sub_${req.customId}_${req.planId}_${Date.now()}`,
+    );
+    const approve = created.links?.find((l) => l.rel === 'approve');
+    if (!approve) throw new Error('PayPal returned a subscription with no approval link.');
+    return { subscriptionId: created.id, approvalUrl: approve.href };
+  }
+
+  async getSubscription(id: string): Promise<SubscriptionFacts> {
+    const sub = await this.call<{
+      id: string;
+      status: string;
+      plan_id?: string;
+      custom_id?: string;
+      subscriber?: { email_address?: string };
+      billing_info?: { next_billing_time?: string };
+    }>('GET', `/v1/billing/subscriptions/${encodeURIComponent(id)}`);
+    return {
+      providerSubscriptionId: sub.id,
+      status: sub.status,
+      customId: sub.custom_id ?? null,
+      planId: sub.plan_id ?? null,
+      nextBillingTime: sub.billing_info?.next_billing_time ?? null,
+      email: sub.subscriber?.email_address ?? null,
+    };
+  }
+
+  async cancelSubscription(id: string, reason: string): Promise<void> {
+    await this.call<unknown>('POST', `/v1/billing/subscriptions/${encodeURIComponent(id)}/cancel`, { reason: reason.slice(0, 127) });
+  }
+
   // --- Webhooks ----------------------------------------------------------
 
   async parseWebhook(rawBody: string, signature: string | null, headers?: Headers): Promise<PaymentEvent> {
@@ -379,6 +435,41 @@ export class PayPalProvider implements PaymentProvider {
         };
       }
 
+      case 'BILLING.SUBSCRIPTION.ACTIVATED':
+      case 'BILLING.SUBSCRIPTION.UPDATED':
+      case 'BILLING.SUBSCRIPTION.CANCELLED':
+      case 'BILLING.SUBSCRIPTION.SUSPENDED':
+      case 'BILLING.SUBSCRIPTION.EXPIRED': {
+        const subId = str(resource.id);
+        if (!subId) return { type: 'ignored', providerEventId: payload.id, rawType: payload.event_type };
+        const billing = resource.billing_info as { next_billing_time?: string } | undefined;
+        const subscriber = resource.subscriber as { email_address?: string } | undefined;
+        return {
+          type: 'subscription.changed',
+          providerEventId: payload.id,
+          subscription: {
+            providerSubscriptionId: subId,
+            status: str(resource.status) ?? 'ACTIVE',
+            customId: str(resource.custom_id),
+            planId: str(resource.plan_id),
+            nextBillingTime: billing?.next_billing_time ?? null,
+            email: subscriber?.email_address ?? null,
+          },
+        };
+      }
+      case 'PAYMENT.SALE.COMPLETED': {
+        // A renewal. The sale names its subscription; PayPal is asked for
+        // the new period end rather than trusting arithmetic.
+        const subId = str(resource.billing_agreement_id);
+        if (!subId) return { type: 'ignored', providerEventId: payload.id, rawType: payload.event_type };
+        try {
+          const facts = await this.getSubscription(subId);
+          return { type: 'subscription.changed', providerEventId: payload.id, subscription: facts };
+        } catch (e) {
+          console.error('[paypal] could not read subscription after sale', subId, e instanceof Error ? e.message : e);
+          return { type: 'ignored', providerEventId: payload.id, rawType: `${payload.event_type}:unread` };
+        }
+      }
       case 'PAYMENT.CAPTURE.REFUNDED': {
         // The refund points at its capture through an "up" link.
         const links = (resource.links as Link[] | undefined) ?? [];

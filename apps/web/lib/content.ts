@@ -62,6 +62,9 @@ export type StoryCard = {
   hasAudio?: boolean;
   /** Length of the narration, in minutes, when there is one and it is known. */
   audioMinutes?: number | null;
+  /** A scheduled story, open early to Premium. */
+  earlyAccess?: boolean;
+  scheduledFor?: string | null;
   /** Uploaded artwork. Null means the drawn cover is used instead. */
   coverImage?: string | null;
   /**
@@ -490,6 +493,10 @@ export type FullStory = StoryCard & {
     isPlaceholder: boolean;
     generated: boolean;
     locked: boolean;
+    /** Why it is locked: for Premium, sign in first, or this month's allowance is spent. */
+    reason: 'premium' | 'sign_in' | 'allowance' | null;
+    /** Free readers: how many narrated stories they may still start this month. */
+    listensLeft: number | null;
     durationSeconds: number | null;
   } | null;
   /**
@@ -609,6 +616,8 @@ export async function getStory(slug: string): Promise<FullStory | null> {
             isPlaceholder: true,
             generated: false,
             locked: false,
+            reason: null,
+            listensLeft: null,
             durationSeconds: null,
           }
         : null,
@@ -642,6 +651,8 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     duration_seconds?: number;
     generated?: boolean;
     locked?: boolean;
+    reason?: 'premium' | 'sign_in' | 'allowance' | null;
+    listens_left?: number | null;
   } | null;
 
   return {
@@ -655,6 +666,8 @@ export async function getStory(slug: string): Promise<FullStory | null> {
     access: (row.access as 'free' | 'premium') ?? 'free',
     coverImage: (row.cover_image as string) ?? null,
     locked,
+    earlyAccess: Boolean(row.early_access),
+    scheduledFor: (row.scheduled_for as string | null) ?? null,
     // Withheld server-side, not hidden with CSS — and withheld by the
     // database, not only by this line.
     body,
@@ -673,6 +686,8 @@ export async function getStory(slug: string): Promise<FullStory | null> {
             isPlaceholder: false,
             generated: Boolean(audio.generated),
             locked: Boolean(audio.locked),
+            reason: audio.reason ?? null,
+            listensLeft: typeof audio.listens_left === 'number' ? audio.listens_left : null,
             durationSeconds: audio.duration_seconds ?? null,
           }
         : null,
@@ -738,3 +753,35 @@ export const getResidents = unstable_cache(fetchResidents, ['residents'], {
   revalidate: 60,
   tags: ['content'],
 });
+
+/**
+ * What is coming: scheduled stories, for Premium readers and staff.
+ *
+ * Read with the reader's own session and never cached — the answer
+ * depends on who is asking. Everyone else gets an empty list, and the
+ * database gives them nothing to hide.
+ */
+export async function getEarlyAccessStories(): Promise<StoryCard[]> {
+  if (!isConfigured) return [];
+  const { createClient } = await import('./supabase/server');
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('early_access_stories');
+  if (error) {
+    console.error('[content] early_access_stories', error.message);
+    return [];
+  }
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    subtitle: (r.subtitle as string) ?? '',
+    author: (r.author_name as string) ?? 'Soulfables',
+    readingMinutes: (r.reading_minutes as number) ?? 0,
+    shelf: (r.shelf_slug as string) ?? '',
+    access: (r.access as 'free' | 'premium') ?? 'free',
+    coverImage: (r.cover_image as string) ?? null,
+    hasAudio: Boolean(r.has_audio),
+    earlyAccess: true,
+    scheduledFor: (r.scheduled_for as string | null) ?? null,
+  }));
+}

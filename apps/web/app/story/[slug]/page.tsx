@@ -150,6 +150,7 @@ export default async function StoryPage({
             ? {
                 minutes: story.audio.durationSeconds ? Math.max(1, Math.round(story.audio.durationSeconds / 60)) : null,
                 locked: story.audio.locked,
+                reason: story.audio.reason,
               }
             : null
         }
@@ -171,22 +172,34 @@ export default async function StoryPage({
           </div>
         )}
 
-        {/* Narration exists, and it is for residents. Say so, rather than nothing. */}
+        {/* Narration exists and is withheld. Say why, rather than nothing. */}
         {story.audio?.locked && !story.locked && (
           <div className="pt-8">
             <div className="mx-auto flex max-w-measure flex-wrap items-center justify-between gap-4 border border-gold/25 bg-gold-dim px-5 py-4">
               <p className="font-ui text-sm text-ivory">
                 This story is narrated{story.audio.narrator ? ` by ${story.audio.narrator}` : ''}.
-                <span className="text-grey-muted"> Listening is for Residents.</span>
+                <span className="text-grey-muted">
+                  {story.audio.reason === 'sign_in'
+                    ? ' Sign in to listen; Free readers may listen to a few narrated stories a month.'
+                    : story.audio.reason === 'allowance'
+                      ? ' You have listened to your narrated stories for this month. Premium listens without limit.'
+                      : ' Listening to this one is for Premium.'}
+                </span>
               </p>
               <Link
-                href="/membership"
+                href={story.audio.reason === 'sign_in' ? `/signin?next=/story/${story.slug}` : '/membership'}
                 className="font-ui text-xs uppercase tracking-[0.16em] text-gold transition-colors hover:text-gold-soft"
               >
-                Become a Resident →
+                {story.audio.reason === 'sign_in' ? 'Sign in →' : 'See Premium →'}
               </Link>
             </div>
           </div>
+        )}
+        {story.earlyAccess && (
+          <p className="mx-auto mt-8 max-w-measure border-l-2 border-gold/50 pl-4 font-ui text-xs text-grey-muted">
+            <span className="text-gold">Early access.</span> This story is yours before its day
+            {story.scheduledFor ? `: it opens to everyone on ${new Date(story.scheduledFor).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''}.
+          </p>
         )}
 
         <div className="mx-auto py-12">
@@ -302,19 +315,19 @@ function Paywall({ title }: { title: string }) {
       <p className="text-gold" aria-hidden="true">
         ✦
       </p>
-      <p className="sf-eyebrow mt-5">For Residents</p>
+      <p className="sf-eyebrow mt-5">For Premium</p>
       <h2 className="mt-4 font-display text-3xl font-light text-ivory">
-        “{title}” is kept for Residents.
+        “{title}” is kept for Premium readers.
       </h2>
       <p className="mx-auto mt-5 text-sm leading-normal text-grey-muted">
-        Residents have the run of the House — every story, the narrated
+        Premium readers have the run of the House — every story, the narrated
         editions, and the companion.
       </p>
       <Link
         href="/membership"
         className="mt-8 inline-block border border-gold/50 px-8 py-3.5 font-ui text-xs uppercase tracking-[0.18em] text-gold transition-all duration-base ease-house hover:bg-gold hover:text-ink"
       >
-        Become a Resident
+        Become Premium
       </Link>
     </div>
   );

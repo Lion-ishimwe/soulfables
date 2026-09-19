@@ -342,6 +342,25 @@ in Europe. Five settings, all in Parameter Store under
 
 Switch the dashboard toggle to **Live**, create the app and the webhook again — live credentials are separate — replace the three values, set `PAYMENT_ENV=live`, deploy. Settings → The House shows which counter is open and whether real money moves.
 
+### 3. Premium subscriptions
+
+Premium is a PayPal subscription on a plan the House creates once, in
+the PayPal dashboard: a product named *Soulfables Premium*, with a
+monthly plan and, optionally, a yearly one. Their ids (`P-…`) go into
+**Settings → Membership** together with the prices the House shows,
+which must match what the plans charge. Add these events to the same
+webhook: `BILLING.SUBSCRIPTION.ACTIVATED`, `BILLING.SUBSCRIPTION.UPDATED`,
+`BILLING.SUBSCRIPTION.CANCELLED`, `BILLING.SUBSCRIPTION.SUSPENDED`,
+`BILLING.SUBSCRIPTION.EXPIRED`, `PAYMENT.SALE.COMPLETED`.
+
+A reader who chooses Premium is sent to PayPal to approve the
+subscription and returns through `/api/payments/paypal/subscription/return`,
+which asks PayPal for the subscription's status and writes the row from
+that answer. Renewals arrive as `PAYMENT.SALE.COMPLETED` and extend the
+period; a cancellation keeps Premium until the period the reader paid
+for ends, which the database rule honours by itself. Sandbox and live
+plans are separate: create them again when you go live.
+
 ### What the code does
 
 `lib/payments/paypal.ts` is the whole of it. Checkout creates a PayPal order and sends the buyer to approve it; PayPal returns them to `/api/payments/paypal/return`, which captures the payment and settles the order on PayPal's answer; the webhook does the same for anyone who never came back. Nothing the browser carries is trusted for anything but finding the order. Amounts come from the database on every step.
