@@ -32,3 +32,18 @@ export async function canUseAI(): Promise<boolean> {
   }
   return data === true;
 }
+
+/**
+ * May this reader use Soul AI — the generated Librarian, a story written
+ * for a feeling, and journal insights?
+ *
+ * Staff always. Otherwise it is a Premium thing: the plan is read where
+ * the plan lives, never assumed from a role.
+ */
+export async function canUseSoulAI(): Promise<boolean> {
+  const viewer = await getViewer();
+  if (!viewer) return false;
+  if (isStaff(viewer.role)) return true;
+  const { hasPremiumAccess } = await import('../membership');
+  return hasPremiumAccess();
+}

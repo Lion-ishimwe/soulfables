@@ -163,3 +163,58 @@ export async function deleteCard(formData: FormData): Promise<void> {
   freshen();
   redirect(`${CARDS_PAGE}?removed=${encodeURIComponent((data?.title as string) ?? '')}` as Route);
 }
+
+// ---------------------------------------------------------------------
+// Staff: the affirmations.
+// ---------------------------------------------------------------------
+
+const affirmationSchema = z.object({
+  body: z.string().trim().min(3, 'Write the line.').max(200),
+});
+
+export async function saveAffirmation(_prev: CardResult, formData: FormData): Promise<CardResult> {
+  await requireStaff();
+  if (isDemoMode()) return { error: 'The demo keeps its lines as they are.' };
+
+  const parsed = affirmationSchema.safeParse({ body: field(formData, 'body') });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const supabase = await createClient();
+  const { count } = await supabase.from('affirmations').select('id', { count: 'exact', head: true });
+  const { data, error } = await supabase
+    .from('affirmations')
+    .insert({ body: parsed.data.body, sort_order: (count ?? 0) + 1 })
+    .select('id')
+    .single();
+  if (error) return { error: error.message };
+
+  await note('affirmation.create', data.id as string, { body: parsed.data.body });
+  freshen();
+  redirect(`${CARDS_PAGE}?line=added` as Route);
+}
+
+export async function setAffirmationActive(formData: FormData): Promise<void> {
+  await requireStaff();
+  if (isDemoMode()) return;
+  const id = field(formData, 'id');
+  const active = field(formData, 'active') === '1';
+  if (!id) return;
+  const supabase = await createClient();
+  const { error } = await supabase.from('affirmations').update({ is_active: active }).eq('id', id);
+  if (error) return;
+  await note(active ? 'affirmation.restore' : 'affirmation.put_away', id, {});
+  freshen();
+  redirect(`${CARDS_PAGE}?line=${active ? 'back' : 'put'}` as Route);
+}
+
+export async function deleteAffirmation(formData: FormData): Promise<void> {
+  await requireStaff();
+  if (isDemoMode()) return;
+  const id = field(formData, 'id');
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase.from('affirmations').delete().eq('id', id);
+  await note('affirmation.delete', id, {});
+  freshen();
+  redirect(`${CARDS_PAGE}?line=removed` as Route);
+}

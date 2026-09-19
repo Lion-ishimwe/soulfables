@@ -16,6 +16,9 @@ import { JournalComposer, type StoryOption } from '@/components/journal-composer
 import { KebabMenu } from '@/components/admin/kebab-menu';
 import { JournalEntryBody } from '@/components/journal-entry-body';
 import { deleteEntry } from '@/app/actions/journal';
+import { getAffirmationOfTheDay } from '@/lib/affirmations';
+import { canUseSoulAI } from '@/lib/ai/access';
+import { JournalInsights } from '@/components/journal-insights';
 
 export const metadata: Metadata = {
   title: 'Your Reading Room',
@@ -80,7 +83,7 @@ export default async function JournalPage({
 
   const viewer = await getViewer();
 
-  const [moods, prompt, entries, total, reading, saved, catalogue, shelves] = await Promise.all([
+  const [moods, prompt, entries, total, reading, saved, catalogue, shelves, affirmation, soul] = await Promise.all([
     getMoods(),
     getTodaysPrompt(offset),
     viewer ? getEntries(showAll ? 500 : RECENT) : Promise.resolve([] as Entry[]),
@@ -89,6 +92,8 @@ export default async function JournalPage({
     viewer ? getSavedStories() : Promise.resolve([]),
     getStories(),
     getShelves(),
+    getAffirmationOfTheDay(),
+    viewer ? canUseSoulAI() : Promise.resolve(false),
   ]);
 
   /*
@@ -153,6 +158,11 @@ export default async function JournalPage({
           Every story leaves an echo. This is where you keep them.
         </p>
 
+        {affirmation && (
+          <p className="mx-auto mt-6 max-w-measure border-y border-gold/25 py-4 font-display text-lg italic leading-snug text-ivory">
+            {affirmation.body}
+          </p>
+        )}
         <p className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-ui text-sm text-grey-muted">
           <span className="flex items-center gap-2">
             <CalendarMark />
@@ -181,6 +191,8 @@ export default async function JournalPage({
         signedIn={Boolean(viewer)}
         initialStoryId={arrived?.id ?? ''}
       />
+
+      {viewer && <JournalInsights allowed={soul} entries={total ?? entries.length} />}
 
       {viewer && (
         <>

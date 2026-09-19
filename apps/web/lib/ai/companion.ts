@@ -1,5 +1,8 @@
 import 'server-only';
 import { getStories, getShelves } from '../content';
+import { getCards } from '../questions';
+import { getPromptPool } from '../journal';
+import { getAffirmations } from '../affirmations';
 import { isDemoMode } from '../demo/mode';
 
 /**
@@ -29,6 +32,20 @@ export type CompanionMessage = {
   safety?: 'crisis' | null;
   /** Stories the companion pointed at, for rendering as real links. */
   suggestions?: { slug: string; title: string }[];
+  /** True when a model wrote this reply rather than the House's rules. */
+  generated?: boolean;
+};
+
+/** What the Librarian knows when it answers. */
+export type CompanionContext = {
+  stories: { slug: string; title: string; subtitle: string; shelf: string }[];
+  shelves: { slug: string; label: string }[];
+  /** The drawer of quiet questions, by body. */
+  questions: string[];
+  /** The journal's daily prompts, by body. */
+  prompts: string[];
+  /** Calm lines the House says. */
+  affirmations: string[];
 };
 
 export const SYSTEM_PROMPT = `You are the Librarian of Soulfables, a house of modern folktales about love, loss, healing, identity and becoming.
@@ -78,7 +95,7 @@ export interface CompanionProvider {
   readonly name: string;
   reply(
     history: CompanionMessage[],
-    context: { stories: { slug: string; title: string; subtitle: string; shelf: string }[] },
+    context: CompanionContext,
   ): Promise<CompanionMessage>;
 }
 
@@ -95,7 +112,7 @@ class DemoCompanion implements CompanionProvider {
 
   async reply(
     history: CompanionMessage[],
-    context: { stories: { slug: string; title: string; subtitle: string; shelf: string }[] },
+    context: CompanionContext,
   ): Promise<CompanionMessage> {
     const last = [...history].reverse().find((m) => m.role === 'user');
     const text = (last?.content ?? '').toLowerCase();
@@ -156,35 +173,98 @@ class DemoCompanion implements CompanionProvider {
   }
 }
 
-export async function getCompanionProvider(): Promise<CompanionProvider> {
-  // A real provider slots in here. Everything above and around it —
-  // the system prompt, the safety screen, the context builder — is
-  // provider-independent by design.
-  /*
-   * The reader-facing Librarian is still the rule-based one, on purpose.
-   * It talks to somebody who may be in a bad way, and its safety screen
-   * and non-clinical rails are written against a known set of replies —
-   * putting a model behind it is a separate piece of work with a
-   * separate review, not a config change.
-   *
-   * The writing assistant, which talks to staff about drafts, does use
-   * the model. Same provider, different posture. See lib/ai/writing.ts.
-   */
-  return new DemoCompanion();
+/**
+ * A model behind the Librarian, for Premium.
+ *
+ * Same system prompt, same safety screen in front of it, same library
+ * to point at — plus the drawer of questions, the daily prompts and the
+ * affirmations, so it can offer one of the four things the House offers.
+ * It may only quote what it is given; a story it invents would be a
+ * story the House does not have.
+ */
+class ModelCompanion implements CompanionProvider {
+  readonly name = 'model';
+
+  async reply(history: CompanionMessage[], context: CompanionContext): Promise<CompanionMessage> {
+    const { ask } = await import('./claude');
+    const system = [
+      SYSTEM_PROMPT,
+      '',
+      'When it fits — and never in every reply — you may offer exactly one of these four things: a story from the library below, by its exact title; a reflection question from the questions below, word for word; a journaling prompt from the prompts below, word for word; or an affirmation from the affirmations below, word for word. Say which of the four it is. Do not invent stories, questions, prompts or affirmations.',
+      'Keep each reply under 160 words. Ask at most one question back. Short paragraphs.',
+      '',
+      'The library (title — subtitle — shelf):',
+      ...context.stories.map((s) => `- ${s.title} — ${s.subtitle} — ${s.shelf}`),
+      '',
+      'Shelves: ' + context.shelves.map((s) => s.label).join(', '),
+      '',
+      'Reflection questions:',
+      ...context.questions.map((q) => `- ${q}`),
+      '',
+      'Journaling prompts:',
+      ...context.prompts.map((q) => `- ${q}`),
+      '',
+      'Affirmations:',
+      ...context.affirmations.map((a) => `- ${a}`),
+    ].join('\n');
+
+    const turns = history
+      .filter((m) => !m.safety)
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    const result = await ask({ system, messages: turns, job: 'companion', maxTokens: 500 });
+    if (!result.ok) {
+      return {
+        role: 'assistant',
+        content: 'I lost the thread for a moment. Say that again, and I will listen properly.',
+      };
+    }
+
+    // A recommendation you cannot click is one you have to retype: any
+    // story named in the reply becomes a real link.
+    const text = result.text.trim();
+    const suggestions = context.stories
+      .filter((s) => text.includes(s.title))
+      .slice(0, 3)
+      .map((s) => ({ slug: s.slug, title: s.title }));
+
+    return { role: 'assistant', content: text, suggestions, generated: true };
+  }
+}
+
+/**
+ * Which Librarian answers.
+ *
+ * The rule-based one for everybody by default: it talks to people who
+ * may be in a bad way, and its replies are a known set. The model
+ * answers only for Premium readers and staff, only when a key is
+ * configured, and always behind the same safety screen.
+ */
+export async function getCompanionProvider(opts: { premium: boolean } = { premium: false }): Promise<CompanionProvider> {
+  if (!opts.premium || isDemoMode()) return new DemoCompanion();
+  const { claudeConfigured } = await import('./claude');
+  if (!claudeConfigured()) return new DemoCompanion();
+  return new ModelCompanion();
 }
 
 /** The library, shaped for the companion's context window. */
-export async function buildContext() {
-  const [stories, shelves] = await Promise.all([getStories(), getShelves()]);
+export async function buildContext(opts: { premium: boolean } = { premium: false }): Promise<CompanionContext> {
+  const [stories, shelves, cards, prompts, affirmations] = await Promise.all([
+    getStories(),
+    getShelves(),
+    getCards(),
+    getPromptPool(),
+    getAffirmations(),
+  ]);
   return {
+    // A free reader is only ever pointed at what they can open.
     stories: stories
-      .filter((s) => s.access === 'free')
-      .map((s) => ({
-        slug: s.slug,
-        title: s.title,
-        subtitle: s.subtitle,
-        shelf: s.shelf,
-      })),
+      .filter((s) => opts.premium || s.access === 'free')
+      .map((s) => ({ slug: s.slug, title: s.title, subtitle: s.subtitle, shelf: s.shelf })),
     shelves: shelves.map((s) => ({ slug: s.slug, label: s.label })),
+    questions: cards.map((c) => c.body),
+    prompts,
+    affirmations: affirmations.map((a) => a.body),
   };
 }

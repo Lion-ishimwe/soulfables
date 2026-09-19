@@ -7,7 +7,8 @@ import {
   CRISIS_RESPONSE,
   type CompanionMessage,
 } from '@/lib/ai/companion';
-import { getViewer } from '@/lib/auth';
+import { getViewer, isStaff } from '@/lib/auth';
+import { hasPremiumAccess } from '@/lib/membership';
 import { limitFor, HOUR, waitMessage } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -38,7 +39,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'sign-in-required' }, { status: 401 });
   }
 
-  const limit = await limitFor('companion', viewer.id, 120, HOUR);
+  // Premium readers and staff get the model-backed Librarian; it costs
+  // the House per turn, so its ceiling is lower than the rule-based one.
+  const premium = isStaff(viewer.role) || (await hasPremiumAccess());
+  const limit = await limitFor('companion', viewer.id, premium ? 60 : 120, HOUR);
   if (!limit.ok) {
     return NextResponse.json(
       { role: 'assistant', content: waitMessage(limit) } satisfies CompanionMessage,
@@ -66,8 +70,8 @@ export async function POST(request: NextRequest) {
   }
 
   const [provider, context] = await Promise.all([
-    getCompanionProvider(),
-    buildContext(),
+    getCompanionProvider({ premium }),
+    buildContext({ premium }),
   ]);
 
   const reply = await provider.reply(history, context);

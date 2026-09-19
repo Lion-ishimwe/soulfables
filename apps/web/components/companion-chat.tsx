@@ -24,7 +24,7 @@ const OPENERS = [
   'Give me a reflection prompt',
 ] as const;
 
-export function CompanionChat({ signedIn }: { signedIn: boolean }) {
+export function CompanionChat({ signedIn, model = false }: { signedIn: boolean; model?: boolean }) {
   const [messages, setMessages] = useState<CompanionMessage[]>([
     {
       role: 'assistant',
@@ -78,7 +78,7 @@ export function CompanionChat({ signedIn }: { signedIn: boolean }) {
     return (
       <div className="border border-rule p-10 text-center">
         <p className="font-display text-2xl text-ivory">
-          The Librarian keeps counsel with residents.
+          The Librarian keeps counsel with readers who have signed in.
         </p>
         <p className="mx-auto mt-3 max-w-measure text-sm leading-normal text-grey-muted">
           Sign in and tell them how the evening is going.
@@ -97,12 +97,17 @@ export function CompanionChat({ signedIn }: { signedIn: boolean }) {
 
   return (
     <div className="border border-rule">
+      <p className="border-b border-rule px-6 py-2.5 font-ui text-xs text-grey-faint sm:px-8">
+        {model
+          ? 'You are talking with a generated companion. It answers in the Librarian’s voice and may offer a story, a question, a prompt or an affirmation — only ever from the House’s own.'
+          : 'The Librarian answers from the House’s own rules: it listens for a shelf and points at real stories. Premium readers talk with a generated companion.'}
+      </p>
       <div className="max-h-[28rem] space-y-6 overflow-y-auto p-6 sm:p-8">
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
             {m.role === 'assistant' && (
               <p className="sf-eyebrow mb-2">
-                {m.safety === 'crisis' ? 'Please read this' : 'The Librarian'}
+                {m.safety === 'crisis' ? 'Please read this' : m.generated ? 'The Librarian · generated' : 'The Librarian'}
               </p>
             )}
 

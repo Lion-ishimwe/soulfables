@@ -113,6 +113,20 @@ export async function getTodaysPrompt(offset = 0): Promise<Prompt | null> {
   return { id: pick.id, body: pick.body };
 }
 
+/** The daily pool, by body — what the Librarian may offer as a journaling prompt. */
+export async function getPromptPool(): Promise<string[]> {
+  if (!configured()) return FALLBACK_PROMPTS;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('journal_prompts')
+    .select('body')
+    .is('scheduled_on', null)
+    .eq('is_active', true)
+    .eq('kind', 'daily')
+    .order('created_at');
+  return (data ?? []).map((r) => r.body as string);
+}
+
 /** Titles for story-linked entries, resolved once per call. */
 async function storyTitleLookup() {
   const stories = await getStories();
