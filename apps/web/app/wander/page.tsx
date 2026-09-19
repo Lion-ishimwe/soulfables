@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   title: 'Wander',
   description: 'Let the Librarian choose. One story, picked for you and the hour you are in.',
   alternates: { canonical: '/wander' },
+  // Every Wander page links to more Wander pages; a crawler must not follow.
+  robots: { index: false, follow: false },
 };
 
 // Chosen for whoever is here, so it cannot be prerendered.
@@ -93,6 +95,7 @@ export default async function WanderPage({
                 Begin reading
               </Link>
               <Link
+                rel="nofollow"
                 href={anotherHref}
                 className="font-ui text-sm text-grey transition-colors hover:text-ivory"
               >
@@ -118,6 +121,7 @@ export default async function WanderPage({
               return (
                 <li key={m.slug}>
                   <Link
+                    rel="nofollow"
                     href={wanderHref({ mood: on ? null : m.slug, seen })}
                     aria-pressed={on}
                     className={`flex items-center gap-2 rounded-full border px-4 py-2 font-ui text-sm transition-colors duration-base ease-house ${

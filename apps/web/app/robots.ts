@@ -8,7 +8,10 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       // Private surfaces. The journal in particular must never be crawled.
-      disallow: ['/admin', '/account', '/journal', '/auth', '/api'],
+      // Wander is a page of links to itself, chosen afresh each time: a
+      // crawler that follows them never finishes. GPTBot walked it for
+      // four days at two hundred requests a minute.
+      disallow: ['/admin', '/account', '/journal', '/auth', '/api', '/wander', '/search'],
     },
     sitemap: `${SITE}/sitemap.xml`,
     host: SITE,

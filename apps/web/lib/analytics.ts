@@ -1,4 +1,5 @@
 import 'server-only';
+import { headers } from 'next/headers';
 import { createClient } from './supabase/server';
 import { isDemoMode } from './demo/mode';
 
@@ -45,8 +46,22 @@ type TrackOptions = {
  * alternative is a story that will not open because the analytics table
  * is busy.
  */
+const CRAWLER = /bot|crawl|spider|slurp|fetch|scrapy|python-requests|curl\/|wget\/|headless|preview|facebookexternalhit|gptbot|claudebot|bytespider|petalbot|ahrefs|semrush|mj12/i;
+
+/** True when the request comes from a machine that reads pages, not a person. */
+async function isCrawler(): Promise<boolean> {
+  try {
+    const ua = (await headers()).get('user-agent') ?? '';
+    return ua === '' || CRAWLER.test(ua);
+  } catch {
+    return false;
+  }
+}
+
 export async function track(name: EventName, options: TrackOptions = {}): Promise<void> {
   if (isDemoMode()) return;
+  // A crawler opening every story is not a reader opening one.
+  if (await isCrawler()) return;
 
   try {
     const supabase = await createClient();
