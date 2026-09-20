@@ -49,6 +49,18 @@ const COLUMNS = [
   },
 ] as const;
 
+/*
+ * Where the House speaks elsewhere. Plain names, not a row of logos: the
+ * footer is quiet and these are doors, not decoration. The addresses
+ * are the ones the House gave, with tracking parameters left off.
+ */
+const SOCIAL = [
+  { href: 'https://www.facebook.com/share/1BBNMkyaMD/', label: 'Facebook' },
+  { href: 'https://youtube.com/@soulfablesstudio', label: 'YouTube' },
+  { href: 'https://www.tiktok.com/@soulfablestv', label: 'TikTok' },
+  { href: 'https://www.instagram.com/soulfableshq', label: 'Instagram' },
+] as const;
+
 export function SiteFooter() {
   return (
     <footer className="mt-32 border-t border-rule">
@@ -66,6 +78,23 @@ export function SiteFooter() {
               A quiet place for modern folktales about love, loss, healing,
               identity, hope, and becoming.
             </p>
+            <nav aria-label="Follow the House" className="mt-6">
+              <h2 className="sf-eyebrow mb-3">Follow</h2>
+              <ul className="flex flex-wrap gap-x-5 gap-y-2">
+                {SOCIAL.map((s) => (
+                  <li key={s.href}>
+                    <a
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-grey transition-colors duration-base ease-house hover:text-gold"
+                    >
+                      {s.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
 
           {COLUMNS.map((col) => (
