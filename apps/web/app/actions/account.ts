@@ -125,6 +125,56 @@ export async function changeOwnPassword(
   return { message: 'Password changed. It takes effect the next time you sign in.' };
 }
 
+const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email('That does not look like an email address.');
+
+/**
+ * Change your own sign-in address.
+ *
+ * The auth service does the careful part: it emails a link to the new
+ * address (and, with secure email change on, to the old one as well) and
+ * nothing changes until the link is used. The link lands on /auth/confirm
+ * with type=email_change, so a mail scanner opening it early does no
+ * harm. Until then you still sign in with the old address.
+ */
+export async function changeOwnEmail(
+  _prev: AccountResult,
+  formData: FormData,
+): Promise<AccountResult> {
+  const viewer = await requireViewer();
+
+  const parsed = emailSchema.safeParse(field(formData, 'email'));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const email = parsed.data;
+  if (viewer.email && email === viewer.email.toLowerCase()) {
+    return { error: 'That is already your address.' };
+  }
+
+  if (isDemoMode()) {
+    return { error: 'Demo mode has no accounts to change an address on.' };
+  }
+
+  const supabase = await createClient();
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://soulfables.co';
+  const { error } = await supabase.auth.updateUser(
+    { email },
+    { emailRedirectTo: `${origin}/auth/confirm` },
+  );
+  if (error) {
+    if (/already|registered|exists/i.test(error.message)) {
+      return { error: 'That address already belongs to another account.' };
+    }
+    return { error: error.message };
+  }
+
+  return {
+    message: `A confirmation link has been sent to ${email}. If a link also arrives at your current address, open both. Nothing changes until then, and you keep signing in with the old address meanwhile.`,
+  };
+}
+
 /**
  * Leaving the House for good.
  *

@@ -290,7 +290,14 @@ export async function confirmEmailLink(_prev: ActionResult, formData: FormData):
     }
   }
 
-  const fallback = kind === 'recovery' ? '/account/password' : '/account/library';
+  // A changed address lands back on the account page it was changed from:
+  // the admin's for staff, the reader's for everyone else.
+  let fallback = '/account/library';
+  if (kind === 'recovery') fallback = '/account/password';
+  if (kind === 'email_change') {
+    const who = await getViewer();
+    fallback = who && isStaff(who.role) ? '/admin/settings/account' : '/account/settings';
+  }
   const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : fallback;
   redirect(next as Route);
 }

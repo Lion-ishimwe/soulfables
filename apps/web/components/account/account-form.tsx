@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import {
   saveAccountProfile,
   changeOwnPassword,
+  changeOwnEmail,
   type AccountResult,
 } from '@/app/actions/account';
 
@@ -108,6 +109,10 @@ export function AccountForm({
     changeOwnPassword,
     {},
   );
+  const [emailState, emailAction] = useActionState<AccountResult, FormData>(
+    changeOwnEmail,
+    {},
+  );
 
   // Emptied on success, so the form does not sit there still holding the
   // password it has already accepted.
@@ -156,11 +161,9 @@ export function AccountForm({
                 Email
               </label>
               {/*
-                Read-only on purpose. The email IS the account — changing
-                it is a re-verification flow with an email provider behind
-                it, and there is no provider connected yet. A field that
-                looks editable and is not would be a worse lie than a
-                disabled one.
+                Shown here, changed below. The email is the account, so a
+                change goes through a confirmation link rather than a save
+                button; the Email section under this form does that.
               */}
               <input
                 id="acct-email"
@@ -170,8 +173,7 @@ export function AccountForm({
                 className={`${FIELD} cursor-not-allowed opacity-60`}
               />
               <p className={HINT}>
-                How you sign in. Changing it needs a verification email, which is
-                not connected yet.
+                How you sign in. To change it, use the Email section below.
               </p>
             </div>
           </div>
@@ -212,6 +214,45 @@ export function AccountForm({
       </form>
 
       {/* ---- Password ---------------------------------------------- */}
+      {/* ---- Email --------------------------------------------------- */}
+      <form action={emailAction} className="rounded-lg border border-rule bg-ink-raised">
+        <header className="border-b border-rule px-5 py-4">
+          <h2 className="font-ui text-sm text-ivory">Email</h2>
+          <p className="mt-0.5 font-ui text-micro text-grey-faint">
+            A confirmation link goes to the new address. Nothing changes until it is opened.
+          </p>
+        </header>
+
+        <div className="p-5">
+          <Notice state={emailState} />
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="acct-new-email" className={LABEL}>
+                New email
+              </label>
+              <input
+                id="acct-new-email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder={email ?? ''}
+                className={FIELD}
+              />
+              <p className={HINT}>
+                You keep signing in with {email ?? 'the current address'} until the link is used.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end border-t border-rule pt-5">
+            <Submit label="Send confirmation" busy="Sending…" />
+          </div>
+        </div>
+      </form>
+
+      {/* ---- Password ------------------------------------------------ */}
       <form ref={passwordForm} action={passwordAction} className="rounded-lg border border-rule bg-ink-raised">
         <header className="border-b border-rule px-5 py-4">
           <h2 className="font-ui text-sm text-ivory">Password</h2>
