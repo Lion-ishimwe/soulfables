@@ -245,3 +245,52 @@ export async function signOut(): Promise<void> {
   revalidatePath('/', 'layout');
   redirect('/');
 }
+
+const LINK_KINDS = ['signup', 'recovery', 'magiclink', 'email_change', 'email', 'invite'] as const;
+
+/**
+ * An emailed link, used.
+ *
+ * The link lands on /auth/confirm, which does nothing until the reader
+ * presses the button; that press comes here. Mail services open links
+ * to check them, and a link that acted on opening would be spent before
+ * the reader arrived. verifyOtp needs no cookie from the browser that
+ * asked for the link, so the email may be opened anywhere.
+ */
+export async function confirmEmailLink(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const tokenHash = field(formData, 'token_hash') ?? '';
+  const type = field(formData, 'type') ?? '';
+  const rawNext = field(formData, 'next') ?? '';
+  const kind = LINK_KINDS.find((k) => k === type);
+  if (!tokenHash || !kind) return { error: 'This link is incomplete. Open it from the email again.' };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ type: kind, token_hash: tokenHash });
+  if (error || !data.user) {
+    return { error: 'This link has already been used, or it has expired. Ask for a new one below.' };
+  }
+
+  // Prior guest purchases become theirs, as the callback route does.
+  if (data.user.email && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const { createAdminClient } = await import('@/lib/supabase/admin');
+      const admin = createAdminClient();
+      await admin.rpc('claim_orders_for_user', { p_user_id: data.user.id, p_email: data.user.email });
+      if (kind === 'signup') {
+        const { sendWelcomeEmail } = await import('@/lib/email');
+        const { count } = await admin
+          .from('email_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', data.user.id)
+          .eq('template', 'welcome');
+        if (!count) await sendWelcomeEmail(data.user.email, data.user.id);
+      }
+    } catch (e) {
+      console.error('[auth/confirm] after-link work failed', e);
+    }
+  }
+
+  const fallback = kind === 'recovery' ? '/account/password' : '/account/library';
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : fallback;
+  redirect(next as Route);
+}

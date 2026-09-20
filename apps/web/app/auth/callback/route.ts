@@ -30,8 +30,10 @@ export async function GET(request: NextRequest) {
       ? rawNext
       : '/account/library';
 
-  if (!code) {
-    return NextResponse.redirect(`${origin}/signin?error=missing_code`);
+  // The auth service says so itself when a link was already used or is
+  // too old: it comes back here with error= instead of code=.
+  if (searchParams.get('error') || !code) {
+    return NextResponse.redirect(`${origin}/signin?error=link_expired`);
   }
 
   const supabase = await createClient();

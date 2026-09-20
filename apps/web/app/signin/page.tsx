@@ -13,13 +13,20 @@ import { PersonaPicker } from '@/components/persona-picker';
 
 export const metadata: Metadata = { title: 'Sign In' };
 
+const LINK_MESSAGES: Record<string, string> = {
+  link_expired:
+    'That emailed link has already been used, or it has expired. Links work once; ask for a new one and open it from the newest email.',
+  missing_code: 'That link was incomplete. Open it from the email again, or ask for a new one.',
+};
+
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   const demo = isDemoMode();
+  const linkMessage = error ? LINK_MESSAGES[error] : undefined;
 
   return (
     <AuthShell
@@ -43,6 +50,11 @@ export default async function SignInPage({
         )
       }
     >
+      {linkMessage && (
+        <p role="alert" className="mb-6 border-l-2 border-gold bg-gold-dim px-4 py-3 font-ui text-sm text-ivory">
+          {linkMessage}
+        </p>
+      )}
       {demo ? (
         <>
           <PersonaPicker personas={DEMO_PERSONAS} next={next} />
