@@ -221,26 +221,30 @@ export class PayPalProvider implements PaymentProvider {
             })),
           },
         ],
-        payment_source: {
-          paypal: {
-            ...(req.email ? { email_address: req.email } : {}),
-            experience_context: {
-              brand_name: 'Soulfables',
-              user_action: 'PAY_NOW',
-              shipping_preference: 'NO_SHIPPING',
-              landing_page: 'GUEST_CHECKOUT',
-              // Our own route, which captures before showing the
-              // thank-you page. The cancel address is the caller's.
-              return_url: `${origin}/api/payments/paypal/return?ref=${encodeURIComponent(req.reference)}`,
-              cancel_url: req.cancelUrl,
-            },
-          },
+        // application_context, not payment_source.paypal. Nesting the
+        // experience under payment_source.paypal tells PayPal the buyer
+        // pays with a PayPal account, so it returns a payer-action link
+        // that opens the login page — on mobile especially. The classic
+        // application_context returns the checkoutnow page, which shows
+        // the card form first with "Log in" as the second choice.
+        // landing_page BILLING is the card-first value for this field
+        // (GUEST_CHECKOUT belongs only under payment_source.paypal).
+        application_context: {
+          brand_name: 'Soulfables',
+          user_action: 'PAY_NOW',
+          shipping_preference: 'NO_SHIPPING',
+          landing_page: 'BILLING',
+          // Our own route, which captures before showing the
+          // thank-you page. The cancel address is the caller's.
+          return_url: `${origin}/api/payments/paypal/return?ref=${encodeURIComponent(req.reference)}`,
+          cancel_url: req.cancelUrl,
         },
       },
       `checkout_${req.orderId}`,
     );
 
-    const approve = order.links?.find((l) => l.rel === 'payer-action' || l.rel === 'approve');
+    // Prefer the classic approve link (checkoutnow) over payer-action.
+    const approve = order.links?.find((l) => l.rel === 'approve') ?? order.links?.find((l) => l.rel === 'payer-action');
     if (!approve) {
       throw new Error('PayPal returned an order with no approval link.');
     }
