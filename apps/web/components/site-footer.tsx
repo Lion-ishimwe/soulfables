@@ -11,24 +11,18 @@ const COLUMNS = [
     heading: 'Explore',
     links: [
       { href: '/library', label: 'Library' },
-      { href: '/wander', label: 'Wander' },
       { href: '/shelves', label: 'Shelves' },
       { href: '/series', label: 'Series' },
-      { href: '/sleep', label: 'Sleep Stories' },
-      { href: '/residents', label: 'Residents' },
     ],
   },
   {
     heading: 'Reading Room',
     links: [
       { href: '/journal', label: 'Reading Journal' },
-      { href: '/journal/guided', label: 'Guided Journals' },
-      { href: '/community', label: 'Community' },
       { href: '/letter', label: 'Weekly Letter' },
       // The drawer of quiet questions, as the first House named it. The
       // printable deck of 52 is a product, and lives in the Bookshop.
       { href: '/questions', label: 'Reflection Deck' },
-      { href: '/companion', label: 'The Librarian' },
     ],
   },
   {
@@ -36,7 +30,6 @@ const COLUMNS = [
     links: [
       { href: '/shop', label: 'Bookshop' },
       { href: '/account/library', label: 'My Library' },
-      { href: '/account/orders', label: 'Orders' },
       { href: '/membership', label: 'Residency' },
     ],
   },
