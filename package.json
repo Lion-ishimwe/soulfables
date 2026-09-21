@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Soulfables \u2014 Every Soul Has a Story. Monorepo for the web, admin, and shared packages.",
   "workspaces": [
-    "apps/*",
+    "apps/web",
     "packages/*",
     "services/*"
   ],

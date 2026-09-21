@@ -1,6 +1,6 @@
 import 'server-only';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -16,7 +16,42 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
  * signed download URLs, processing a webhook — use `./admin`, and read
  * the warning at the top of that file first.
  */
+/**
+ * The mobile app carries its session as a bearer token, not a cookie.
+ *
+ * Returns the token from an "Authorization: Bearer …" header, or null
+ * when there is none, which is every browser request. Read once per
+ * request; headers() is request-scoped like cookies().
+ */
+export async function bearerToken(): Promise<string | null> {
+  try {
+    const value = (await headers()).get('authorization') ?? '';
+    const m = /^Bearer\s+(.+)$/i.exec(value.trim());
+    return m ? m[1] : null;
+  } catch {
+    return null; // outside a request, e.g. a static build
+  }
+}
+
 export async function createClient() {
+  /*
+   * A request that carries a bearer token is the app. The client then
+   * sends that token on every database call, so RLS sees the reader
+   * exactly as it would through a cookie, and nothing is written back
+   * because the app keeps its own session.
+   */
+  const token = await bearerToken();
+  if (token) {
+    return createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: { getAll() { return []; }, setAll() {} },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      },
+    );
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient(

@@ -2,7 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createClient } from './supabase/server';
+import { bearerToken, createClient } from './supabase/server';
 import { isDemoMode } from './demo/mode';
 import { currentDemoPersona } from './demo/session';
 
@@ -59,8 +59,9 @@ export const getViewer = cache(async function getViewer(): Promise<Viewer | null
    * forged: a forged cookie still fails verification below, and a missing
    * one cannot invent a session.
    */
+  const token = await bearerToken();
   const jar = await cookies();
-  const hasSession = jar.getAll().some((c) => /^sb-.*-auth-token/.test(c.name));
+  const hasSession = token !== null || jar.getAll().some((c) => /^sb-.*-auth-token/.test(c.name));
   if (!hasSession) return null;
 
   const supabase = await createClient();
@@ -70,8 +71,10 @@ export const getViewer = cache(async function getViewer(): Promise<Viewer | null
    * it does not need getUser() to have answered first — waiting for it
    * cost a round trip on every signed-in page for no information.
    */
+  // With a bearer token there is no client-side session to read, so the
+  // token itself is handed to getUser; the auth server verifies it.
   const [{ data: { user } }, { data: contextData }] = await Promise.all([
-    supabase.auth.getUser(),
+    token ? supabase.auth.getUser(token) : supabase.auth.getUser(),
     supabase.rpc('viewer_context'),
   ]);
 

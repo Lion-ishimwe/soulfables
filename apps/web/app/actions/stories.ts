@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireStaff } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo/mode';
 import { after } from 'next/server';
+import { sendPush } from '@/lib/push';
 import { ensureNarration } from '@/lib/audio/narrate';
 
 /**
@@ -380,6 +381,13 @@ export async function saveStory(
 
   // Published words are read aloud; unchanged words are not read twice.
   if (d.status === 'published') after(() => ensureNarration(d.slug, 'saved'));
+
+  // The first time a story is published, every phone with the app hears
+  // of it. Later edits are not news.
+  const wasPublished = Boolean((before as { published_at?: string | null } | null)?.published_at);
+  if (d.status === 'published' && !wasPublished) {
+    after(() => sendPush(null, { title: 'A new story in the House', body: d.title, path: `/story/${d.slug}` }));
+  }
 
   // Rebuild sections from the body. Replace rather than diff: sections
   // carry no reader data of their own, and bookmarks reference them by
