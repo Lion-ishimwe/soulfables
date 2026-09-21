@@ -32,6 +32,7 @@ echo "==> Sending the repository to ${USER_NAME}@${HOST}:${APP_DIR}"
 #                     binaries compiled on Windows do not run on Linux
 #   .next             a Windows build artefact, likewise
 #   .git              not needed, and large
+#   apps/mobile       the phone app: built by Expo's cloud, never by this server
 tar -czf - \
   --exclude='./node_modules' \
   --exclude='./apps/web/.next' \
