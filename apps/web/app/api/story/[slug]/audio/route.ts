@@ -22,8 +22,10 @@ const SIGNED_URL_TTL_SECONDS = 60 * 60 * 2;
  * directly, with range requests, so scrubbing and resuming work and the
  * instance does not stream audio through itself.
  */
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  // The app asks for the address as JSON; a browser follows the redirect.
+  const wantsJson = new URL(request.url).searchParams.get('json') === '1';
 
   if (isDemoMode() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: 'unavailable' }, { status: 503 });
@@ -71,6 +73,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (signError || !signed) {
     console.error('[audio] could not sign', slug, signError?.message);
     return NextResponse.json({ error: 'unavailable' }, { status: 503 });
+  }
+
+  if (wantsJson) {
+    return NextResponse.json(
+      { url: signed.signedUrl, format: row.format, expiresIn: SIGNED_URL_TTL_SECONDS },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    );
   }
 
   return NextResponse.redirect(signed.signedUrl, {
