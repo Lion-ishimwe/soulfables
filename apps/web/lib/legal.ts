@@ -11,7 +11,7 @@
  * comma does not need a new version; a new refund window does.
  */
 export const LEGAL = {
-  terms: '2026-09-19',
+  terms: '2026-09-21',
   privacy: '2026-09-15',
   digitalProducts: '2026-09-21',
 } as const;

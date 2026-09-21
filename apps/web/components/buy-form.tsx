@@ -85,7 +85,7 @@ export function BuyForm({ slug, ctaLabel }: { slug: string; ctaLabel: string }) 
 
       {/*
         Digital goods delivered at once: under EU consumer law the buyer
-        agrees to immediate delivery and, with it, gives up the fourteen-day
+        agrees to immediate delivery and, with it, gives up the statutory
         right to withdraw. Said in one sentence, ticked, and recorded with
         the order — not buried in a page nobody opens.
       */}
@@ -93,7 +93,8 @@ export function BuyForm({ slug, ctaLabel }: { slug: string; ctaLabel: string }) 
         <input type="checkbox" name="consent" value="1" required className="mt-0.5 h-3.5 w-3.5 flex-none accent-[#C89528]" />
         <span>
           I want the book delivered to my library straight away, and I understand that once it
-          is, the fourteen-day right to change my mind no longer applies. I have read the{' '}
+          is, the legal right to withdraw no longer applies; refunds follow the House's seven-day
+          policy. I have read the{' '}
           <a href="/terms" className="text-gold hover:text-gold-soft">terms</a> and the{' '}
           <a href="/digital-products" className="text-gold hover:text-gold-soft">digital products policy</a>.
           The price includes VAT.

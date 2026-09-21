@@ -105,10 +105,11 @@ export default async function DigitalProductsPage() {
       <h2 className={h}>The right to withdraw</h2>
       <p className={p}>
         Under European consumer law you may normally withdraw from a distance purchase within
-        fourteen days. For digital content that right ends once delivery has begun with your
+        a set period. For digital content that right ends once delivery has begun with your
         agreement. That is why the checkout asks you to tick that you want the book delivered
-        straight away and understand that the fourteen-day right no longer applies. The tick is
-        recorded with your order, together with the version of this page you accepted.
+        straight away and understand that the legal right no longer applies. In its place the
+        House gives the seven days set out above. The tick is recorded with your order, together
+        with the version of this page you accepted.
       </p>
 
       <h2 className={h}>Refunds</h2>

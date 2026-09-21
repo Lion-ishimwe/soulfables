@@ -55,9 +55,9 @@ export default async function TermsPage() {
       </p>
       <p className={p}>
         Because a book is delivered the moment you pay, you agree at checkout to immediate delivery
-        and acknowledge that the fourteen-day right to withdraw no longer applies once delivery has
-        begun. What happens when a file is faulty, when you change your mind, or when you bought
-        something twice is set out in the{' '}
+        and acknowledge that the legal right to withdraw no longer applies once delivery has
+        begun. In its place the House gives seven days: what happens when a file is faulty, when
+        you change your mind, or when you bought something twice is set out in the{' '}
         <Link href={'/digital-products' as Route} className="text-gold hover:text-gold-soft">digital products policy</Link>,
         which forms part of these terms.
       </p>
