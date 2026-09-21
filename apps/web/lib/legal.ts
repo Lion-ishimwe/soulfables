@@ -13,7 +13,7 @@
 export const LEGAL = {
   terms: '2026-09-19',
   privacy: '2026-09-15',
-  digitalProducts: '2026-09-19',
+  digitalProducts: '2026-09-21',
 } as const;
 
 const MONTHS = [

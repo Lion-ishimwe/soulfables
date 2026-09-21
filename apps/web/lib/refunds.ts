@@ -7,15 +7,16 @@ import { isDemoMode } from './demo/mode';
  * Refunds, as the digital products policy sets them out.
  *
  * Three grounds and their windows, counted from the day the order was
- * paid: something is wrong with the book, thirty days; a change of
- * mind, fourteen days and only if no file of it was downloaded; the
- * same book bought twice, whenever it is noticed. The reader asks from
+ * paid: seven days for all of them. Something is wrong with the book;
+ * a change of mind, only if no file of it was downloaded; the same
+ * book bought twice. After seven days the desk may still be written to,
+ * but the policy no longer promises a refund. The reader asks from
  * the receipt; staff decide on /admin/refunds with the download log in
  * front of them. Nothing here refunds by itself.
  */
 
-export const FAULTY_DAYS = 30;
-export const CHANGE_OF_MIND_DAYS = 14;
+export const FAULTY_DAYS = 7;
+export const CHANGE_OF_MIND_DAYS = 7;
 
 export type RefundReason = 'faulty' | 'changed_mind' | 'duplicate' | 'other';
 
@@ -41,9 +42,9 @@ export type RefundRequest = {
 export type RefundWindow = {
   /** Days since the order was paid. */
   daysSincePaid: number;
-  /** Within thirty days: a fault can still be put right or refunded. */
+  /** Within seven days: a fault can still be put right or refunded. */
   faultyOpen: boolean;
-  /** Within fourteen days: a change of mind can still be honoured. */
+  /** Within seven days: a change of mind can still be honoured. */
   changeOfMindOpen: boolean;
   /** How many times a file of this order was downloaded, and when last. */
   downloads: number;

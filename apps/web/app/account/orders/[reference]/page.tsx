@@ -132,7 +132,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ refere
 
       {/*
         The refund desk, from the reader's side. A paid order within the
-        thirty-day window offers the form; a request already made shows
+        seven-day window offers the form; a request already made shows
         where it stands; an older order is pointed to the shop's address.
        */}
       <section className="mt-8 print:hidden">

@@ -21,8 +21,8 @@ export const revalidate = 3600;
  * what they may do with it, and what happens when something is wrong or
  * they change their mind. Every promise here matches a mechanism —
  * delivery on capture, the library, the download log, the refund path in
- * the webhook — and the numbers are the House's decisions: thirty days
- * for a fault, fourteen for a change of mind if nothing was downloaded,
+ * the webhook — and the numbers are the House's decisions: seven days
+ * for any refund, a change of mind only if nothing was downloaded,
  * prices that include VAT.
  *
  * The seller is whatever Settings → The House names as the registered
@@ -50,9 +50,9 @@ export default async function DigitalProductsPage() {
       </h1>
       <p className="mt-5 font-ui text-sm text-grey-muted">
         Last changed {updated}. The short version: you get the book the moment you pay, it stays
-        in your library, you may download it as often as you like for yourself, a faulty file is
-        put right or refunded within thirty days, a change of mind is honoured within fourteen days
-        if you never downloaded it, and the price you see includes VAT.
+        in your library, you may download it as often as you like for yourself, refunds are
+        possible within seven days of purchase, a change of mind only if you never downloaded it,
+        and the price you see includes VAT.
       </p>
 
       <h2 className={h}>Who is selling</h2>
@@ -116,17 +116,17 @@ export default async function DigitalProductsPage() {
         <li className={li}>
           <strong className="text-ivory">Something is wrong with what you received.</strong> A file
           that will not open, a book that is not what its page described, a format that is missing.
-          Write to {shop} within thirty days of purchase. We put it right first, usually with a
-          corrected file. If we cannot, we refund the purchase in full.
+          Write to {shop}, or ask from your receipt, within seven days of purchase. We put it right
+          first, usually with a corrected file. If we cannot, we refund the purchase in full.
         </li>
         <li className={li}>
-          <strong className="text-ivory">You changed your mind.</strong> Within fourteen days of
+          <strong className="text-ivory">You changed your mind.</strong> Within seven days of
           purchase, if you have not downloaded any file of the book, we refund it in full on request.
           Once a file has been downloaded, a change of mind is no longer grounds for a refund.
         </li>
         <li className={li}>
-          <strong className="text-ivory">You bought the same book twice.</strong> Refunded, whenever
-          you notice.
+          <strong className="text-ivory">You bought the same book twice.</strong> Refunded, if you
+          ask within seven days of the second purchase.
         </li>
         <li className={li}>
           <strong className="text-ivory">Residency.</strong> Renewals and cancellation are described in

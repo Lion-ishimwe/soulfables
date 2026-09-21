@@ -83,17 +83,17 @@ function Request({ r }: { r: DeskRequest }) {
   const verdict =
     r.reason === 'changed_mind'
       ? w.changeOfMindOpen
-        ? 'Within fourteen days and nothing downloaded: the policy says refund.'
+        ? 'Within seven days and nothing downloaded: the policy says refund.'
         : w.downloads > 0
           ? 'A file was downloaded: a change of mind is no longer grounds.'
-          : 'Past fourteen days: a change of mind is no longer grounds.'
+          : 'Past seven days: a change of mind is no longer grounds.'
       : r.reason === 'faulty'
         ? w.faultyOpen
-          ? 'Within thirty days: put it right, or refund.'
-          : 'Past thirty days: outside the window, but read it.'
+          ? 'Within seven days: put it right, or refund.'
+          : 'Past seven days: outside the window, but read it.'
         : r.reason === 'duplicate'
-          ? 'Bought twice: refund whenever noticed. Check the orders list for the other purchase.'
-          : 'No window applies: a person decides.';
+          ? (w.faultyOpen ? 'Bought twice, within seven days: refund. Check the orders list for the other purchase.' : 'Bought twice, past seven days: outside the window, but read it.')
+          : (w.faultyOpen ? 'Within seven days: a person decides.' : 'Past seven days: outside the window, but read it.');
 
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">

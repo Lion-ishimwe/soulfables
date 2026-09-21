@@ -53,7 +53,7 @@ export function RefundRequestForm({
     {
       value: 'faulty',
       label: 'Something is wrong with it',
-      hint: 'A file that will not open, a missing format, a book that is not what its page described. Within thirty days.',
+      hint: 'A file that will not open, a missing format, a book that is not what its page described. Within seven days.',
       open: faultyOpen,
     },
     {
@@ -61,18 +61,18 @@ export function RefundRequestForm({
       label: 'I changed my mind',
       hint: downloaded
         ? 'No longer possible: a file of this book has been downloaded.'
-        : 'Within fourteen days, if no file has been downloaded.',
+        : 'Within seven days, if no file has been downloaded.',
       open: changeOfMindOpen,
     },
-    { value: 'duplicate', label: 'I bought it twice', hint: 'Refunded whenever you notice.', open: true },
-    { value: 'other', label: 'Something else', hint: 'Say what, and a person will read it.', open: true },
+    { value: 'duplicate', label: 'I bought it twice', hint: 'Within seven days.', open: faultyOpen },
+    { value: 'other', label: 'Something else', hint: 'Say what, and a person will read it. Within seven days.', open: faultyOpen },
   ];
 
   return (
     <details className="group">
       <summary className="cursor-pointer list-none font-ui text-sm text-gold transition-colors hover:text-gold-soft">
         Ask for a refund
-        <span className="ml-2 font-ui text-xs text-grey-muted">Money comes back within the windows the digital products policy sets out.</span>
+        <span className="ml-2 font-ui text-xs text-grey-muted">Within seven days of purchase, as the digital products policy sets out.</span>
       </summary>
 
       <form action={formAction} className="mt-5 space-y-5 border-t border-rule pt-5">

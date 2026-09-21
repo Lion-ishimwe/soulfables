@@ -26,9 +26,8 @@ const askSchema = z.object({
  *
  * The order must be theirs and paid. The insert policy says so as
  * well, but the reasons are checked here so the reader gets a sentence
- * back rather than a refusal: a change of mind after fourteen days, or
- * after a download, is not grounds; a fault after thirty days is not
- * either. The desk is told by email; the reader sees the request on
+ * back rather than a refusal: every ground has seven days from the
+ * purchase, and a change of mind also needs nothing downloaded. The desk is told by email; the reader sees the request on
  * the receipt from then on.
  */
 export async function requestRefund(_prev: RefundResult, formData: FormData): Promise<RefundResult> {
@@ -58,13 +57,13 @@ export async function requestRefund(_prev: RefundResult, formData: FormData): Pr
       error:
         win.downloads > 0
           ? 'A file of this book has been downloaded, so a change of mind is no longer grounds for a refund. If something is wrong with it, choose that instead.'
-          : 'A change of mind is honoured within fourteen days of purchase, and this order is older than that.',
+          : 'A change of mind is honoured within seven days of purchase, and this order is older than that.',
     };
   }
-  if (reason === 'faulty' && !win.faultyOpen) {
+  if ((reason === 'faulty' || reason === 'duplicate' || reason === 'other') && !win.faultyOpen) {
     return {
       error:
-        'Something wrong with a book is put right within thirty days of purchase, and this order is older than that. Write to the shop and we will still look.',
+        'A refund is possible within seven days of purchase, and this order is older than that. Write to the shop and we will still look.',
     };
   }
 
