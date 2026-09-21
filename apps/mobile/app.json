@@ -1,0 +1,91 @@
+{
+  "expo": {
+    "name": "Soulfables",
+    "slug": "soulfables",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "soulfables",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0f0e0c",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "co.soulfables.app",
+      "associatedDomains": [
+        "applinks:soulfables.co"
+      ],
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "co.soulfables.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f0e0c",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "soulfables.co",
+              "pathPrefix": "/story"
+            },
+            {
+              "scheme": "https",
+              "host": "soulfables.co",
+              "pathPrefix": "/auth/confirm"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "color": "#c9a961"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0f0e0c"
+        }
+      ]
+    ],
+    "extra": {
+      "siteUrl": "https://soulfables.co",
+      "supabaseUrl": "https://pnqejnmvrejvtnyaehif.supabase.co",
+      "supabaseAnonKey": "SET_IN_EAS_OR_ENV",
+      "eas": {
+        "projectId": ""
+      }
+    },
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
