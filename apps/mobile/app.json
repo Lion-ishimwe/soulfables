@@ -79,7 +79,7 @@
     "extra": {
       "siteUrl": "https://soulfables.co",
       "supabaseUrl": "https://pnqejnmvrejvtnyaehif.supabase.co",
-      "supabaseAnonKey": "SET_IN_EAS_OR_ENV",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBucWVqbm12cmVqdnRueWFlaGlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwNzkyMDgsImV4cCI6MjEwMzY1NTIwOH0.dzEFYvSOPTA3yDstOtwQHdjVq0oRuBVhB9dzaIVvvr8",
       "eas": {
         "projectId": ""
       }
