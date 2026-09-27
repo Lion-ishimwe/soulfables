@@ -4,14 +4,51 @@
     {
       "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--workspace=@soulfables/web"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace=@soulfables/web"
+      ],
       "port": 3000
     },
     {
       "name": "web-demo",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set NEXT_PUBLIC_DEMO_MODE=true&& npm run dev --workspace=@soulfables/web"],
+      "runtimeArgs": [
+        "/c",
+        "set NEXT_PUBLIC_DEMO_MODE=true&& npm run dev --workspace=@soulfables/web"
+      ],
       "port": 3000
+    },
+    {
+      "name": "web-demo-3001",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set NEXT_PUBLIC_DEMO_MODE=true&& npm run dev --workspace=@soulfables/web -- -p 3001"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "rightseat-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "D:\\Projects\\Rightseat-Website New\\node_modules\\next\\dist\\bin\\next",
+        "dev",
+        "D:\\Projects\\Rightseat-Website New",
+        "-p",
+        "3100"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "vexa",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd /d D:\\Projects\\Vexa\\vexa&& node node_modules\\@11ty\\eleventy\\cmd.cjs --serve --port=8090"
+      ],
+      "port": 8090
     }
   ]
 }
