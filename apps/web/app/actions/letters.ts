@@ -165,3 +165,53 @@ export async function sendLetterToSubscribers(_prev: LetterResult, formData: For
     message: `Sent to ${sent} ${sent === 1 ? 'reader' : 'readers'}${failed ? `, ${failed} could not be delivered` : ''}. The letter is published on the site.`,
   };
 }
+
+/**
+ * Taking a letter down, putting it back, and deleting it.
+ *
+ * Unpublish hides the letter from /letter; the emails already sent
+ * stay sent, which the page says plainly. Publish again restores it
+ * without sending anything. Delete removes the letter and its send
+ * records for good, after a typed confirmation on the page.
+ */
+async function setLetterStatus(id: string, status: 'published' | 'archived', action: string): Promise<LetterResult> {
+  const viewer = await requireStaff();
+  if (isDemoMode()) return { error: 'The demo keeps no letters.' };
+  const letter = await getLetterForEditing(id);
+  if (!letter) return { error: 'That letter is gone.' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('letters').update({ status }).eq('id', id);
+  if (error) return { error: error.message };
+  await supabase.from('audit_log').insert({ action, entity_type: 'letter', entity_id: id, actor_id: viewer.id, actor_email: viewer.email ?? null, after: { status } });
+  revalidatePath('/letter');
+  revalidatePath(`/letter/${letter.slug}`);
+  revalidatePath('/admin/letter');
+  revalidatePath(`/admin/letter/${id}`);
+  return { message: status === 'archived' ? 'Taken down. It is no longer on the site; emails already sent stay sent.' : 'Back on the site.' };
+}
+
+export async function unpublishLetter(_prev: LetterResult, formData: FormData): Promise<LetterResult> {
+  return setLetterStatus(field(formData, 'id') ?? '', 'archived', 'letter.unpublished');
+}
+
+export async function republishLetter(_prev: LetterResult, formData: FormData): Promise<LetterResult> {
+  return setLetterStatus(field(formData, 'id') ?? '', 'published', 'letter.republished');
+}
+
+export async function deleteLetter(_prev: LetterResult, formData: FormData): Promise<LetterResult> {
+  const viewer = await requireStaff();
+  if (isDemoMode()) return { error: 'The demo keeps no letters.' };
+  const id = field(formData, 'id') ?? '';
+  if ((field(formData, 'confirm') ?? '').trim().toLowerCase() !== 'delete') {
+    return { error: 'Type the word delete to confirm.' };
+  }
+  const letter = await getLetterForEditing(id);
+  if (!letter) return { error: 'That letter is gone.' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('letters').delete().eq('id', id);
+  if (error) return { error: error.message };
+  await supabase.from('audit_log').insert({ action: 'letter.deleted', entity_type: 'letter', entity_id: id, actor_id: viewer.id, actor_email: viewer.email ?? null, after: { title: letter.title, status: letter.status } });
+  revalidatePath('/letter');
+  revalidatePath('/admin/letter');
+  redirect('/admin/letter?deleted=1' as Route);
+}

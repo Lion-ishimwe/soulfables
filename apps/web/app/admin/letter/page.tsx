@@ -23,8 +23,9 @@ export const dynamic = 'force-dynamic';
  * a schema and no writing surface, and no email provider is connected to
  * send one with. The page says exactly that.
  */
-export default async function LetterPage() {
-  const [letters, subscribers] = await Promise.all([
+export default async function LetterPage({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
+  const [{ deleted }, letters, subscribers] = await Promise.all([
+    searchParams,
     listAdminLetters(),
     letterSubscriberCount(),
   ]);
@@ -46,6 +47,11 @@ export default async function LetterPage() {
       </div>
 
       {isReadOnly() && <ReadOnlyNotice />}
+      {deleted && (
+        <p aria-live="polite" className="mb-6 rounded border-l-2 border-state-success bg-state-success/10 px-4 py-3 font-ui text-sm text-ivory">
+          The letter is deleted.
+        </p>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-rule bg-ink-raised p-5">

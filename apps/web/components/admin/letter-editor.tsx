@@ -4,12 +4,13 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { saveLetter, sendLetterTest, sendLetterToSubscribers, type LetterResult } from '@/app/actions/letters';
+import { deleteLetter, republishLetter, saveLetter, sendLetterTest, sendLetterToSubscribers, unpublishLetter, type LetterResult } from '@/app/actions/letters';
 import type { Letter } from '@/lib/letters';
 
 const btn = 'border px-5 py-2.5 font-ui text-xs uppercase tracking-[0.14em] transition-all disabled:opacity-50';
 const gold = `${btn} border-gold/50 text-gold hover:bg-gold hover:text-ink`;
 const soft = `${btn} border-rule text-grey-muted hover:border-gold/50 hover:text-ivory`;
+const danger = `${btn} border-rule text-grey-muted hover:border-state-danger/60 hover:text-ivory`;
 const FIELD = 'w-full border border-rule bg-ink px-4 py-3 font-ui text-sm text-ivory outline-none transition-colors focus:border-gold/60';
 const LABEL = 'sf-eyebrow mb-2 block';
 const HINT = 'mt-1.5 font-ui text-xs text-grey-muted';
@@ -62,7 +63,11 @@ export function LetterEditor({
   const [saveState, saveAction] = useActionState<LetterResult, FormData>(saveLetter, saved ? { message: 'Saved.' } : {});
   const [testState, testAction] = useActionState<LetterResult, FormData>(sendLetterTest, {});
   const [sendState, sendAction] = useActionState<LetterResult, FormData>(sendLetterToSubscribers, {});
+  const [downState, downAction] = useActionState<LetterResult, FormData>(unpublishLetter, {});
+  const [upState, upAction] = useActionState<LetterResult, FormData>(republishLetter, {});
+  const [delState, delAction] = useActionState<LetterResult, FormData>(deleteLetter, {});
   const sent = letter?.status === 'published';
+  const down = letter?.status === 'archived';
 
   return (
     <div className="space-y-6">
@@ -121,7 +126,13 @@ export function LetterEditor({
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-5">
-          <p className="font-ui text-xs text-grey-muted">{sent ? `Sent ${letter?.sentAt ? new Date(letter.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : ''}. Edits change the page on the site, not the emails already sent.` : 'A draft until it is sent.'}</p>
+          <p className="font-ui text-xs text-grey-muted">
+            {sent
+              ? `Sent ${letter?.sentAt ? new Date(letter.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : ''}. Edits change the page on the site, not the emails already sent.`
+              : down
+                ? 'Taken down. Not on the site; emails already sent stay sent.'
+                : 'A draft until it is sent.'}
+          </p>
           <Busy idle={letter ? 'Save' : 'Save the draft'} busy="Saving…" className={gold} />
         </div>
       </form>
@@ -157,6 +168,42 @@ export function LetterEditor({
               </p>
             )}
           </form>
+        </div>
+      )}
+
+      {letter && (
+        <div className="rounded-lg border border-rule p-6">
+          <h2 className="font-display text-xl text-ivory">Taking it back</h2>
+          <p className="mt-1 font-ui text-xs text-grey-muted">
+            Unpublishing removes the letter from the site; what was emailed has been emailed. Deleting removes it and its send records for good.
+          </p>
+          <div className="mt-4 space-y-3">
+            <Notice state={downState} />
+            <Notice state={upState} />
+            <Notice state={delState} />
+          </div>
+          <div className="mt-4 flex flex-wrap items-end gap-6">
+            {sent && (
+              <form action={downAction}>
+                <input type="hidden" name="id" value={letter.id} />
+                <Busy idle="Unpublish" busy="Taking down…" className={danger} />
+              </form>
+            )}
+            {down && (
+              <form action={upAction}>
+                <input type="hidden" name="id" value={letter.id} />
+                <Busy idle="Publish again" busy="Putting back…" className={soft} />
+              </form>
+            )}
+            <form action={delAction} className="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="id" value={letter.id} />
+              <label className="block">
+                <span className={LABEL}>Type delete to confirm</span>
+                <input name="confirm" autoComplete="off" className={`${FIELD} w-40`} placeholder="delete" />
+              </label>
+              <Busy idle="Delete the letter" busy="Deleting…" className={danger} />
+            </form>
+          </div>
         </div>
       )}
     </div>
