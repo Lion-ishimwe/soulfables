@@ -14,11 +14,11 @@ import { HeaderAskAI } from '@/components/header-ask-ai';
  */
 const NAV = [
   { href: '/library', label: 'Library' },
+  { href: '/shop', label: 'Bookshop' },
   { href: '/wander', label: 'Wander' },
   { href: '/journal', label: 'Reading Journal' },
   { href: '/community', label: 'Community' },
   { href: '/companion', label: 'Librarian' },
-  { href: '/shop', label: 'Bookshop' },
   { href: '/residents', label: 'Residents' },
 ] as const;
 

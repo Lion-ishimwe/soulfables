@@ -311,3 +311,40 @@ export async function sendRefundDecisionEmail(opts: {
   });
   return result;
 }
+
+/**
+ * The weekly letter, to one subscriber.
+ *
+ * The body arrives already rendered from the letter's Markdown, so the
+ * email and the page on the site are the same words. Every send carries
+ * its own unsubscribe link at the foot, one that works without signing
+ * in, as the law and good manners both ask.
+ */
+export async function sendLetterIssue(opts: {
+  to: string;
+  subject: string;
+  title: string;
+  dek: string | null;
+  bodyHtml: string;
+  bodyText: string;
+  story: { title: string; url: string } | null;
+  unsubscribeUrl: string | null;
+  letterId: string;
+}): Promise<SendResult> {
+  const foot = opts.unsubscribeUrl
+    ? `<p style="color:#8A8A8A;font-size:12px;margin-top:32px">You asked for the weekly letter at this address. <a href="${opts.unsubscribeUrl}" style="color:#8A8A8A">Stop receiving it</a>.</p>`
+    : '';
+  const body = `${opts.dek ? `<p style="color:#8A8A8A;font-style:italic;margin:0 0 20px">${escapeHtml(opts.dek)}</p>` : ''}${opts.bodyHtml}${foot}`;
+  const text = `${opts.title}\n${opts.dek ? opts.dek + '\n' : ''}\n${opts.bodyText}\n${opts.story ? `\nThis week's story: ${opts.story.title}\n${opts.story.url}\n` : ''}${opts.unsubscribeUrl ? `\nStop receiving the letter: ${opts.unsubscribeUrl}\n` : ''}`;
+  const result = await deliver(
+    opts.to,
+    opts.subject,
+    shell(opts.title, body, opts.story ? { url: opts.story.url, label: `Read “${opts.story.title}”` } : undefined),
+    text,
+  );
+  await record('letter', opts.to, result.sent ? 'sent' : result.skipped ? 'skipped' : 'failed', {
+    messageId: result.messageId,
+    error: result.sent ? undefined : result.error,
+  });
+  return result;
+}

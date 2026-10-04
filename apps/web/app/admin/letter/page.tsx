@@ -1,4 +1,5 @@
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
+import Link from 'next/link';
 import {
   isReadOnly,
   listAdminLetters,
@@ -35,6 +36,15 @@ export default async function LetterPage() {
         subtitle="One story, one reflection, every Sunday."
       />
 
+      <div className="mb-6 flex justify-end">
+        <Link
+          href={'/admin/letter/new' as Route}
+          className="border border-gold/50 px-5 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink"
+        >
+          Write a letter
+        </Link>
+      </div>
+
       {isReadOnly() && <ReadOnlyNotice />}
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
@@ -56,7 +66,7 @@ export default async function LetterPage() {
       {letters.length === 0 ? (
         <EmptyState
           title="No letters written yet."
-          body="The letter has a home in the database and no writing surface yet, and no email provider is connected to send one with. Both are still to build."
+          body="Write the first one above. Save it as a draft, send yourself a test, and send it to subscribers when it reads right."
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-rule">
@@ -77,7 +87,7 @@ export default async function LetterPage() {
                     Vol {l.volume} · {l.number}
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="block text-ivory">{l.title}</span>
+                    <Link href={`/admin/letter/${l.id}` as Route} className="block text-ivory transition-colors hover:text-gold">{l.title}</Link>
                     {l.dek && (
                       <span className="mt-0.5 block text-xs text-grey-muted">{l.dek}</span>
                     )}

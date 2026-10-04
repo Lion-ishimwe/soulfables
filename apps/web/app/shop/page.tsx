@@ -53,11 +53,11 @@ export default async function ShopPage() {
       <header className="mx-auto max-w-content px-5 pb-12 pt-20 text-center sm:px-8">
         <p className="sf-eyebrow">The Bookshop</p>
         <h1 className="mt-4 font-display text-4xl font-light leading-tight text-ivory sm:text-5xl">
-          Books to be returned to, not used once and forgotten.
+          Everything available to purchase and own.
         </h1>
         <p className="mx-auto mt-5 max-w-measure font-ui text-base leading-relaxed text-grey-muted">
-          Ebooks, journals and collections from the House. Every one arrives in your
-          library the moment it is yours, in every format it comes in.
+          Books to be returned to, not used once and forgotten: ebooks, journals, collections
+          and stories sold as books. Every one arrives in your library the moment it is yours.
         </p>
 
         {!open && (

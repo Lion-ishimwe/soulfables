@@ -1,4 +1,5 @@
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
+import Link from 'next/link';
 import { getViewer } from '@/lib/auth';
 import { getPublishedLetters } from '@/lib/letters';
 import { LetterForm } from '@/components/letter-form';
@@ -55,7 +56,7 @@ export default async function LetterPage() {
                 <p className="font-ui text-micro uppercase tracking-[0.18em] text-grey-muted">
                   Vol. {l.volume} · No. {l.number} · {formatDate(l.publishedAt)}
                 </p>
-                <p className="mt-1.5 font-display text-2xl text-ivory">{l.title}</p>
+                <Link href={`/letter/${l.slug}` as Route} className="mt-1.5 block font-display text-2xl text-ivory transition-colors hover:text-gold">{l.title}</Link>
                 {l.dek && <p className="mt-1 font-display text-base italic text-grey-muted">{l.dek}</p>}
               </li>
             ))}

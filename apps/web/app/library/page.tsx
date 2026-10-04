@@ -12,7 +12,7 @@ import { Pagination } from '@/components/library/pagination';
 export const metadata: Metadata = {
   title: 'The Library',
   description:
-    'Every Soulfables folktale, arranged by the feeling that brings people to it.',
+    'Everything worth reading, exploring or returning to, arranged by the feeling that brings people to it.',
   alternates: { canonical: '/library' },
 };
 
@@ -160,7 +160,7 @@ export default async function LibraryPage({
           <p className="mt-4 max-w-md text-base leading-normal text-grey-muted">
             {activeShelf
               ? activeShelf.tagline
-              : `${told.length} ${told.length === 1 ? 'story' : 'stories'}${books.length ? ` and ${books.length} ${books.length === 1 ? 'book' : 'books'}` : ''} across ${shelves.length} shelves. Find the one that meets you where you are.`}
+              : `Everything worth reading, exploring or returning to. ${told.length} ${told.length === 1 ? 'story' : 'stories'}${books.length ? ` and ${books.length} ${books.length === 1 ? 'book' : 'books'}` : ''} across ${shelves.length} shelves.`}
           </p>
         </div>
       </header>
