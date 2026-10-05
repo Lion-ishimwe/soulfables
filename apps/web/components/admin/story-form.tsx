@@ -274,13 +274,7 @@ export function StoryForm({
           />
 
           <div className="grid gap-x-5 sm:grid-cols-2">
-            <Select
-              label="Series"
-              name="seriesId"
-              defaultValue={draft.seriesId ?? ''}
-              options={[{ value: '', label: '— none —' }, ...series]}
-              hint="A Premium series keeps every episode for Premium."
-            />
+            <SeriesPicker series={series} defaultValue={draft.seriesId ?? ''} />
             <Field
               label="Episode"
               name="episodeNumber"
@@ -382,5 +376,60 @@ export function StoryForm({
 
       <SaveBar status={status} />
     </form>
+  );
+}
+
+
+/**
+ * The series a story belongs to, or a new one started here.
+ *
+ * Series are begun from a story rather than on the Series page, so a
+ * series never exists without an episode. Choosing "New series" asks for
+ * its name; the save creates it and places this story in it.
+ */
+function SeriesPicker({ series, defaultValue }: { series: Option[]; defaultValue: string }) {
+  const [value, setValue] = useState(defaultValue);
+  const id = 'f-seriesId';
+  return (
+    <div className="mb-5">
+      <label htmlFor={id} className="sf-eyebrow mb-2 block">
+        Series
+      </label>
+      <select
+        id={id}
+        name="seriesId"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-full rounded border border-rule bg-ink px-3.5 py-2.5 font-ui text-sm text-ivory outline-none focus:border-gold/50"
+      >
+        <option value="">— none —</option>
+        {series.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+        <option value="__new">＋ New series…</option>
+      </select>
+      {value === '__new' ? (
+        <div className="mt-3">
+          <label htmlFor="f-newSeriesTitle" className="sf-eyebrow mb-2 block">
+            Name of the new series <span className="ml-1 text-gold">*</span>
+          </label>
+          <input
+            id="f-newSeriesTitle"
+            name="newSeriesTitle"
+            required
+            maxLength={160}
+            placeholder="Letters to the Tide"
+            className="w-full rounded border border-rule bg-ink px-3.5 py-2.5 font-ui text-sm text-ivory outline-none placeholder:text-grey-faint focus:border-gold/50"
+          />
+          <p className="mt-1.5 font-ui text-xs text-grey-muted">
+            Created when you save, with this story as its first episode. Rename it, describe it or keep it for Premium on the Series page.
+          </p>
+        </div>
+      ) : (
+        <p className="mt-1.5 font-ui text-xs text-grey-muted">A Premium series keeps every episode for Premium.</p>
+      )}
+    </div>
   );
 }

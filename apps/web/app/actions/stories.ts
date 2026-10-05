@@ -57,6 +57,7 @@ const storySchema = z.object({
   coverImage: z.string().trim().max(600).optional().or(z.literal('')),
   releaseMode: z.enum(['full', 'serial']).catch('full'),
   seriesId: z.string().trim().max(120).optional().or(z.literal('')),
+  newSeriesTitle: z.string().trim().max(160).optional().or(z.literal('')),
   episodeNumber: z.coerce.number().int().min(0).max(9999).catch(0),
   forSleep: z.boolean().default(false),
   seoTitle: z.string().trim().max(200).optional().or(z.literal('')),
@@ -159,6 +160,7 @@ export async function saveStory(
     status: field(formData, 'status'),
     releaseMode: field(formData, 'releaseMode'),
     seriesId: field(formData, 'seriesId'),
+    newSeriesTitle: field(formData, 'newSeriesTitle'),
     episodeNumber: field(formData, 'episodeNumber') || '0',
     forSleep: checkbox(formData, 'forSleep'),
     coverImage: field(formData, 'coverImage'),
@@ -258,7 +260,7 @@ export async function saveStory(
     d.shelfId
       ? supabase.from('shelves').select('id').eq('slug', d.shelfId).maybeSingle()
       : Promise.resolve({ data: null }),
-    d.seriesId
+    d.seriesId && d.seriesId !== '__new'
       ? supabase.from('series').select('id').eq('slug', d.seriesId).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
@@ -266,7 +268,33 @@ export async function saveStory(
   const existingId = (storyRes.data as { id?: string } | null)?.id ?? null;
   const authorId = (authorRes.data as { id?: string } | null)?.id ?? null;
   const shelfId = (shelfRes.data as { id?: string } | null)?.id ?? null;
-  const seriesId = (seriesRes.data as { id?: string } | null)?.id ?? null;
+  let seriesId = (seriesRes.data as { id?: string } | null)?.id ?? null;
+
+  /*
+   * A new series, begun from this story. Named here, created now,
+   * published so the episode can be read in it; the Series page is where
+   * it is described or kept for Premium afterwards. The address comes
+   * from the name, with a number added if that address is taken.
+   */
+  if (d.seriesId === '__new') {
+    const title = (d.newSeriesTitle ?? '').trim();
+    if (!title) return { error: 'Give the new series a name.' };
+    const base = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'series';
+    let created: { id: string } | null = null;
+    for (let n = 0; n < 5 && !created; n++) {
+      const slug = n === 0 ? base : `${base}-${n + 1}`;
+      const { data, error } = await supabase
+        .from('series')
+        .insert({ slug, title, status: 'published', access: 'free', sort_order: 0 })
+        .select('id')
+        .single();
+      if (!error && data) created = data as { id: string };
+      else if (error && error.code !== '23505') return { error: `The series could not be created: ${error.message}` };
+    }
+    if (!created) return { error: 'That series name is taken too many times; choose another.' };
+    seriesId = created.id;
+    revalidatePath('/series');
+  }
 
   if (id && !existingId) {
     return { error: 'That story no longer exists. It may have been deleted.' };

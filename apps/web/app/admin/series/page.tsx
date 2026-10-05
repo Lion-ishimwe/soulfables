@@ -49,7 +49,19 @@ export default async function SeriesAdminPage({
       )}
 
       <div className="space-y-8">
-        <SeriesForm key={editing?.slug ?? 'new'} series={editing} readOnly={isDemoMode()} />
+        {/*
+          Editing only. A series is begun from a story: open the story,
+          choose "New series" under Series and name it. That keeps every
+          series attached to at least one episode from the start, and
+          this page for what is already there.
+        */}
+        {editing ? (
+          <SeriesForm key={editing.slug} series={editing} readOnly={isDemoMode()} />
+        ) : (
+          <p className="rounded border border-rule bg-ink-raised px-5 py-4 font-ui text-sm leading-relaxed text-grey-muted">
+            A series begins from a story. Open the story that starts it, choose <span className="text-ivory">New series</span> under Series, give it a name, and save. It appears here, where it can be renamed, described, kept for Premium, or taken down.
+          </p>
+        )}
 
         <div className="overflow-x-auto rounded-lg border border-rule bg-ink-raised">
           <table className="w-full min-w-[40rem]">
