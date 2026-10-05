@@ -1,18 +1,10 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import {
-  submitStory,
-  saveChapter,
-  removeChapter,
-  publishChapter,
-  type WorkflowResult,
-  saveStoryCover,
-} from '@/app/actions/workflow';
-import { KebabMenu } from '@/components/admin/kebab-menu';
+import { submitStory, type WorkflowResult, saveStoryCover } from '@/app/actions/workflow';
 import type { WorkStory } from '@/lib/admin-data';
-import { ChapterTrack } from './chapter-track';
+import { Chapters } from './chapters';
 import { CoverField } from '@/components/admin/cover-field';
 import { Assistant } from './assistant';
 
@@ -68,14 +60,6 @@ export function StudioEditor({
     saveStoryCover,
     {},
   );
-  const [chapterState, chapterAction] = useActionState<WorkflowResult, FormData>(
-    saveChapter,
-    {},
-  );
-
-  const [adding, setAdding] = useState(false);
-  const nextNumber =
-    story.chapters.reduce((n, c) => Math.max(n, c.number), 0) + 1;
 
   const canSubmit = story.status === 'draft';
 
@@ -133,156 +117,7 @@ export function StudioEditor({
         </form>
       </section>
 
-      {story.releaseMode === 'serial' && (
-        <section className="mb-10">
-          <h2 className="sf-eyebrow mb-4">Chapters</h2>
-
-          {/*
-            Where the serial has got to, before the list of what it is
-            made of. Returning after a fortnight, "released up to 3, next
-            is 5" is the thing you need; the rows are for checking it.
-          */}
-          <div className="mb-5">
-            <ChapterTrack chapters={story.chapters} />
-          </div>
-
-          {chapterState.error && (
-            <p role="alert" className="mb-4 border-l-2 border-state-danger bg-state-danger/10 px-4 py-3 text-sm text-ivory">
-              {chapterState.error}
-            </p>
-          )}
-          {chapterState.message && (
-            <p aria-live="polite" className="mb-4 border-l-2 border-state-success bg-state-success/10 px-4 py-3 text-sm text-ivory">
-              {chapterState.message}
-            </p>
-          )}
-
-          {story.chapters.length > 0 && (
-            <ul className="mb-5 divide-y divide-rule border border-rule">
-              {story.chapters.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-ivory">
-                      <span className="font-mono text-xs text-gold">
-                        {String(c.number).padStart(2, '0')}
-                      </span>{' '}
-                      {c.title}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-grey-muted">
-                      {c.status === 'published' ? 'Released' : 'Not out yet'}
-                      {' · '}
-                      {c.bodyMdx.trim().split(/\s+/).filter(Boolean).length} words
-                    </span>
-                  </span>
-
-                  <KebabMenu
-                    label={`Chapter ${c.number}`}
-                    items={[
-                      ...(canPublish && c.status !== 'published'
-                        ? [
-                            {
-                              kind: 'action' as const,
-                              label: 'Release this chapter',
-                              action: publishChapter,
-                              fields: { storySlug: story.slug, id: c.id },
-                            },
-                          ]
-                        : []),
-                      {
-                        kind: 'action' as const,
-                        label: 'Delete chapter',
-                        action: removeChapter,
-                        fields: { storySlug: story.slug, id: c.id },
-                        danger: true,
-                        confirm: `Delete chapter ${c.number}?`,
-                        confirmBody: `“${c.title}” and everything in it. This cannot be undone.`,
-                        confirmWord: 'delete',
-                      },
-                    ]}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {adding ? (
-            <form action={chapterAction} className="border border-rule p-5">
-              <input type="hidden" name="storySlug" value={story.slug} />
-
-              <div className="mb-4 grid gap-4 sm:grid-cols-[6rem_1fr]">
-                <div>
-                  <label htmlFor="ch-number" className="sf-eyebrow mb-2 block">
-                    Number
-                  </label>
-                  <input
-                    id="ch-number"
-                    name="number"
-                    type="number"
-                    defaultValue={nextNumber}
-                    min={1}
-                    className="w-full border border-rule bg-ink-raised px-3 py-2.5 font-ui text-sm text-ivory outline-none focus:border-gold/50"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ch-title" className="sf-eyebrow mb-2 block">
-                    Title
-                  </label>
-                  <input
-                    id="ch-title"
-                    name="title"
-                    required
-                    placeholder="The House Waits"
-                    className="w-full border border-rule bg-ink-raised px-3.5 py-2.5 font-ui text-sm text-ivory outline-none placeholder:text-grey-faint focus:border-gold/50"
-                  />
-                </div>
-              </div>
-
-              <label htmlFor="ch-body" className="sf-eyebrow mb-2 block">
-                The chapter
-              </label>
-              <textarea
-                id="ch-body"
-                name="bodyMdx"
-                rows={14}
-                className="w-full resize-y border border-rule bg-ink-raised px-4 py-3.5 font-reading text-base leading-relaxed text-grey outline-none focus:border-gold/50"
-              />
-
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                <Button label="Save chapter" pendingLabel="Saving…" primary />
-                <button
-                  type="button"
-                  onClick={() => setAdding(false)}
-                  className="font-ui text-xs uppercase tracking-[0.14em] text-grey-muted transition-colors hover:text-ivory"
-                >
-                  Cancel
-                </button>
-
-                {canPublish && (
-                  <label className="flex items-center gap-2.5 text-sm text-grey">
-                    <input
-                      type="checkbox"
-                      name="publish"
-                      className="h-3.5 w-3.5 accent-[#C89528]"
-                    />
-                    Release it straight away
-                  </label>
-                )}
-              </div>
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="border border-rule px-6 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-grey transition-all hover:border-gold/50 hover:text-gold"
-            >
-              Add chapter {nextNumber}
-            </button>
-          )}
-        </section>
-      )}
+      {story.releaseMode === 'serial' && <Chapters story={story} canPublish={canPublish} />}
 
       {/* A whole story. */}
       {story.releaseMode === 'full' && (

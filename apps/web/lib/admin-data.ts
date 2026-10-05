@@ -627,7 +627,34 @@ export async function getWorkStory(slug: string): Promise<WorkStory | null> {
     return null;
   }
 
-  return { ...story, bodyMdx: (data as string | null) ?? '' };
+  /*
+   * The chapters, with their prose. The list above carries chapter
+   * titles only; the editor is the one place a chapter is written, so
+   * this is the one place its body is fetched, newest save first so the
+   * Writing Room can open where the writer left off.
+   */
+  const { data: storyRow } = await supabase.from('stories').select('id').eq('slug', slug).maybeSingle();
+  let chapters = story.chapters;
+  if (storyRow?.id) {
+    const { data: rows, error: chErr } = await supabase
+      .from('story_chapters')
+      .select('id, number, title, status, published_at, body_mdx, updated_at')
+      .eq('story_id', storyRow.id as string)
+      .order('number');
+    if (chErr) console.error('[admin] getWorkStory chapters', chErr.message);
+    else
+      chapters = ((rows ?? []) as Record<string, unknown>[]).map((c) => ({
+        id: c.id as string,
+        number: (c.number as number) ?? 0,
+        title: (c.title as string) ?? '',
+        bodyMdx: (c.body_mdx as string) ?? '',
+        status: (c.status as 'draft' | 'published') ?? 'draft',
+        publishedAt: (c.published_at as string) ?? null,
+        updatedAt: (c.updated_at as string) ?? null,
+      }));
+  }
+
+  return { ...story, bodyMdx: (data as string | null) ?? '', chapters };
 }
 
 /** What one author is carrying. */

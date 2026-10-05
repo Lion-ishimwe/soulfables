@@ -426,16 +426,26 @@ export async function saveChapter(
 
     if (!story) return { error: 'That story no longer exists.' };
 
-    const row = {
+    /*
+     * Editing a chapter keeps its standing: a released chapter saved
+     * again stays released, a draft stays a draft. Only the "release it"
+     * tick moves one forward, and only staff may tick it.
+     */
+    const row: Record<string, unknown> = {
       story_id: story.id as string,
       number: d.number,
       title: d.title,
       body_mdx: body,
-      status: publish ? 'published' : 'draft',
-      published_at: publish ? new Date().toISOString() : null,
       word_count: words,
       reading_minutes: minutes,
     };
+    if (publish) {
+      row.status = 'published';
+      row.published_at = new Date().toISOString();
+    } else if (!d.id) {
+      row.status = 'draft';
+      row.published_at = null;
+    }
 
     /*
      * Number is the identity of a chapter within a story, not the row id

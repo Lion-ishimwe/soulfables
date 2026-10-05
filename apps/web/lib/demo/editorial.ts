@@ -53,6 +53,8 @@ export type EditorialChapter = {
   bodyMdx: string;
   status: 'draft' | 'published';
   publishedAt: string | null;
+  /** When it was last saved; the Writing Room opens the newest draft. */
+  updatedAt?: string | null;
 };
 
 export type EditorialStory = {
