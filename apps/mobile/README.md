@@ -51,17 +51,28 @@ read from `EXPO_PUBLIC_SUPABASE_ANON_KEY` or from `extra.supabaseAnonKey` in
 ## Layout
 
 ```
-app/            screens, by route (expo-router)
-  (tabs)/       Library and Account
-  story/[slug]  a story, with the player
-  signin        the door
-lib/            supabase client, API calls, session, content, push
-components/     the narration player
-constants/      the House's palette
+app/              screens, by route (expo-router)
+  (tabs)/         Library, Journal, Community, Librarian, Account
+  story/[slug]    a story: the text, the player, keep, progress
+  community/[id]  one post with its reactions and replies
+  questions       the Reflection Deck
+  signin          the door
+lib/              supabase client, site API, session, content, journal,
+                  community, account, push
+components/       the player, the Markdown renderer, shared UI, error boundary
+constants/        the House's palette
 ```
 
-## What is not here yet
+## What is in v1 and what is not
 
-Journal, reflection deck, community, offline downloads, the reader's theme,
-the Librarian. Each has a website route or table ready to use; they are the
-next screens, in that order.
+In: the Library with shelves and search; stories with narration and the
+sleep timer; keep and reading progress; the Journal with today's question,
+moods, the affirmation and the Reflection Deck; the Community wall with
+posting, reactions and replies (moderated on the site); the Librarian;
+the Account with standing, owned books and their downloads; push
+registration; error reporting to the site's log.
+
+Not yet: buying anything in the app (by design: the stores take a cut);
+the Weekly Letter archive; series and sleep pages as their own screens;
+day and sepia reading themes; offline reading; the resident journal and
+the full Wander page. The site covers all of these.
