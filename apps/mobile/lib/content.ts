@@ -1,13 +1,13 @@
 import { supabase } from './supabase';
 
 /**
- * Stories, read the way the website reads them.
+ * Stories, shelves and search, read the way the website reads them.
  *
- * The list comes straight from the stories table under row-level
- * security: only published stories, only the columns the public may
- * see. A single story comes through story_for_reader, the same function
- * the story page calls, which decides whether this reader may have the
- * body and the narration, and says why not when not.
+ * Lists come straight from the tables under row-level security: only
+ * published stories, only the columns the public may see. A single
+ * story comes through story_for_reader, the same function the story
+ * page calls, which decides whether this reader may have the body and
+ * the narration, and says why not when not.
  */
 
 export type StoryCard = {
@@ -22,6 +22,8 @@ export type StoryCard = {
   shelf: { slug: string; title: string } | null;
   publishedAt: string | null;
 };
+
+export type Shelf = { id: string; slug: string; label: string; emoji: string | null; tagline: string | null };
 
 export type AudioReason = 'premium' | 'sign_in' | 'allowance' | 'paid' | null;
 
@@ -48,17 +50,28 @@ export type FullStory = {
   } | null;
 };
 
+export async function listShelves(): Promise<Shelf[]> {
+  const { data, error } = await supabase
+    .from('shelves')
+    .select('id, slug, label, emoji, tagline')
+    .eq('status', 'published')
+    .order('sort_order');
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Shelf[];
+}
+
 export async function listStories(): Promise<StoryCard[]> {
   const { data, error } = await supabase
     .from('stories')
-    .select('id, slug, title, subtitle, reading_minutes, cover_image, access, for_sleep, published_at, story_shelves(is_primary, shelves(slug, title))')
+    .select('id, slug, title, subtitle, reading_minutes, cover_image, access, for_sleep, published_at, story_shelves(is_primary, shelves(slug, label))')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => {
     const row = r as Record<string, unknown>;
-    const links = (row.story_shelves as { is_primary: boolean; shelves: { slug: string; title: string } | null }[] | null) ?? [];
-    const primary = links.find((l) => l.is_primary)?.shelves ?? links[0]?.shelves ?? null;
+    const links = (row.story_shelves as { is_primary: boolean; shelves: { slug: string; label: string } | { slug: string; label: string }[] | null }[] | null) ?? [];
+    const primary = links.find((l) => l.is_primary) ?? links[0];
+    const sh = primary ? (Array.isArray(primary.shelves) ? primary.shelves[0] : primary.shelves) : null;
     return {
       id: row.id as string,
       slug: row.slug as string,
@@ -68,10 +81,28 @@ export async function listStories(): Promise<StoryCard[]> {
       coverImage: (row.cover_image as string) ?? null,
       access: (row.access as StoryCard['access']) ?? 'free',
       forSleep: Boolean(row.for_sleep),
-      shelf: primary,
+      shelf: sh ? { slug: sh.slug, title: sh.label } : null,
       publishedAt: (row.published_at as string) ?? null,
     };
   });
+}
+
+/** Full-text search, the same function the site's search page calls. */
+export async function searchStories(query: string): Promise<StoryCard[]> {
+  const { data, error } = await supabase.rpc('search_stories', { p_query: query, p_limit: 30 });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    subtitle: (r.subtitle as string) ?? null,
+    readingMinutes: Number(r.reading_minutes ?? 0),
+    coverImage: (r.cover_image as string) ?? null,
+    access: (r.access as StoryCard['access']) ?? 'free',
+    forSleep: false,
+    shelf: r.shelf_slug ? { slug: r.shelf_slug as string, title: String(r.shelf_slug).replace(/-/g, ' ') } : null,
+    publishedAt: null,
+  }));
 }
 
 export async function getStory(slug: string): Promise<FullStory | null> {
@@ -107,25 +138,31 @@ export async function getStory(slug: string): Promise<FullStory | null> {
   };
 }
 
-/**
- * The story body is Markdown where a line beginning "::" opens a new
- * section. The reader shows sections with a small heading each; the
- * rest is paragraphs. Enough for a first version; a Markdown renderer
- * can replace this without changing the data.
- */
-export function splitSections(body: string): { heading: string | null; paragraphs: string[] }[] {
-  const out: { heading: string | null; paragraphs: string[] }[] = [];
-  let current = { heading: null as string | null, paragraphs: [] as string[] };
-  for (const block of body.split(/\n{2,}/)) {
-    const line = block.trim();
-    if (!line) continue;
-    if (line.startsWith('::')) {
-      if (current.paragraphs.length || current.heading) out.push(current);
-      current = { heading: line.replace(/^::\s*/, ''), paragraphs: [] };
-    } else {
-      current.paragraphs.push(line.replace(/^>\s?/gm, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1'));
-    }
+// ---------------------------------------------------------------------
+// The reader's own marks on a story
+// ---------------------------------------------------------------------
+
+export async function isSaved(storyId: string, userId: string): Promise<boolean> {
+  const { count } = await supabase.from('saved_stories').select('story_id', { count: 'exact', head: true }).eq('story_id', storyId).eq('user_id', userId);
+  return (count ?? 0) > 0;
+}
+
+export async function setSaved(storyId: string, userId: string, saved: boolean): Promise<void> {
+  if (saved) {
+    const { error } = await supabase.from('saved_stories').upsert({ story_id: storyId, user_id: userId }, { onConflict: 'user_id,story_id' });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase.from('saved_stories').delete().eq('story_id', storyId).eq('user_id', userId);
+    if (error) throw new Error(error.message);
   }
-  if (current.paragraphs.length || current.heading) out.push(current);
-  return out;
+}
+
+/** Opened, or finished. The site counts a finish as a read. */
+export async function markProgress(storyId: string, userId: string, done: boolean): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('reading_progress').upsert(
+    { story_id: storyId, user_id: userId, percent: done ? 1 : 0, last_read_at: now, ...(done ? { completed_at: now } : {}) },
+    { onConflict: 'user_id,story_id' },
+  );
+  if (error) throw new Error(error.message);
 }

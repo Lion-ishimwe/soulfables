@@ -2,12 +2,12 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { ErrorBoundary } from '@/components/error-boundary';
 import { colors } from '@/constants/theme';
 import { SessionProvider, useSession } from '@/lib/session';
 import { usePushRegistration } from '@/lib/push';
 
 SplashScreen.preventAutoHideAsync();
-
 
 function Root() {
   const { ready } = useSession();
@@ -34,6 +34,8 @@ function Root() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="signin" options={{ title: 'Come in', presentation: 'modal' }} />
         <Stack.Screen name="story/[slug]" options={{ title: '' }} />
+        <Stack.Screen name="community/[id]" options={{ title: '' }} />
+        <Stack.Screen name="questions" options={{ title: 'The Reflection Deck' }} />
       </Stack>
     </>
   );
@@ -41,8 +43,10 @@ function Root() {
 
 export default function RootLayout() {
   return (
-    <SessionProvider>
-      <Root />
-    </SessionProvider>
+    <ErrorBoundary>
+      <SessionProvider>
+        <Root />
+      </SessionProvider>
+    </ErrorBoundary>
   );
 }

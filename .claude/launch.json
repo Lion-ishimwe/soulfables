@@ -49,6 +49,19 @@
         "cd /d D:\\Projects\\Vexa\\vexa&& node node_modules\\@11ty\\eleventy\\cmd.cjs --serve --port=8090"
       ],
       "port": 8090
+    },
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8082"
+      ],
+      "port": 8082,
+      "cwd": "D:\\Projects\\Soulfables\\apps\\mobile"
     }
   ]
 }

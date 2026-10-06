@@ -6,8 +6,8 @@ import { supabase } from './supabase';
  *
  * The site accepts "Authorization: Bearer <access token>" wherever it
  * accepts a session cookie, so the app uses the same routes the web
- * pages do: who am I, the narration address, the Librarian, push
- * registration. Nothing here is a second backend.
+ * pages do: who am I, the narration address, the Librarian, downloads,
+ * push registration, and the error log. Nothing here is a second backend.
  */
 async function authHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
@@ -47,8 +47,41 @@ export const getMe = () => api<Me>('/api/me');
 export const narrationUrl = (slug: string) =>
   api<{ url: string; format: string; expiresIn: number }>(`/api/story/${encodeURIComponent(slug)}/audio?json=1`);
 
+/** The signed address of a bought file, good for a short while. */
+export const downloadUrl = (fileId: string) => api<{ url: string }>(`/api/download/${encodeURIComponent(fileId)}?json=1`);
+
 export const registerPush = (token: string, platform: 'ios' | 'android' | 'web', appVersion?: string) =>
   api<{ ok: true }>('/api/push/register', { method: 'POST', body: JSON.stringify({ token, platform, appVersion }) });
 
 export const unregisterPush = (token: string) =>
   api<{ ok: true }>(`/api/push/register?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
+
+// --- The Librarian ----------------------------------------------------
+
+export type CompanionMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+  safety?: 'crisis' | null;
+  suggestions?: { slug: string; title: string }[];
+  generated?: boolean;
+};
+
+/** One turn of the conversation. The site decides rule-based or model, by standing. */
+export const askLibrarian = (messages: CompanionMessage[]) =>
+  api<CompanionMessage>('/api/companion', { method: 'POST', body: JSON.stringify({ messages: messages.map((m) => ({ role: m.role, content: m.content })) }) });
+
+// --- Errors -----------------------------------------------------------
+
+/** A failure in the app, told to the House's error log. Never throws. */
+export async function reportError(error: unknown, where: string): Promise<void> {
+  try {
+    const e = error as { message?: string; stack?: string };
+    await fetch(`${SITE_URL}/api/errors`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `[app] ${String(e?.message ?? error).slice(0, 1800)}`, stack: typeof e?.stack === 'string' ? e.stack.slice(0, 8000) : null, path: where, reloading: false }),
+    });
+  } catch {
+    /* an error while recording an error is not worth a third one */
+  }
+}

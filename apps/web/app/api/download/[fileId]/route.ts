@@ -62,7 +62,15 @@ export async function GET(
     data: { user },
   } = await supabase.auth.getUser();
 
+  // The app asks for the address rather than the redirect: it carries a
+  // bearer token, not a cookie, and opens the file in the phone's own
+  // browser. Everything else below is the same for both callers.
+  const wantsJson = request.nextUrl.searchParams.get('json') === '1';
+
   if (!user) {
+    if (wantsJson) {
+      return NextResponse.json({ error: 'sign-in-required' }, { status: 401 });
+    }
     // Send them to sign in rather than 401ing a browser navigation.
     return NextResponse.redirect(
       publicUrl(request, '/signin', { next: `/api/download/${fileId}` }),
@@ -156,6 +164,13 @@ export async function GET(
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
     user_agent: request.headers.get('user-agent'),
   });
+
+  if (wantsJson) {
+    return NextResponse.json(
+      { url: signed.signedUrl, expiresIn: SIGNED_URL_TTL_SECONDS },
+      { headers: { 'Cache-Control': 'no-store, private' } },
+    );
+  }
 
   // 302 rather than 307: this is a one-time redirect to a URL that will
   // stop working in two minutes, and must never be cached.
