@@ -51,7 +51,13 @@
           ]
         }
       ],
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -81,11 +87,13 @@
       "supabaseUrl": "https://pnqejnmvrejvtnyaehif.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBucWVqbm12cmVqdnRueWFlaGlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwNzkyMDgsImV4cCI6MjEwMzY1NTIwOH0.dzEFYvSOPTA3yDstOtwQHdjVq0oRuBVhB9dzaIVvvr8",
       "eas": {
-        "projectId": ""
-      }
+        "projectId": "30aab146-7398-4223-beb3-c56601a386ed"
+      },
+      "router": {}
     },
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "owner": "soulfables"
   }
 }
