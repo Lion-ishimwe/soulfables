@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
 
 /**
- * The community wall, read and written under the same rules as the site.
+ * Residents: the community wall, read and written under the same rules
+ * as the site.
  *
  * Published posts are public. A reader's own posts and replies are
  * visible to them while they wait for a person to read them. Nothing a
@@ -11,8 +12,8 @@ import { supabase } from './supabase';
 
 export type ReactionKind = 'seen' | 'held' | 'thank_you';
 export const REACTIONS: { kind: ReactionKind; glyph: string; label: string }[] = [
+  { kind: 'held', glyph: '♥', label: 'Held' },
   { kind: 'seen', glyph: '◌', label: 'Seen' },
-  { kind: 'held', glyph: '♡', label: 'Held' },
   { kind: 'thank_you', glyph: '✦', label: 'Thank you' },
 ];
 
@@ -26,13 +27,16 @@ export type Post = {
   status: 'pending' | 'published' | 'rejected' | 'removed';
   createdAt: string;
   publishedAt: string | null;
+  challenge: string | null;
   reactions: Record<ReactionKind, number>;
   replies: number;
 };
 
 export type Reply = { id: string; authorName: string; body: string; status: string; createdAt: string; userId: string };
 
-const SELECT = 'id, user_id, author_name, kind, title, body, status, created_at, published_at';
+export type Challenge = { id: string; slug: string; title: string; prompt: string; startsOn: string; endsOn: string; isActive: boolean };
+
+const SELECT = 'id, user_id, author_name, kind, title, body, status, created_at, published_at, community_challenges(title)';
 
 async function decorate(rows: Record<string, unknown>[]): Promise<Post[]> {
   const ids = rows.map((r) => r.id as string);
@@ -51,19 +55,24 @@ async function decorate(rows: Record<string, unknown>[]): Promise<Post[]> {
     }
     for (const r of (rp ?? []) as { post_id: string }[]) replies.set(r.post_id, (replies.get(r.post_id) ?? 0) + 1);
   }
-  return rows.map((r) => ({
-    id: r.id as string,
-    userId: r.user_id as string,
-    authorName: (r.author_name as string) ?? 'Someone in the House',
-    kind: (r.kind as string) ?? 'reflection',
-    title: (r.title as string) ?? null,
-    body: r.body as string,
-    status: r.status as Post['status'],
-    createdAt: r.created_at as string,
-    publishedAt: (r.published_at as string) ?? null,
-    reactions: reactions.get(r.id as string) ?? { ...base },
-    replies: replies.get(r.id as string) ?? 0,
-  }));
+  return rows.map((r) => {
+    const ch = r.community_challenges as { title: string } | { title: string }[] | null;
+    const challenge = Array.isArray(ch) ? (ch[0]?.title ?? null) : (ch?.title ?? null);
+    return {
+      id: r.id as string,
+      userId: r.user_id as string,
+      authorName: (r.author_name as string) ?? 'Someone in the House',
+      kind: (r.kind as string) ?? 'reflection',
+      title: (r.title as string) ?? null,
+      body: r.body as string,
+      status: r.status as Post['status'],
+      createdAt: r.created_at as string,
+      publishedAt: (r.published_at as string) ?? null,
+      challenge,
+      reactions: reactions.get(r.id as string) ?? { ...base },
+      replies: replies.get(r.id as string) ?? 0,
+    };
+  });
 }
 
 export async function listPosts(): Promise<Post[]> {
@@ -75,6 +84,26 @@ export async function listPosts(): Promise<Post[]> {
 export async function listMyPending(userId: string): Promise<Post[]> {
   const { data } = await supabase.from('community_posts').select(SELECT).eq('user_id', userId).neq('status', 'published').order('created_at', { ascending: false }).limit(10);
   return decorate((data ?? []) as Record<string, unknown>[]);
+}
+
+export async function listChallenges(): Promise<Challenge[]> {
+  const { data } = await supabase.from('community_challenges').select('id, slug, title, prompt, starts_on, ends_on, is_active').eq('is_active', true).order('starts_on', { ascending: false });
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    prompt: String(r.prompt).replace(/\r\n?/g, '\n'),
+    startsOn: r.starts_on as string,
+    endsOn: r.ends_on as string,
+    isActive: Boolean(r.is_active),
+  }));
+}
+
+/** The challenge whose dates hold today, or the newest active one. */
+export async function getActiveChallenge(): Promise<Challenge | null> {
+  const all = await listChallenges();
+  const today = new Date().toISOString().slice(0, 10);
+  return all.find((c) => c.startsOn <= today && c.endsOn >= today) ?? all[0] ?? null;
 }
 
 export async function getPost(id: string, userId: string | null): Promise<{ post: Post; mine: ReactionKind[]; replies: Reply[] } | null> {
@@ -105,14 +134,15 @@ async function nameFor(userId: string, anonymous: boolean): Promise<string> {
   return ((data as { display_name?: string } | null)?.display_name || 'A reader').trim();
 }
 
-export async function submitPost(input: { userId: string; title?: string; body: string; anonymous: boolean }): Promise<void> {
+export async function submitPost(input: { userId: string; title?: string; body: string; anonymous: boolean; kind?: 'story' | 'reflection'; challengeId?: string | null }): Promise<void> {
   const { error } = await supabase.from('community_posts').insert({
     user_id: input.userId,
     author_name: await nameFor(input.userId, input.anonymous),
     anonymous: input.anonymous,
-    kind: 'reflection',
+    kind: input.challengeId ? 'response' : (input.kind ?? 'reflection'),
     title: input.title?.trim() || null,
     body: input.body.trim(),
+    challenge_id: input.challengeId ?? null,
     status: 'pending',
   });
   if (error) throw new Error(error.message);

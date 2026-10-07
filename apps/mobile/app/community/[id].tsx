@@ -121,7 +121,7 @@ export default function PostScreen() {
               style={[ui.input, { minHeight: 90, fontFamily: 'Georgia', lineHeight: 22 }]}
               textAlignVertical="top"
             />
-            <Button label={busy ? 'Sending…' : 'Reply'} solid disabled={busy || reply.trim().length < 2} onPress={send} />
+            <Button label={busy ? 'Sending…' : 'Reply'} disabled={busy || reply.trim().length < 2} onPress={send} />
             <Muted>A person reads each reply before it is shown.</Muted>
           </View>
         )}

@@ -85,7 +85,7 @@ export default function QuestionsScreen() {
                   style={[ui.input, styles.editor]}
                   textAlignVertical="top"
                 />
-                <Button label="Keep in the journal" solid disabled={!answer.trim()} onPress={keep} />
+                <Button label="Keep in the journal" disabled={!answer.trim()} onPress={keep} />
               </>
             )
           ) : (

@@ -87,7 +87,7 @@ export default function LibrarianScreen() {
           returnKeyType="send"
           blurOnSubmit={false}
         />
-        <Button label="Ask" solid disabled={busy || !text.trim()} onPress={send} />
+        <Button label="Ask" disabled={busy || !text.trim()} onPress={send} />
       </View>
     </KeyboardAvoidingView>
   );

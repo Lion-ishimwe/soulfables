@@ -1,6 +1,7 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Button, Wordmark } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
 import { SITE_URL } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
@@ -16,9 +17,11 @@ type Mode = 'signin' | 'signup' | 'reset';
  * installed, the phone opens that link in the app.
  */
 export default function SignInScreen() {
-  const [mode, setMode] = useState<Mode>('signin');
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<Mode>(params.mode === 'signup' ? 'signup' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ error?: string; message?: string }>({});
@@ -31,7 +34,8 @@ export default function SignInScreen() {
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email: address, password });
         if (error) throw new Error('That email and password do not match. Try again.');
-        router.back();
+        if (router.canGoBack()) router.back();
+        else router.replace('/');
       } else if (mode === 'signup') {
         if (password.length < 10) throw new Error('Use at least 10 characters for the password.');
         const { error } = await supabase.auth.signUp({
@@ -53,59 +57,99 @@ export default function SignInScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.ink }}>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <Text style={styles.star}>✦</Text>
-        <Text style={styles.eyebrow}>THE DOOR</Text>
-        <Text style={styles.title}>{mode === 'signin' ? 'Come in.' : mode === 'signup' ? 'Join the House.' : 'Forgotten your password?'}</Text>
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.close} hitSlop={10}>
+          <Text style={styles.closeText}>✕</Text>
+        </Pressable>
+        <View style={{ alignItems: 'center', gap: space.xs, marginTop: space.xl }}>
+          <Wordmark size={26} />
+          <Text style={styles.title}>{mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Come in' : 'Forgotten?'}</Text>
+          <Text style={styles.sub}>Every soul has a story.</Text>
+        </View>
+
+        {mode !== 'reset' && (
+          <View style={styles.tabs}>
+            {(['signin', 'signup'] as const).map((m) => (
+              <Pressable key={m} onPress={() => setMode(m)} style={[styles.tab, mode === m && styles.tabOn]}>
+                <Text style={[styles.tabText, mode === m && styles.tabTextOn]}>{m === 'signin' ? 'Sign In' : 'Sign Up'}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {notice.error && <Text style={styles.error}>{notice.error}</Text>}
         {notice.message && <Text style={styles.message}>{notice.message}</Text>}
 
-        {mode === 'signup' && (
-          <Field label="NAME" value={name} onChangeText={setName} autoCapitalize="words" />
-        )}
-        <Field label="EMAIL" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
+        {mode === 'signup' && <Field icon="✦" placeholder="Your name" value={name} onChangeText={setName} autoCapitalize="words" />}
+        <Field icon="✉" placeholder="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
         {mode !== 'reset' && (
-          <Field label="PASSWORD" value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+          <Field
+            icon="🔒"
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+            trailing={showPassword ? '◉' : '◎'}
+            onTrailing={() => setShowPassword((v) => !v)}
+          />
         )}
 
-        <Pressable style={[styles.button, busy && { opacity: 0.5 }]} disabled={busy} onPress={submit}>
-          <Text style={styles.buttonText}>{busy ? 'ONE MOMENT…' : mode === 'signin' ? 'SIGN IN' : mode === 'signup' ? 'JOIN' : 'SEND THE LINK'}</Text>
-        </Pressable>
+        {mode === 'signin' && (
+          <View style={styles.row}>
+            <Text style={styles.small}>You stay signed in on this phone.</Text>
+            <Pressable onPress={() => setMode('reset')}>
+              <Text style={styles.link}>Forgot password?</Text>
+            </Pressable>
+          </View>
+        )}
 
-        <View style={styles.links}>
-          {mode !== 'signin' && <Pressable onPress={() => setMode('signin')}><Text style={styles.link}>Sign in instead</Text></Pressable>}
-          {mode !== 'signup' && <Pressable onPress={() => setMode('signup')}><Text style={styles.link}>No account yet? Join the House</Text></Pressable>}
-          {mode !== 'reset' && <Pressable onPress={() => setMode('reset')}><Text style={styles.link}>Forgotten your password?</Text></Pressable>}
-        </View>
+        <Button label={busy ? 'One moment…' : mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create account' : 'Send the link'} disabled={busy} onPress={submit} />
+
+        {mode === 'reset' && (
+          <Pressable onPress={() => setMode('signin')} style={{ alignSelf: 'center', paddingVertical: 10 }}>
+            <Text style={styles.link}>Back to sign in</Text>
+          </Pressable>
+        )}
+        {mode === 'signup' && <Text style={styles.small}>By creating an account you agree to the House’s terms and privacy policy, on soulfables.co.</Text>}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function Field(props: React.ComponentProps<typeof TextInput> & { label: string }) {
-  const { label, ...rest } = props;
+function Field(props: React.ComponentProps<typeof TextInput> & { icon: string; trailing?: string; onTrailing?: () => void }) {
+  const { icon, trailing, onTrailing, ...rest } = props;
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.fieldIcon}>{icon}</Text>
       <TextInput {...rest} style={styles.input} placeholderTextColor={colors.greyMuted} />
+      {trailing && (
+        <Pressable onPress={onTrailing} hitSlop={8}>
+          <Text style={styles.fieldIcon}>{trailing}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: space.lg, gap: space.md, alignItems: 'stretch' },
-  star: { color: colors.gold, fontSize: 20, textAlign: 'center' },
-  eyebrow: { color: colors.gold, fontSize: 11, letterSpacing: 3, textAlign: 'center' },
-  title: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 30, textAlign: 'center', marginBottom: space.sm },
-  error: { color: colors.ivory, backgroundColor: 'rgba(179,66,58,0.15)', borderLeftColor: colors.danger, borderLeftWidth: 2, padding: space.sm },
-  message: { color: colors.ivory, backgroundColor: 'rgba(201,169,97,0.12)', borderLeftColor: colors.gold, borderLeftWidth: 2, padding: space.sm },
-  field: { gap: 6 },
-  label: { color: colors.greyMuted, fontSize: 11, letterSpacing: 2 },
-  input: { borderColor: colors.rule, borderWidth: 1, color: colors.ivory, padding: 12, fontSize: 16, backgroundColor: colors.inkRaised },
-  button: { borderColor: colors.gold, borderWidth: 1, paddingVertical: 12, marginTop: space.sm },
-  buttonText: { color: colors.gold, letterSpacing: 3, fontSize: 12, textAlign: 'center' },
-  links: { gap: space.sm, marginTop: space.md, alignItems: 'center' },
-  link: { color: colors.gold, fontSize: 14 },
+  page: { padding: space.lg, gap: space.md, alignItems: 'stretch', paddingTop: 40 },
+  close: { alignSelf: 'flex-end', padding: 6 },
+  closeText: { color: colors.grey, fontSize: 18 },
+  title: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 26, marginTop: space.md },
+  sub: { color: colors.grey, fontSize: 14 },
+  tabs: { flexDirection: 'row', borderBottomColor: colors.rule, borderBottomWidth: 1, marginTop: space.sm },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  tabOn: { borderBottomColor: colors.gold },
+  tabText: { color: colors.greyMuted, fontSize: 15 },
+  tabTextOn: { color: colors.ivory },
+  error: { color: colors.ivory, backgroundColor: 'rgba(179,66,58,0.15)', borderLeftColor: colors.danger, borderLeftWidth: 2, padding: space.sm, borderRadius: 6 },
+  message: { color: colors.ivory, backgroundColor: 'rgba(201,169,97,0.12)', borderLeftColor: colors.gold, borderLeftWidth: 2, padding: space.sm, borderRadius: 6 },
+  field: { flexDirection: 'row', alignItems: 'center', gap: space.sm, borderColor: colors.rule, borderWidth: 1, borderRadius: 10, backgroundColor: colors.inkRaised, paddingHorizontal: space.md },
+  fieldIcon: { color: colors.greyMuted, fontSize: 15 },
+  input: { flex: 1, color: colors.ivory, paddingVertical: 13, fontSize: 16 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  small: { color: colors.greyMuted, fontSize: 12.5, lineHeight: 18 },
+  link: { color: colors.gold, fontSize: 13 },
 });

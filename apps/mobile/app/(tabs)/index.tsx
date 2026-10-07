@@ -1,157 +1,180 @@
-import { Link } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Chip, ErrorLine, Eyebrow, Title, ui } from '@/components/ui';
+import { Link, router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScreenHeader } from '@/components/screen-header';
+import { ErrorLine, Muted, SectionHead, greeting, ui } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { listShelves, listStories, searchStories, type Shelf, type StoryCard } from '@/lib/content';
+import { listReading, type ReadingRow } from '@/lib/account';
+import { getStoryOfTheDay, latestLetter, listStories, type LetterCard, type StoryCard } from '@/lib/content';
+import { SITE_URL } from '@/lib/config';
+import { getAffirmation, getMoods, type Affirmation, type Mood } from '@/lib/journal';
+import { getMoodToday, setMoodToday } from '@/lib/prefs';
+import { useSession } from '@/lib/session';
 
 /**
- * The Library: every published story, newest first, with the shelves
- * as chips across the top and a search box that asks the same
- * full-text function the website's search page does.
+ * Home: the daily return.
  *
- * Whether this reader may open a story is decided on the story screen,
- * where the reason can be said properly. Here a Premium or for-sale
- * story only wears its badge.
+ * The greeting, how the reader is arriving (the House's moods), the
+ * story of the day from the same featured slot the website's front
+ * page reads, the affirmation of the day, where they left off, and the
+ * latest Weekly Letter. Choosing a mood opens the feed for it.
  */
-export default function LibraryScreen() {
-  const [stories, setStories] = useState<StoryCard[]>([]);
-  const [shelves, setShelves] = useState<Shelf[]>([]);
-  const [shelf, setShelf] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<StoryCard[] | null>(null);
+export default function HomeScreen() {
+  const { session } = useSession();
+  const [moods, setMoods] = useState<Mood[]>([]);
+  const [moodToday, setMood] = useState<string | null>(null);
+  const [story, setStory] = useState<StoryCard | null>(null);
+  const [affirmation, setAffirmation] = useState<Affirmation | null>(null);
+  const [reading, setReading] = useState<ReadingRow[]>([]);
+  const [letter, setLetter] = useState<LetterCard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [s, sh] = await Promise.all([listStories(), listShelves()]);
-      setStories(s);
-      setShelves(sh);
+      const [m, all, a, l, chosen] = await Promise.all([getMoods(), listStories(), getAffirmation(), latestLetter().catch(() => null), getMoodToday()]);
+      setMoods(m);
+      setAffirmation(a);
+      setLetter(l);
+      setMood(chosen);
+      setStory(await getStoryOfTheDay(all));
+      if (session) setReading((await listReading()).filter((r) => !r.completedAt).slice(0, 3));
+      else setReading([]);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // Search runs a beat after the last keystroke, not on every one.
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setResults(null);
-      return;
-    }
-    const t = setTimeout(() => {
-      searchStories(q).then(setResults).catch((e) => setError((e as Error).message));
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  const shown = useMemo(() => {
-    const base = results ?? stories;
-    return shelf ? base.filter((s) => s.shelf?.slug === shelf) : base;
-  }, [results, stories, shelf]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
+  const choose = async (m: Mood) => {
+    setMood(m.slug);
+    await setMoodToday(m.slug);
+    router.push({ pathname: '/mood', params: { slug: m.slug } });
   };
 
   return (
-    <FlatList
-      data={shown}
-      keyExtractor={(s) => s.id}
-      contentContainerStyle={styles.list}
-      keyboardShouldPersistTaps="handled"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Eyebrow>THE LIBRARY</Eyebrow>
-          <Title size={26}>Everything worth reading, exploring or returning to.</Title>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search the shelves…"
-            placeholderTextColor={colors.greyMuted}
-            style={ui.input}
-            autoCorrect={false}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-          />
-          {shelves.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              <Chip label="All" active={shelf === null} onPress={() => setShelf(null)} />
-              {shelves.map((sh) => (
-                <Chip
-                  key={sh.id}
-                  label={`${sh.emoji ? sh.emoji + ' ' : ''}${sh.label}`}
-                  active={shelf === sh.slug}
-                  onPress={() => setShelf(shelf === sh.slug ? null : sh.slug)}
-                />
-              ))}
-            </ScrollView>
-          )}
-          <ErrorLine>{error}</ErrorLine>
-        </View>
-      }
-      ListEmptyComponent={
-        !error ? <Text style={styles.muted}>{results ? 'Nothing on the shelves answers to that.' : 'The shelves are being filled.'}</Text> : null
-      }
-      renderItem={({ item }) => <StoryRow item={item} />}
-    />
-  );
-}
+    <View style={{ flex: 1, backgroundColor: colors.ink }}>
+      <ScreenHeader wordmark actions={[{ glyph: '⌕', label: 'Search', onPress: () => router.navigate({ pathname: '/(tabs)/library', params: { search: '1' } }) }]} />
+      <ScrollView
+        contentContainerStyle={ui.page}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.gold} />}
+      >
+        <Text style={styles.greeting}>{greeting()}</Text>
+        <Text style={styles.ask}>What is yours{'\n'}today?</Text>
+        <Muted>Every soul has a story.</Muted>
+        <ErrorLine>{error}</ErrorLine>
 
-export function StoryRow({ item }: { item: StoryCard }) {
-  return (
-    <Link href={{ pathname: '/story/[slug]', params: { slug: item.slug } }} asChild>
-      <Pressable style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
-        {item.coverImage ? (
-          <Image source={{ uri: item.coverImage }} style={styles.cover} />
-        ) : (
-          <View style={[styles.cover, styles.coverDrawn]}>
-            <Text style={styles.coverStar}>✦</Text>
+        <Text style={styles.question}>How are you arriving today?</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moods}>
+          {moods.map((m) => (
+            <Pressable key={m.id} onPress={() => choose(m)} style={styles.mood}>
+              <View style={[styles.moodCircle, moodToday === m.slug && styles.moodOn]}>
+                <Text style={styles.moodEmoji}>{m.emoji ?? '✦'}</Text>
+              </View>
+              <Text style={[styles.moodLabel, moodToday === m.slug && { color: colors.gold }]}>{m.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {story && (
+          <Link href={{ pathname: '/story/[slug]', params: { slug: story.slug } }} asChild>
+            <Pressable style={styles.hero}>
+              {story.coverImage ? <Image source={{ uri: story.coverImage }} style={styles.heroCover} /> : <View style={[styles.heroCover, styles.heroDrawn]}><Text style={{ color: colors.gold, fontSize: 28 }}>✦</Text></View>}
+              <View style={{ flex: 1, gap: 4, justifyContent: 'center' }}>
+                <Text style={styles.heroEyebrow}>STORY OF THE DAY</Text>
+                <Text style={styles.heroMeta}>◷ {story.readingMinutes} min{story.hasAudio ? '  ·  ♪' : ''}</Text>
+                <Text style={styles.heroTitle} numberOfLines={2}>{story.title}</Text>
+                {(story.subtitle || story.excerpt) && <Text style={styles.heroSub} numberOfLines={2}>{story.subtitle ?? story.excerpt}</Text>}
+              </View>
+              <Text style={styles.chev}>›</Text>
+            </Pressable>
+          </Link>
+        )}
+
+        {affirmation && (
+          <View style={styles.affirmation}>
+            <Text style={styles.affEyebrow}>☼  TODAY’S AFFIRMATION</Text>
+            <Text style={styles.affText}>“{affirmation.body}”</Text>
           </View>
         )}
-        <View style={styles.meta}>
-          {item.shelf && <Text style={styles.shelf}>{item.shelf.title.toUpperCase()}</Text>}
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          {item.subtitle && (
-            <Text style={styles.subtitle} numberOfLines={2}>
-              {item.subtitle}
-            </Text>
-          )}
-          <View style={styles.row}>
-            <Text style={styles.small}>☕ {item.readingMinutes} min</Text>
-            {item.access === 'premium' && <Text style={styles.badge}>PREMIUM</Text>}
-            {item.access === 'paid' && <Text style={styles.badge}>BOOK</Text>}
-            {item.forSleep && <Text style={styles.small}>☾ sleep</Text>}
+
+        {reading.length > 0 && (
+          <>
+            <SectionHead title="Continue" action="Library" onAction={() => router.navigate('/(tabs)/library')} />
+            {reading.map((r) => (
+              <Link key={r.slug} href={{ pathname: '/read/[slug]', params: { slug: r.slug } }} asChild>
+                <Pressable style={styles.line}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lineTitle}>{r.title}</Text>
+                    <Text style={styles.lineMeta}>{Math.round(r.percent * 100)}% read</Text>
+                  </View>
+                  <View style={styles.progress}><View style={[styles.progressFill, { width: `${Math.round(r.percent * 100)}%` }]} /></View>
+                </Pressable>
+              </Link>
+            ))}
+          </>
+        )}
+
+        {!session && (
+          <View style={[ui.card, { marginTop: space.lg }]}>
+            <Text style={styles.cardTitle}>Come in.</Text>
+            <Muted>Sign in to keep stories, write in your journal and pick up where you left off.</Muted>
+            <Link href="/signin" asChild>
+              <Pressable><Text style={ui.link}>Sign in →</Text></Pressable>
+            </Link>
           </View>
-        </View>
-      </Pressable>
-    </Link>
+        )}
+
+        {letter && (
+          <>
+            <SectionHead title="The Weekly Letter" />
+            <Pressable style={ui.card} onPress={() => Linking.openURL(`${SITE_URL}/letter/${letter.slug}`)}>
+              <Text style={styles.cardTitle}>{letter.title}</Text>
+              {letter.dek && <Muted>{letter.dek}</Muted>}
+              <Text style={ui.link}>Read the letter →</Text>
+            </Pressable>
+          </>
+        )}
+
+        <SectionHead title="The Librarian" />
+        <Pressable style={ui.card} onPress={() => router.push('/librarian')}>
+          <Muted>Tell the Librarian what kind of night it is, and she will find a story that meets it.</Muted>
+          <Text style={ui.link}>Ask the Librarian →</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { padding: space.md, paddingBottom: space.xl, gap: space.md },
-  header: { paddingVertical: space.md, gap: space.md },
-  chips: { gap: space.sm, paddingVertical: 2 },
-  muted: { color: colors.greyMuted, padding: space.md },
-  card: { flexDirection: 'row', gap: space.md, backgroundColor: colors.inkRaised, borderColor: colors.rule, borderWidth: 1, borderRadius: 8, padding: space.sm },
-  cover: { width: 84, height: 120, borderRadius: 4, backgroundColor: colors.rule },
-  coverDrawn: { alignItems: 'center', justifyContent: 'center' },
-  coverStar: { color: colors.gold, fontSize: 22 },
-  meta: { flex: 1, gap: 4, justifyContent: 'center' },
-  shelf: { color: colors.gold, fontSize: 10, letterSpacing: 2 },
-  cardTitle: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 19, lineHeight: 24 },
-  subtitle: { color: colors.grey, fontSize: 13, lineHeight: 18 },
-  row: { flexDirection: 'row', gap: space.sm, alignItems: 'center', marginTop: 4 },
-  small: { color: colors.greyMuted, fontSize: 12 },
-  badge: { color: colors.gold, fontSize: 10, letterSpacing: 2, borderColor: colors.gold, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1 },
+  greeting: { color: colors.gold, fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 18 },
+  ask: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 34, lineHeight: 40 },
+  question: { color: colors.ivory, fontSize: 15, marginTop: space.lg },
+  moods: { gap: space.md, paddingVertical: space.sm },
+  mood: { alignItems: 'center', gap: 6, width: 64 },
+  moodCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.inkRaised, borderColor: colors.rule, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  moodOn: { borderColor: colors.gold, backgroundColor: 'rgba(201,169,97,0.15)' },
+  moodEmoji: { fontSize: 22 },
+  moodLabel: { color: colors.grey, fontSize: 11 },
+  hero: { flexDirection: 'row', gap: space.md, backgroundColor: colors.inkRaised, borderColor: colors.rule, borderWidth: 1, borderRadius: 16, padding: space.sm, marginTop: space.md, alignItems: 'center' },
+  heroCover: { width: 96, height: 120, borderRadius: 10, backgroundColor: colors.rule },
+  heroDrawn: { alignItems: 'center', justifyContent: 'center' },
+  heroEyebrow: { color: colors.gold, fontSize: 9, letterSpacing: 2 },
+  heroMeta: { color: colors.greyMuted, fontSize: 11 },
+  heroTitle: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 19, lineHeight: 24 },
+  heroSub: { color: colors.grey, fontSize: 12, lineHeight: 16 },
+  chev: { color: colors.greyMuted, fontSize: 28, paddingHorizontal: 6 },
+  affirmation: { borderLeftWidth: 2, borderLeftColor: colors.gold, paddingLeft: space.md, marginTop: space.lg, gap: 6 },
+  affEyebrow: { color: colors.gold, fontSize: 10, letterSpacing: 2 },
+  affText: { color: colors.ivory, fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 17, lineHeight: 24 },
+  line: { paddingVertical: space.sm, borderBottomColor: colors.rule, borderBottomWidth: StyleSheet.hairlineWidth, gap: 6 },
+  lineTitle: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 17 },
+  lineMeta: { color: colors.greyMuted, fontSize: 12 },
+  progress: { height: 2, backgroundColor: colors.rule },
+  progressFill: { height: 2, backgroundColor: colors.gold },
+  cardTitle: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 19 },
 });

@@ -1,24 +1,38 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Button, Chip, Door, ErrorLine, Eyebrow, Muted, Title, timeAgo, ui } from '@/components/ui';
+import { MoodStrip } from '@/components/mood-strip';
+import { ScreenHeader } from '@/components/screen-header';
+import { StoryRow } from '@/components/story-row';
+import { Button, Door, ErrorLine, Muted, Pill, Tabs, timeAgo, ui } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { deleteEntry, getAffirmation, getMoods, getTodaysPrompt, listEntries, saveEntry, type Affirmation, type Entry, type Mood, type Prompt } from '@/lib/journal';
+import { listSaved, type SavedStory } from '@/lib/account';
+import { deleteEntry, getAffirmation, getMoods, getPromptPool, getTodaysPrompt, listEntries, saveEntry, type Affirmation, type Entry, type Mood, type Prompt } from '@/lib/journal';
 import { useSession } from '@/lib/session';
 
+type Tab = 'today' | 'entries' | 'saved' | 'prompts';
+
 /**
- * The Journal: today's question, a line to keep, a place to write, and
- * the entries that came before. Everything a reader writes here is
- * private; the row policy on the table lets no one else read it.
+ * The Journal: the private room.
+ *
+ * Today: the question of the day, a mood, a place to write, and the
+ * affirmation. Past entries: what was written, with the thirty-day
+ * mood strip. Saved: the stories kept. Prompts: the pool of questions
+ * and the Drawer of Quiet Questions. Everything written is private by
+ * the rule on the table.
  */
 export default function JournalScreen() {
   const { session } = useSession();
+  const [tab, setTab] = useState<Tab>('today');
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [pool, setPool] = useState<Prompt[]>([]);
   const [affirmation, setAffirmation] = useState<Affirmation | null>(null);
   const [moods, setMoods] = useState<Mood[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [saved, setSaved] = useState<SavedStory[]>([]);
   const [body, setBody] = useState('');
   const [moodId, setMoodId] = useState<string | null>(null);
-  const [usePrompt, setUsePrompt] = useState(true);
+  const [activePrompt, setActivePrompt] = useState<Prompt | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,11 +40,17 @@ export default function JournalScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [p, a, m] = await Promise.all([getTodaysPrompt(), getAffirmation(), getMoods()]);
+      const [p, a, m, pp] = await Promise.all([getTodaysPrompt(), getAffirmation(), getMoods(), getPromptPool()]);
       setPrompt(p);
+      setActivePrompt((cur) => cur ?? p);
       setAffirmation(a);
       setMoods(m);
-      if (session) setEntries(await listEntries());
+      setPool(pp);
+      if (session) {
+        const [e, s] = await Promise.all([listEntries(60), listSaved()]);
+        setEntries(e);
+        setSaved(s);
+      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -46,10 +66,11 @@ export default function JournalScreen() {
     if (!body.trim()) return;
     setSaving(true);
     try {
-      await saveEntry({ userId: session.user.id, body: body.trim(), moodId, promptId: usePrompt && prompt ? prompt.id : null });
+      await saveEntry({ userId: session.user.id, body: body.trim(), moodId, promptId: activePrompt?.id ?? null, title: activePrompt && activePrompt.id !== prompt?.id ? activePrompt.body.slice(0, 80) : null });
       setBody('');
       setMoodId(null);
-      setEntries(await listEntries());
+      setEntries(await listEntries(60));
+      setTab('entries');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -60,97 +81,135 @@ export default function JournalScreen() {
   const remove = (entry: Entry) => {
     Alert.alert('Let this one go?', 'The entry is deleted for good.', [
       { text: 'Keep it', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteEntry(entry.id).catch((e) => setError((e as Error).message));
-          setEntries((list) => list.filter((x) => x.id !== entry.id));
-        },
-      },
+      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteEntry(entry.id).catch((e) => setError((e as Error).message)); setEntries((l) => l.filter((x) => x.id !== entry.id)); } },
     ]);
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.ink }}>
+      <ScreenHeader title="Journal" actions={[{ glyph: '▦', label: 'Calendar', onPress: () => setTab('entries') }]}>
+        <Tabs
+          items={[
+            { key: 'today', label: 'Today' },
+            { key: 'entries', label: 'Past Entries' },
+            { key: 'saved', label: 'Saved' },
+            { key: 'prompts', label: 'Prompts' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      </ScreenHeader>
       <ScrollView
         contentContainerStyle={ui.page}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.gold} />}
       >
-        <Eyebrow>THE JOURNAL</Eyebrow>
-        <Title size={26}>A page that is only yours.</Title>
-
-        {affirmation && (
-          <View style={styles.affirmation}>
-            <Text style={styles.affirmationText}>“{affirmation.body}”</Text>
-          </View>
-        )}
-
-        {prompt && (
-          <Pressable style={[styles.prompt, !usePrompt && { opacity: 0.6 }]} onPress={() => setUsePrompt((v) => !v)}>
-            <Text style={styles.promptEyebrow}>TODAY’S QUESTION {usePrompt ? '· writing to it' : '· set aside'}</Text>
-            <Text style={styles.promptText}>{prompt.body}</Text>
-          </Pressable>
-        )}
-
-        {moods.length > 0 && (
-          <View style={styles.moods}>
-            {moods.map((m) => (
-              <Chip key={m.id} label={`${m.emoji ? m.emoji + ' ' : ''}${m.label}`} active={moodId === m.id} onPress={() => setMoodId(moodId === m.id ? null : m.id)} />
-            ))}
-          </View>
-        )}
-
-        <TextInput
-          value={body}
-          onChangeText={setBody}
-          placeholder="Write what is true tonight…"
-          placeholderTextColor={colors.greyMuted}
-          multiline
-          style={[ui.input, styles.editor]}
-          textAlignVertical="top"
-        />
-        <View style={styles.actions}>
-          <Button label="Draw a card" href="/questions" />
-          <Button label={saving ? 'Keeping…' : 'Keep this'} solid disabled={saving || !body.trim()} onPress={save} />
-        </View>
         <ErrorLine>{error}</ErrorLine>
 
-        <Text style={ui.section}>Earlier pages</Text>
-        {entries.length === 0 && <Muted>Nothing written yet. The first line is the hardest and the shortest.</Muted>}
-        {entries.map((e) => (
-          <Pressable key={e.id} style={ui.card} onLongPress={() => remove(e)} delayLongPress={500}>
-            <View style={styles.entryHead}>
-              <Text style={styles.entryMeta}>
-                {e.mood?.emoji ? e.mood.emoji + ' ' : ''}
-                {e.mood?.label ?? ''}
-                {e.mood ? ' · ' : ''}
-                {timeAgo(e.createdAt)}
-              </Text>
+        {tab === 'today' && (
+          <>
+            <View style={styles.reflect}>
+              <View style={styles.reflectHead}>
+                <Text style={styles.reflectEyebrow}>TODAY’S REFLECTION</Text>
+                {activePrompt && activePrompt.id !== prompt?.id && (
+                  <Pressable onPress={() => setActivePrompt(prompt)} hitSlop={8}><Text style={ui.sectionAction}>Today’s</Text></Pressable>
+                )}
+              </View>
+              <Text style={styles.reflectQ}>{activePrompt?.body ?? 'What stayed with you?'}</Text>
+              <TextInput
+                value={body}
+                onChangeText={setBody}
+                placeholder="Write your thoughts…"
+                placeholderTextColor={colors.greyMuted}
+                multiline
+                style={[ui.input, styles.editor]}
+                textAlignVertical="top"
+              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+                {moods.map((m) => (
+                  <Pill key={m.id} label={`${m.emoji ? m.emoji + ' ' : ''}${m.label}`} active={moodId === m.id} onPress={() => setMoodId(moodId === m.id ? null : m.id)} />
+                ))}
+              </ScrollView>
+              <Button label={saving ? 'Keeping…' : 'Save Entry'} disabled={saving || !body.trim()} onPress={save} style={{ alignSelf: 'flex-end', paddingHorizontal: space.xl }} />
             </View>
-            {e.title && <Text style={styles.entryTitle}>{e.title}</Text>}
-            <Text style={styles.entryBody}>{e.body}</Text>
-            {e.story && <Text style={styles.entryMeta}>after “{e.story.title}”</Text>}
-          </Pressable>
-        ))}
-        {entries.length > 0 && <Muted>Hold an entry to delete it.</Muted>}
+
+            {affirmation && (
+              <View style={styles.affirmation}>
+                <Text style={styles.affEyebrow}>☼  TODAY’S AFFIRMATION</Text>
+                <Text style={styles.affText}>“{affirmation.body}”</Text>
+              </View>
+            )}
+
+            <Pressable style={[ui.card, { marginTop: space.lg }]} onPress={() => router.push('/questions')}>
+              <Text style={styles.cardTitle}>The Drawer of Quiet Questions</Text>
+              <Muted>Draw one card from the deck and sit with it.</Muted>
+              <Text style={ui.link}>Draw a card →</Text>
+            </Pressable>
+          </>
+        )}
+
+        {tab === 'entries' && (
+          <>
+            <MoodStrip entries={entries} />
+            {entries.length === 0 && <Muted>Nothing written yet. The first line is the hardest and the shortest.</Muted>}
+            {entries.map((e) => (
+              <Pressable key={e.id} style={[ui.card, { marginBottom: space.sm }]} onLongPress={() => remove(e)} delayLongPress={500}>
+                <Text style={styles.entryMeta}>
+                  {e.mood?.emoji ? e.mood.emoji + ' ' : ''}{e.mood?.label ?? ''}{e.mood ? ' · ' : ''}{timeAgo(e.createdAt)}
+                </Text>
+                {e.title && <Text style={styles.entryTitle}>{e.title}</Text>}
+                <Text style={styles.entryBody}>{e.body}</Text>
+                {e.story && <Text style={styles.entryMeta}>after “{e.story.title}”</Text>}
+              </Pressable>
+            ))}
+            {entries.length > 0 && <Muted>Hold an entry to delete it.</Muted>}
+          </>
+        )}
+
+        {tab === 'saved' && (
+          <>
+            {saved.length === 0 && <Muted>Save a story from its page and it is kept here.</Muted>}
+            <View style={{ gap: space.sm }}>
+              {saved.map((s) => (
+                <StoryRow key={s.slug} item={{ id: s.slug, slug: s.slug, title: s.title, subtitle: s.subtitle, excerpt: null, author: null, readingMinutes: s.readingMinutes, coverImage: null, access: 'free', forSleep: false, hasAudio: false, shelf: null, series: null, publishedAt: null }} />
+              ))}
+            </View>
+          </>
+        )}
+
+        {tab === 'prompts' && (
+          <>
+            <Pressable style={ui.card} onPress={() => router.push('/questions')}>
+              <Text style={styles.cardTitle}>Quiet Questions</Text>
+              <Muted>The deck. Draw one, write, save, draw another.</Muted>
+              <Text style={ui.link}>Open the drawer →</Text>
+            </Pressable>
+            <Text style={[ui.section, { marginTop: space.lg }]}>Questions to write to</Text>
+            {pool.map((p) => (
+              <Pressable key={p.id} style={[ui.card, { marginTop: space.sm }]} onPress={() => { setActivePrompt(p); setTab('today'); }}>
+                <Text style={styles.promptBody}>{p.body}</Text>
+                <Text style={ui.link}>Write to this →</Text>
+              </Pressable>
+            ))}
+          </>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  affirmation: { borderLeftWidth: 2, borderLeftColor: colors.gold, paddingLeft: space.md, marginVertical: space.sm },
-  affirmationText: { color: colors.grey, fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 17, lineHeight: 24 },
-  prompt: { backgroundColor: colors.inkRaised, borderColor: colors.rule, borderWidth: 1, borderRadius: 8, padding: space.md, gap: space.xs },
-  promptEyebrow: { color: colors.gold, fontSize: 10, letterSpacing: 2 },
-  promptText: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 19, lineHeight: 26 },
-  moods: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
-  editor: { minHeight: 140, lineHeight: 24, fontFamily: 'Georgia', marginTop: space.sm },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm, marginTop: space.sm },
-  entryHead: { flexDirection: 'row', justifyContent: 'space-between' },
+  reflect: { backgroundColor: colors.inkRaised, borderColor: colors.rule, borderWidth: 1, borderRadius: 16, padding: space.md, gap: space.sm },
+  reflectHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reflectEyebrow: { color: colors.gold, fontSize: 10, letterSpacing: 2 },
+  reflectQ: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 20, lineHeight: 27 },
+  editor: { minHeight: 110, lineHeight: 24, fontFamily: 'Georgia', backgroundColor: colors.ink },
+  affirmation: { borderLeftWidth: 2, borderLeftColor: colors.gold, paddingLeft: space.md, marginTop: space.lg, gap: 6 },
+  affEyebrow: { color: colors.gold, fontSize: 10, letterSpacing: 2 },
+  affText: { color: colors.ivory, fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 17, lineHeight: 24 },
+  cardTitle: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 19 },
   entryMeta: { color: colors.greyMuted, fontSize: 12 },
-  entryTitle: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 18 },
+  entryTitle: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 17 },
   entryBody: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 16, lineHeight: 24 },
+  promptBody: { color: colors.ivory, fontFamily: 'Georgia', fontSize: 17, lineHeight: 24 },
 });

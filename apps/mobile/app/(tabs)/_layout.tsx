@@ -3,33 +3,30 @@ import { Text, type ColorValue } from 'react-native';
 import { colors } from '@/constants/theme';
 
 function Glyph({ symbol, color }: { symbol: string; color: ColorValue }) {
-  return <Text style={{ color, fontSize: 18 }}>{symbol}</Text>;
+  return <Text style={{ color, fontSize: 19 }}>{symbol}</Text>;
 }
 
 /**
- * The five rooms a reader moves between: the Library, the Journal, the
- * Community wall, the Librarian, and their own Account. Everything else
- * (a story, a post, the deck, the door) opens on top.
+ * The five rooms: Home, Library, Journal, Residents, Account. Everything
+ * else (a story, the reading view, a post, the deck, the Librarian, the
+ * door) opens on top.
  */
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.ink },
-        headerTintColor: colors.ivory,
-        headerTitleStyle: { fontFamily: 'Georgia', fontSize: 22, fontWeight: '400' },
-        headerShadowVisible: false,
-        tabBarStyle: { backgroundColor: colors.ink, borderTopColor: colors.rule },
+        headerShown: false,
+        tabBarStyle: { backgroundColor: colors.ink, borderTopColor: colors.rule, height: 62, paddingTop: 6 },
         tabBarActiveTintColor: colors.gold,
         tabBarInactiveTintColor: colors.greyMuted,
-        tabBarLabelStyle: { fontSize: 10, letterSpacing: 1 },
+        tabBarLabelStyle: { fontSize: 10, letterSpacing: 0.5, paddingBottom: 4 },
         sceneStyle: { backgroundColor: colors.ink },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Library', tabBarIcon: ({ color }) => <Glyph symbol="✦" color={color} /> }} />
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color }) => <Glyph symbol="⌂" color={color} /> }} />
+      <Tabs.Screen name="library" options={{ title: 'Library', tabBarIcon: ({ color }) => <Glyph symbol="▤" color={color} /> }} />
       <Tabs.Screen name="journal" options={{ title: 'Journal', tabBarIcon: ({ color }) => <Glyph symbol="✎" color={color} /> }} />
-      <Tabs.Screen name="community" options={{ title: 'Community', tabBarIcon: ({ color }) => <Glyph symbol="❋" color={color} /> }} />
-      <Tabs.Screen name="librarian" options={{ title: 'Librarian', tabBarIcon: ({ color }) => <Glyph symbol="☾" color={color} /> }} />
+      <Tabs.Screen name="residents" options={{ title: 'Residents', tabBarIcon: ({ color }) => <Glyph symbol="❋" color={color} /> }} />
       <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: ({ color }) => <Glyph symbol="◌" color={color} /> }} />
     </Tabs>
   );

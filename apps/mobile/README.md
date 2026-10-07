@@ -52,27 +52,37 @@ read from `EXPO_PUBLIC_SUPABASE_ANON_KEY` or from `extra.supabaseAnonKey` in
 
 ```
 app/              screens, by route (expo-router)
-  (tabs)/         Library, Journal, Community, Librarian, Account
-  story/[slug]    a story: the text, the player, keep, progress
+  onboarding      the welcome, shown once
+  signin          the door (Sign In / Sign Up / reset)
+  (tabs)/         Home, Library, Journal, Residents, Account
+  mood            your mood today and the stories for it
+  story/[slug]    story details: Read Now, Listen Instead, keep, share
+  read/[slug]     the reading view, with Aa and progress
   community/[id]  one post with its reactions and replies
-  questions       the Reflection Deck
-  signin          the door
+  questions       the Drawer of Quiet Questions
+  librarian       the Librarian (from Home)
 lib/              supabase client, site API, session, content, journal,
-                  community, account, push
-components/       the player, the Markdown renderer, shared UI, error boundary
+                  community, account, push, prefs
+components/       the player, Markdown renderer, shared UI, story row,
+                  mood strip, compose sheet, screen header, error boundary
 constants/        the House's palette
 ```
 
 ## What is in v1 and what is not
 
-In: the Library with shelves and search; stories with narration and the
-sleep timer; keep and reading progress; the Journal with today's question,
-moods, the affirmation and the Reflection Deck; the Community wall with
-posting, reactions and replies (moderated on the site); the Librarian;
-the Account with standing, owned books and their downloads; push
-registration; error reporting to the site's log.
+Everything in the app reads what the website already has; nothing was
+added on the web side for it. In: the welcome and the door; Home with
+the greeting, the House's moods, the story of the day (the site's home
+hero slot), the affirmation, Continue, the latest Weekly Letter and the
+Librarian; the Library with search, kinds, the shelves and sorting;
+story details with Read Now and Listen Instead, keep and share; the
+reading view with text size and progress; the Journal with today's
+question, moods, entries, the thirty-day strip, saved stories, the
+prompt pool and the deck; Residents with the wall, the House's prompt,
+challenges, posting (named or anonymous), reactions and replies; the
+Account with standing, owned books and downloads.
 
-Not yet: buying anything in the app (by design: the stores take a cut);
-the Weekly Letter archive; series and sleep pages as their own screens;
-day and sepia reading themes; offline reading; the resident journal and
-the full Wander page. The site covers all of these.
+Not in the app, by design or because the web has no such feature yet:
+buying (the stores take a cut), social sign-in, mood check-ins without
+an entry, photos and voice notes, reply-to-reply, blocking, reader
+notifications, offline reading.

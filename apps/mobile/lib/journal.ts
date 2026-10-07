@@ -9,7 +9,7 @@ import { supabase } from './supabase';
  * deck a reader draws from on the Reflection Deck page.
  */
 
-export type Mood = { id: string; slug: string; label: string; emoji: string | null };
+export type Mood = { id: string; slug: string; label: string; emoji: string | null; shelfId: string | null };
 export type Prompt = { id: string; body: string };
 export type Card = { id: string; title: string; feeling: string; whisper: string | null; body: string; glyph: string | null };
 export type Entry = {
@@ -25,8 +25,8 @@ export type Affirmation = { id: string; body: string };
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 
 export async function getMoods(): Promise<Mood[]> {
-  const { data } = await supabase.from('moods').select('id, slug, label, emoji').eq('is_active', true).order('sort_order');
-  return (data ?? []) as Mood[];
+  const { data } = await supabase.from('moods').select('id, slug, label, emoji, shelf_id').eq('is_active', true).order('sort_order');
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({ id: r.id as string, slug: r.slug as string, label: r.label as string, emoji: (r.emoji as string) ?? null, shelfId: (r.shelf_id as string) ?? null }));
 }
 
 /** Today's scheduled prompt, or one from the pool chosen by the date. */
@@ -39,6 +39,12 @@ export async function getTodaysPrompt(): Promise<Prompt | null> {
   if (!list.length) return null;
   const day = Math.floor(Date.now() / 86_400_000);
   return list[day % list.length];
+}
+
+/** The pool of questions a reader may write to, besides today's. */
+export async function getPromptPool(): Promise<Prompt[]> {
+  const { data } = await supabase.from('journal_prompts').select('id, body').eq('is_active', true).neq('kind', 'deck').is('scheduled_on', null).order('created_at');
+  return (data ?? []) as Prompt[];
 }
 
 export async function getAffirmation(): Promise<Affirmation | null> {
