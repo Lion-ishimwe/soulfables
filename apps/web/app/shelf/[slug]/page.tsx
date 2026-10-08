@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getShelf, getShelves, getStories, getJourney } from '@/lib/content';
+import { getShelf, getShelves, getStories, getJourney, isFreeToRead } from '@/lib/content';
 import { StoryCard } from '@/components/story-card';
 import { getFeatured } from '@/lib/featured';
 import { ShelfGlyph } from '@/components/shelf-glyph';
@@ -61,11 +61,15 @@ export default async function ShelfPage({
   const shelf = await getShelf(slug);
   if (!shelf) notFound();
 
-  const [stories, journey, spotlights] = await Promise.all([
+  const [everything, journey, spotlights] = await Promise.all([
     getStories(slug),
     getJourney(slug),
     getFeatured('shelf_spotlight'),
   ]);
+
+  // A shelf is part of the Library: the free reading. Premium stories and
+  // books on this shelf are in the Bookshop.
+  const stories = everything.filter(isFreeToRead);
 
   // Only a spotlight placed on THIS shelf, or on a story that lives here.
   const spotlight = spotlights.find(

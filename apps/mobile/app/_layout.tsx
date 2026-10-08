@@ -61,6 +61,7 @@ function Root() {
         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="signin" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="mood" options={{ title: '' }} />
+        <Stack.Screen name="shop" options={{ title: 'The Bookshop' }} />
         <Stack.Screen name="story/[slug]" options={{ title: '', headerTransparent: true }} />
         <Stack.Screen name="read/[slug]" options={{ title: '' }} />
         <Stack.Screen name="community/[id]" options={{ title: '' }} />

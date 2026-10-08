@@ -643,6 +643,15 @@ export const getShelves = unstable_cache(fetchGetShelves, ['shelves'], {
   tags: [CONTENT_TAG],
 });
 
+/**
+ * Free to read, as the Library means it: not kept for Premium, not sold
+ * as a book, and not an episode of a Premium series. Everything else
+ * belongs in the Bookshop.
+ */
+export function isFreeToRead(s: StoryCard): boolean {
+  return s.access === 'free' && s.series?.access !== 'premium';
+}
+
 export const getStories = unstable_cache(fetchGetStories, ['stories'], {
   revalidate: 60,
   tags: [CONTENT_TAG],

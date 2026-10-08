@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { getProducts } from '@/lib/content';
+import { getProducts, getStories, isFreeToRead } from '@/lib/content';
+import { StoryTile } from '@/components/library/story-tile';
 import { getHouseSettings } from '@/lib/settings';
 import { isPaymentsConfigured } from '@/lib/payments/provider';
 import { Cover } from '@/components/cover-art';
@@ -31,12 +32,17 @@ export const revalidate = 300;
  * should reach a button that takes money the House cannot honour.
  */
 export default async function ShopPage() {
-  const [allProducts, placed, ordered, house] = await Promise.all([
+  const [allProducts, placed, ordered, house, stories] = await Promise.all([
     getProducts(),
     getFeaturedOne('shop_hero'),
     getFeatured('shop_order'),
     getHouseSettings(),
+    getStories(),
   ]);
+  // Stories kept for Premium stand here, beside the books. A story sold
+  // as a book is already a product above; this is the rest of what the
+  // Library does not hold.
+  const premiumStories = stories.filter((s) => !isFreeToRead(s) && s.access !== 'paid');
 
   const products = applyOrder(allProducts, ordered);
   const hero =
@@ -160,6 +166,34 @@ export default async function ShopPage() {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {premiumStories.length > 0 && (
+        <section className="border-t border-rule">
+          <div className="mx-auto max-w-page px-5 py-20 sm:px-8">
+            <div className="mb-8 flex flex-wrap items-baseline justify-between gap-4">
+              <div>
+                <p className="sf-eyebrow">Kept for Premium</p>
+                <p className="mt-2 max-w-measure font-ui text-sm leading-relaxed text-grey-muted">
+                  {premiumStories.length === 1 ? 'One story' : `${premiumStories.length} stories`} the Library does not hold. Premium opens every one of them, and every narration.
+                </p>
+              </div>
+              <Link
+                href={'/membership' as Route}
+                className="rounded-lg border border-gold/50 px-5 py-2.5 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink"
+              >
+                About Premium →
+              </Link>
+            </div>
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {premiumStories.map((story) => (
+                <li key={story.slug}>
+                  <StoryTile story={story} />
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
       )}
 

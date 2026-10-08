@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { getEarlyAccessStories, getProducts, getShelves, getStories, productAsCard, type StoryCard } from '@/lib/content';
+import { getEarlyAccessStories, getShelves, getStories, isFreeToRead, type StoryCard } from '@/lib/content';
 import { getFeatured, applyOrder } from '@/lib/featured';
 import { LibraryBackdrop } from '@/components/library-backdrop';
 import { StoryTile, StoryListRow } from '@/components/library/story-tile';
@@ -47,21 +47,19 @@ export default async function LibraryPage({
 }: {
   searchParams: Promise<Params>;
 }) {
-  const [params, told, shelves, placed, products] = await Promise.all([
+  const [params, everything, shelves, placed] = await Promise.all([
     searchParams,
     getStories(),
     getShelves(),
     getFeatured('library_order'),
-    getProducts(),
   ]);
   /*
-   * The Library holds every book the House has. The stories are read
-   * here; the books from the Bookshop stand on the same shelf with a
-   * price on them and open their shop page. The Bookshop is the part of
-   * the Library that costs something, not a different room.
+   * The Library is the free reading. A story kept for Premium, or sold
+   * as a book, stands in the Bookshop instead: the Library is what is
+   * open to everyone, the Bookshop is what can be bought or joined for.
    */
-  const books = products.map(productAsCard);
-  const all: StoryCard[] = [...told, ...books];
+  const told = everything.filter(isFreeToRead);
+  const all: StoryCard[] = told;
 
   const shelf = params.shelf ?? '';
   const q = (params.q ?? '').trim();
@@ -160,7 +158,7 @@ export default async function LibraryPage({
           <p className="mt-4 max-w-md text-base leading-normal text-grey-muted">
             {activeShelf
               ? activeShelf.tagline
-              : `Everything worth reading, exploring or returning to. ${told.length} ${told.length === 1 ? 'story' : 'stories'}${books.length ? ` and ${books.length} ${books.length === 1 ? 'book' : 'books'}` : ''} across ${shelves.length} shelves.`}
+              : `Everything worth reading, exploring or returning to. ${told.length} free ${told.length === 1 ? 'story' : 'stories'} across ${shelves.length} shelves. Premium stories and books are in the Bookshop.`}
           </p>
         </div>
       </header>

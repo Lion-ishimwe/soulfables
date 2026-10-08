@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StoryRow } from '@/components/story-row';
 import { ErrorLine, Loading, Muted, SectionHead, ui } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { finishedIds, listShelves, listStories, savedIds, setSaved, type Shelf, type StoryCard } from '@/lib/content';
+import { finishedIds, listLibraryStories, listShelves, savedIds, setSaved, type Shelf, type StoryCard } from '@/lib/content';
 import { getMoods, type Mood } from '@/lib/journal';
 import { setMoodToday } from '@/lib/prefs';
 import { useSession } from '@/lib/session';
@@ -30,7 +30,7 @@ export default function MoodScreen() {
       const [moods, shelves, all, done, kept] = await Promise.all([
         getMoods(),
         listShelves(),
-        listStories(),
+        listLibraryStories(),
         session ? finishedIds() : Promise.resolve(new Set<string>()),
         session ? savedIds() : Promise.resolve(new Set<string>()),
       ]);

@@ -108,6 +108,22 @@ export async function listStories(): Promise<StoryCard[]> {
   return ((data ?? []) as Record<string, unknown>[]).map(toCard);
 }
 
+/**
+ * Free to read, as the Library means it: not kept for Premium and not
+ * sold as a book. Everything else stands in the Bookshop.
+ */
+export const isFreeToRead = (s: StoryCard): boolean => s.access === 'free';
+
+/** The Library's list: the free stories only. */
+export async function listLibraryStories(): Promise<StoryCard[]> {
+  return (await listStories()).filter(isFreeToRead);
+}
+
+/** The Bookshop's list: what the Library does not hold. */
+export async function listShopStories(): Promise<StoryCard[]> {
+  return (await listStories()).filter((s) => !isFreeToRead(s));
+}
+
 export async function getStoryCard(id: string): Promise<StoryCard | null> {
   const { data } = await supabase.from('stories').select(CARD_SELECT).eq('id', id).eq('status', 'published').maybeSingle();
   return data ? toCard(data as Record<string, unknown>) : null;
@@ -134,7 +150,7 @@ export async function getStoryOfTheDay(all?: StoryCard[]): Promise<StoryCard | n
     const card = await getStoryCard(live.entity_id);
     if (card) return card;
   }
-  const list = all ?? (await listStories());
+  const list = (all ?? (await listStories())).filter(isFreeToRead);
   if (!list.length) return null;
   const day = Math.floor(now / 86_400_000);
   return list[day % list.length];

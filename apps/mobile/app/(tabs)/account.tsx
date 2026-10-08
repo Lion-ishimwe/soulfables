@@ -88,9 +88,9 @@ export default function AccountScreen() {
       {owned.length === 0 ? (
         <>
           <Muted>Nothing bought yet. Books are bought on the website and open here the moment payment clears.</Muted>
-          <Pressable onPress={() => Linking.openURL(`${SITE_URL}/shop`)}>
-            <Text style={ui.link}>The Bookshop →</Text>
-          </Pressable>
+          <Link href="/shop" asChild>
+            <Pressable><Text style={ui.link}>The Bookshop →</Text></Pressable>
+          </Link>
         </>
       ) : (
         owned.map((b) => (

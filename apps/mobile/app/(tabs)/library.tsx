@@ -5,7 +5,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { StoryRow } from '@/components/story-row';
 import { ErrorLine, Muted, Pill, SectionHead, ui } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { listSeries, listShelves, listStories, savedIds, searchStories, setSaved, type Series, type Shelf, type StoryCard } from '@/lib/content';
+import { isFreeToRead, listLibraryStories, listSeries, listShelves, savedIds, searchStories, setSaved, type Series, type Shelf, type StoryCard } from '@/lib/content';
 import { useSession } from '@/lib/session';
 
 type Filter = 'all' | 'stories' | 'audio' | 'series';
@@ -40,7 +40,7 @@ export default function LibraryScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [s, sh, se, kept] = await Promise.all([listStories(), listShelves(), listSeries(), session ? savedIds() : Promise.resolve(new Set<string>())]);
+      const [s, sh, se, kept] = await Promise.all([listLibraryStories(), listShelves(), listSeries(), session ? savedIds() : Promise.resolve(new Set<string>())]);
       setStories(s);
       setShelves(sh);
       setSeries(se);
@@ -60,7 +60,7 @@ export default function LibraryScreen() {
       setResults(null);
       return;
     }
-    const t = setTimeout(() => searchStories(q).then(setResults).catch((e) => setError((e as Error).message)), 300);
+    const t = setTimeout(() => searchStories(q).then((r) => setResults(r.filter(isFreeToRead))).catch((e) => setError((e as Error).message)), 300);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -95,7 +95,13 @@ export default function LibraryScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
-      <ScreenHeader title="Library" actions={[{ glyph: searching ? '✕' : '⌕', label: 'Search', onPress: () => { setSearching((v) => !v); setQuery(''); } }]}>
+      <ScreenHeader
+        title="Library"
+        actions={[
+          { glyph: '▣', label: 'Bookshop', onPress: () => router.push('/shop') },
+          { glyph: searching ? '✕' : '⌕', label: 'Search', onPress: () => { setSearching((v) => !v); setQuery(''); } },
+        ]}
+      >
         {searching && (
           <TextInput
             value={query}
@@ -164,7 +170,14 @@ export default function LibraryScreen() {
             </View>
           </View>
         }
-        ListEmptyComponent={!error ? <Muted>{results ? 'Nothing on the shelves answers to that.' : 'The shelves are being filled.'}</Muted> : null}
+        ListEmptyComponent={!error ? <Muted>{results ? 'Nothing free on the shelves answers to that. Premium stories and books are in the Bookshop.' : 'The shelves are being filled.'}</Muted> : null}
+        ListFooterComponent={
+          !results ? (
+            <Pressable onPress={() => router.push('/shop')} style={{ paddingVertical: space.lg }}>
+              <Text style={ui.link}>Premium stories and books are in the Bookshop →</Text>
+            </Pressable>
+          ) : null
+        }
         renderItem={({ item }) => <StoryRow item={item} saved={saved.has(item.id)} onSave={() => toggleSave(item)} />}
         ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
       />
