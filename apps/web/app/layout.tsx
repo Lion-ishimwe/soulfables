@@ -50,6 +50,10 @@ export const metadata: Metadata = {
     'A quiet place for modern folktales about love, loss, healing, identity, hope, and becoming.',
   applicationName: 'Soulfables',
   manifest: '/manifest.webmanifest',
+  // Pinterest's claim of soulfables.co. It must stay in the <head> of
+  // every page for as long as the account is linked; Pinterest checks it
+  // again from time to time, not only once.
+  verification: { other: { 'p:domain_verify': '2be9eaab9ccd7d68753aa19de05205e3' } },
   authors: [{ name: 'Apophia Kamwine' }],
   openGraph: {
     type: 'website',
