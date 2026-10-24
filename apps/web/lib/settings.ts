@@ -27,6 +27,8 @@ export type HouseSettings = {
   legalName: string | null;
   legalAddress: string | null;
   vatNumber: string | null;
+  /** Comma-separated words that stop a community post or reply before it is written. */
+  communityBlockedWords: string;
   /** Read every published story aloud with a generated voice. On by default. */
   autoNarration: boolean;
 };
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: HouseSettings = {
   legalName: null,
   legalAddress: null,
   vatNumber: null,
+  communityBlockedWords: '',
   autoNarration: true,
 };
 
@@ -58,7 +61,7 @@ async function fetchHouseSettings(): Promise<HouseSettings> {
 
   const { data } = await supabase
     .from('house_settings')
-    .select('site_name, tagline, support_email_general, support_email_shop, site_url, theme, legal_name, legal_address, vat_number, auto_narration')
+    .select('site_name, tagline, support_email_general, support_email_shop, site_url, theme, legal_name, legal_address, vat_number, auto_narration, community_blocked_words')
     .eq('id', 1)
     .maybeSingle();
 
@@ -76,6 +79,7 @@ async function fetchHouseSettings(): Promise<HouseSettings> {
     legalName: (data.legal_name as string) || null,
     legalAddress: (data.legal_address as string) || null,
     vatNumber: (data.vat_number as string) || null,
+    communityBlockedWords: (data.community_blocked_words as string) ?? '',
     autoNarration: data.auto_narration !== false,
   };
 }

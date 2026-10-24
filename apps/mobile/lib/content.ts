@@ -23,7 +23,7 @@ export type StoryCard = {
   forSleep: boolean;
   hasAudio: boolean;
   shelf: { slug: string; title: string } | null;
-  series: { slug: string; title: string } | null;
+  series: { slug: string; title: string; access: 'free' | 'premium' } | null;
   publishedAt: string | null;
 };
 
@@ -58,14 +58,14 @@ export type FullStory = {
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 
 const CARD_SELECT =
-  'id, slug, title, subtitle, excerpt, reading_minutes, cover_image, access, for_sleep, published_at, authors!stories_author_id_fkey(name), story_audio(id), series(slug, title), story_shelves(is_primary, shelves(slug, label))';
+  'id, slug, title, subtitle, excerpt, reading_minutes, cover_image, access, for_sleep, published_at, authors!stories_author_id_fkey(name), story_audio(id), series(slug, title, access), story_shelves(is_primary, shelves(slug, label))';
 
 function toCard(r: Record<string, unknown>): StoryCard {
   const links = (r.story_shelves as { is_primary: boolean; shelves: { slug: string; label: string } | { slug: string; label: string }[] | null }[] | null) ?? [];
   const primary = links.find((l) => l.is_primary) ?? links[0];
   const sh = primary ? one(primary.shelves) : null;
   const author = one(r.authors as { name: string } | { name: string }[] | null);
-  const series = one(r.series as { slug: string; title: string } | { slug: string; title: string }[] | null);
+  const series = one(r.series as { slug: string; title: string; access?: string } | { slug: string; title: string; access?: string }[] | null);
   const audio = (r.story_audio as unknown[] | null) ?? [];
   return {
     id: r.id as string,
@@ -80,7 +80,7 @@ function toCard(r: Record<string, unknown>): StoryCard {
     forSleep: Boolean(r.for_sleep),
     hasAudio: audio.length > 0,
     shelf: sh ? { slug: sh.slug, title: sh.label } : null,
-    series: series ? { slug: series.slug, title: series.title.replace(/^#\s*/, '') } : null,
+    series: series ? { slug: series.slug, title: series.title.replace(/^#\s*/, ''), access: series.access === 'premium' ? 'premium' : 'free' } : null,
     publishedAt: (r.published_at as string) ?? null,
   };
 }
@@ -109,10 +109,11 @@ export async function listStories(): Promise<StoryCard[]> {
 }
 
 /**
- * Free to read, as the Library means it: not kept for Premium and not
- * sold as a book. Everything else stands in the Bookshop.
+ * Free to read, as the Library means it: not kept for Premium, not sold
+ * as a book, and not an episode of a Premium series. The website applies
+ * the same three tests, so the two never disagree about a story.
  */
-export const isFreeToRead = (s: StoryCard): boolean => s.access === 'free';
+export const isFreeToRead = (s: StoryCard): boolean => s.access === 'free' && s.series?.access !== 'premium';
 
 /** The Library's list: the free stories only. */
 export async function listLibraryStories(): Promise<StoryCard[]> {

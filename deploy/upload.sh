@@ -33,19 +33,45 @@ echo "==> Sending the repository to ${USER_NAME}@${HOST}:${APP_DIR}"
 #   .next             a Windows build artefact, likewise
 #   .git              not needed, and large
 #   apps/mobile       the phone app: built by Expo's cloud, never by this server
-tar -czf - \
-  --exclude='./node_modules' \
+# The archive is written to a file first, so its size is known and the
+# transfer can be tried again if the Session Manager tunnel drops: a
+# stream that breaks half-way leaves the server with the old files and
+# no way to tell. Every node_modules is left out, at any depth: the
+# app's alone is well over a hundred megabytes and belongs to Expo.
+ARCHIVE=$(mktemp -t soulfables-upload.XXXXXX)
+trap 'rm -f "$ARCHIVE"' EXIT
+tar -czf "$ARCHIVE" \
+  --exclude='node_modules' \
   --exclude='./apps/web/.next' \
   --exclude='./.next' \
   --exclude='./.git' \
   --exclude='./.env.local' \
   --exclude='./.env' \
+  --exclude='./apps/mobile' \
   --exclude='*.pem' \
-  . \
-| "${SSH[@]}" "${USER_NAME}@${HOST}" \
+  .
+SIZE=$(wc -c < "$ARCHIVE" | tr -d ' ')
+echo "    archive: $((SIZE / 1024)) KB"
+
+REMOTE_TMP="/tmp/soulfables-upload.tgz"
+sent=0
+for attempt in 1 2 3 4; do
+  if "${SSH[@]}" "${USER_NAME}@${HOST}" "cat > '${REMOTE_TMP}'" < "$ARCHIVE" \
+     && [[ "$("${SSH[@]}" "${USER_NAME}@${HOST}" "wc -c < '${REMOTE_TMP}'" | tr -d ' \r')" == "$SIZE" ]]; then
+    sent=1
+    echo "    transferred on attempt $attempt"
+    break
+  fi
+  echo "    transfer broke on attempt $attempt; trying again" >&2
+  sleep 5
+done
+[[ $sent == 1 ]] || { echo "Upload failed four times; nothing was changed on the server." >&2; exit 1; }
+
+"${SSH[@]}" "${USER_NAME}@${HOST}" \
     "set -e
      sudo mkdir -p '${APP_DIR}'
-     sudo tar -xzf - -C '${APP_DIR}'
+     sudo tar -xzf '${REMOTE_TMP}' -C '${APP_DIR}'
+     rm -f '${REMOTE_TMP}'
      # The service account does not exist yet on a first upload — it is
      # created by provision.sh, which is itself one of the files being
      # uploaded. So hand ownership over only once there is somebody to

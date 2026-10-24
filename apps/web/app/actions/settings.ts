@@ -33,6 +33,8 @@ const schema = z.object({
   legalName: z.string().trim().max(200).optional().or(z.literal('')),
   legalAddress: z.string().trim().max(600).optional().or(z.literal('')),
   vatNumber: z.string().trim().max(40).optional().or(z.literal('')),
+  // One word or phrase per comma; case does not matter. Kept as typed.
+  communityBlockedWords: z.string().trim().max(4000),
   autoNarration: z.boolean().default(true),
 });
 
@@ -63,6 +65,7 @@ export async function saveHouseSettings(
     legalAddress: field(formData, 'legalAddress'),
     vatNumber: field(formData, 'vatNumber'),
     autoNarration: checkbox(formData, 'autoNarration'),
+    communityBlockedWords: field(formData, 'communityBlockedWords'),
   });
 
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -90,6 +93,7 @@ export async function saveHouseSettings(
       legal_address: d.legalAddress || null,
       vat_number: d.vatNumber || null,
       auto_narration: d.autoNarration,
+      community_blocked_words: d.communityBlockedWords,
       // The column exists to answer "who changed the House's name".
       // Leaving it null makes that unanswerable.
       updated_by: viewer.id,

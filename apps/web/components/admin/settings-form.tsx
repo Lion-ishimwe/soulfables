@@ -129,6 +129,23 @@ export function SettingsForm({ settings }: { settings: HouseSettings }) {
           </div>
         </div>
 
+        <div style={{ marginTop: 24 }}>
+          <label htmlFor="s-blocked" className={label}>
+            Community blocked words
+          </label>
+          <textarea
+            id="s-blocked"
+            name="communityBlockedWords"
+            rows={3}
+            defaultValue={settings.communityBlockedWords}
+            className={field}
+            placeholder="one word or phrase, then a comma, then the next"
+          />
+          <p className={hint}>
+            A post or reply that contains any of these is refused before it is written, and the reader is told so. Case does not matter.
+          </p>
+        </div>
+
         <div className="mt-5">
           <label htmlFor="s-url" className={label}>
             Site address
