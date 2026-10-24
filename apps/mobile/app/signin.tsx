@@ -33,7 +33,7 @@ export default function SignInScreen() {
       const address = email.trim().toLowerCase();
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email: address, password });
-        if (error) throw new Error('That email and password do not match. Try again.');
+        if (error) throw new Error(explain(error.message));
         if (router.canGoBack()) router.back();
         else router.replace('/');
       } else if (mode === 'signup') {
@@ -116,6 +116,19 @@ export default function SignInScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+/**
+ * The auth service's reasons, said plainly. A wrong password and a lost
+ * connection are different problems and must not wear the same words.
+ */
+function explain(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'That email and password do not match. Try again, or use Forgot password.';
+  if (m.includes('email not confirmed')) return 'This email has not been confirmed yet. Open the confirmation link that was sent to it, then sign in.';
+  if (m.includes('network') || m.includes('fetch')) return 'The app could not reach the House. Check the connection and try again.';
+  if (m.includes('rate limit') || m.includes('too many')) return 'Too many tries in a row. Wait a minute and try again.';
+  return `Sign-in did not go through: ${message}`;
 }
 
 function Field(props: React.ComponentProps<typeof TextInput> & { icon: string; trailing?: string; onTrailing?: () => void }) {
