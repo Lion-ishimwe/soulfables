@@ -36,6 +36,8 @@ const productSchema = z.object({
   eyebrow: z.string().trim().max(120).optional().or(z.literal('')),
   pullQuote: z.string().trim().max(500).optional().or(z.literal('')),
   ctaLabel: z.string().trim().max(60).optional().or(z.literal('')),
+  pageCount: z.coerce.number().int().min(0).max(100000).optional(),
+  idealFor: z.string().trim().max(1000).optional().or(z.literal('')),
   coverImage: z.string().trim().max(600).optional().or(z.literal('')),
   status: z.enum(['draft', 'in_review', 'published', 'archived']),
   currency: z.string().trim().length(3),
@@ -76,6 +78,8 @@ export async function saveProduct(
     eyebrow: field(formData, 'eyebrow'),
     pullQuote: field(formData, 'pullQuote'),
     ctaLabel: field(formData, 'ctaLabel'),
+    pageCount: field(formData, 'pageCount') || 0,
+    idealFor: field(formData, 'idealFor'),
     coverImage: field(formData, 'coverImage'),
     status: field(formData, 'status'),
     currency: field(formData, 'currency'),
@@ -96,9 +100,17 @@ export async function saveProduct(
     eyebrow: d.eyebrow || null,
     pull_quote: d.pullQuote || null,
     cta_label: d.ctaLabel || null,
+    page_count: d.pageCount ? d.pageCount : null,
+    ideal_for: d.idealFor || null,
     cover_image: d.coverImage || null,
     status: d.status,
   };
+
+  // The owner's choices of what sits near this product: the related
+  // titles, and, for a collection, what is inside it. Both lists are
+  // replaced whole, so an unticked box means "no longer".
+  const relatedIds = formData.getAll('related').map(String).filter((v) => /^[0-9a-f-]{36}$/i.test(v));
+  const childIds = formData.getAll('contents').map(String).filter((v) => /^[0-9a-f-]{36}$/i.test(v));
 
   let productId = id;
 
@@ -130,6 +142,24 @@ export async function saveProduct(
   }
 
   if (!productId) return { error: 'The product could not be saved.' };
+
+  {
+    const self = productId;
+    await supabase.from('product_related').delete().eq('product_id', self);
+    const related = relatedIds.filter((rid) => rid !== self).map((rid, i) => ({ product_id: self, related_id: rid, sort_order: i }));
+    if (related.length) {
+      const { error } = await supabase.from('product_related').insert(related);
+      if (error) return { error: `Saved, but the related products did not: ${error.message}` };
+    }
+    if (d.kind === 'bundle') {
+      await supabase.from('product_bundle_items').delete().eq('bundle_id', self);
+      const children = childIds.filter((cid) => cid !== self).map((cid, i) => ({ bundle_id: self, child_id: cid, sort_order: i }));
+      if (children.length) {
+        const { error } = await supabase.from('product_bundle_items').insert(children);
+        if (error) return { error: `Saved, but the collection's contents did not: ${error.message}` };
+      }
+    }
+  }
 
   // Price in minor units. Rounded rather than truncated so 7.99 does not
   // silently become 798.
@@ -316,6 +346,79 @@ export async function deleteProductFile(formData: FormData): Promise<void> {
 
   revalidatePath(`/admin/products/${productId}`);
 
+  revalidateTag('content');
+  redirect(`/admin/products/${productId}?deleted=1` as Route);
+}
+
+// ---------------------------------------------------------------------
+// Previews: what may be seen before buying. PUBLIC bucket, by design.
+// ---------------------------------------------------------------------
+
+const PREVIEW_PDF_BYTES = 20 * 1024 * 1024;
+const PREVIEW_IMAGE_BYTES = 8 * 1024 * 1024;
+const PREVIEW_IMAGE_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+export async function uploadProductPreview(
+  _prev: ProductActionResult,
+  formData: FormData,
+): Promise<ProductActionResult> {
+  const viewer = await requireStaff();
+  const productId = field(formData, 'productId') ?? '';
+  const title = (field(formData, 'title') ?? '').trim().slice(0, 120);
+  const file = fileField(formData, 'file');
+  if (!productId || !file) return { error: 'Choose a file to upload.' };
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const isPdf = ext === 'pdf' || file.type === 'application/pdf';
+  const imageExt = PREVIEW_IMAGE_TYPES[file.type] ?? (['png', 'jpg', 'jpeg', 'webp'].includes(ext) ? ext : null);
+  if (!isPdf && !imageExt) return { error: 'A preview is a PDF, or a PNG, JPEG or WebP image.' };
+  if (isPdf && file.size > PREVIEW_PDF_BYTES) return { error: 'That PDF is larger than 20 MB. A sample should be a chapter, not the book.' };
+  if (!isPdf && file.size > PREVIEW_IMAGE_BYTES) return { error: 'That image is larger than 8 MB.' };
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const db = createAdminClient();
+  const safeName = file.name.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 80);
+  const storagePath = `previews/${productId}/${Date.now()}-${safeName}`;
+  const { error: uploadError } = await db.storage
+    .from('public-media')
+    .upload(storagePath, bytes, { contentType: file.type || (isPdf ? 'application/pdf' : 'application/octet-stream'), upsert: false });
+  if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+
+  const { data: pub } = db.storage.from('public-media').getPublicUrl(storagePath);
+  const { data: last } = await db.from('product_previews').select('sort_order').eq('product_id', productId).order('sort_order', { ascending: false }).limit(1).maybeSingle();
+  const { error: insertError } = await db.from('product_previews').insert({
+    product_id: productId,
+    kind: isPdf ? 'pdf' : 'image',
+    title: title || null,
+    storage_path: storagePath,
+    public_url: pub.publicUrl,
+    file_size_bytes: bytes.byteLength,
+    sort_order: (last?.sort_order ?? -1) + 1,
+  });
+  if (insertError) {
+    await db.storage.from('public-media').remove([storagePath]);
+    return { error: `Could not record the preview: ${insertError.message}` };
+  }
+
+  await audit(viewer.id, viewer.email, 'product_preview.upload', 'product', productId, null, { kind: isPdf ? 'pdf' : 'image', bytes: bytes.byteLength });
+  revalidatePath(`/admin/products/${productId}`);
+  revalidateTag('content');
+  return { message: isPdf ? 'Sample added. Visitors can read it from the product page.' : 'Image added to the preview.' };
+}
+
+export async function deleteProductPreview(formData: FormData): Promise<void> {
+  const viewer = await requireStaff();
+  const previewId = field(formData, 'previewId') ?? '';
+  const productId = field(formData, 'productId') ?? '';
+  if (!previewId) return;
+  const db = createAdminClient();
+  const { data: row } = await db.from('product_previews').select('storage_path').eq('id', previewId).single();
+  if (row) {
+    await db.storage.from('public-media').remove([row.storage_path]);
+    await db.from('product_previews').delete().eq('id', previewId);
+    await audit(viewer.id, viewer.email, 'product_preview.delete', 'product', productId, row, null);
+  }
+  revalidatePath(`/admin/products/${productId}`);
   revalidateTag('content');
   redirect(`/admin/products/${productId}?deleted=1` as Route);
 }

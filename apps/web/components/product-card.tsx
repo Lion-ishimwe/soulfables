@@ -1,16 +1,11 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { Cover } from '@/components/cover-art';
-import type { Product } from '@/lib/content';
+import { kindLabel, type Product } from '@/lib/content';
 
 /** "ebook" → "Ebook", "deck" → "Card deck". What a reader would call it. */
-export function kindLabel(kind: string): string {
-  return (
-    { ebook: 'Ebook', anthology: 'Anthology', journal: 'Journal', deck: 'Card deck', audio: 'Audio', bundle: 'Bundle' }[
-      kind
-    ] ?? kind.charAt(0).toUpperCase() + kind.slice(1)
-  );
-}
+// One place says what a kind is called to a visitor; "bundle" reads as "Collection".
+export { kindLabel };
 
 /**
  * A book, shown as a book.
@@ -63,6 +58,10 @@ export function ProductCard({ product: p }: { product: Product }) {
               {p.formats.join(' · ')}
             </span>
           )}
+        </span>
+        {/* The invitation, in the owner's words. Buying happens on the page, with its own button. */}
+        <span className="mt-4 block rounded bg-gold px-4 py-2.5 text-center font-ui text-xs uppercase tracking-[0.14em] text-ink transition-opacity group-hover:opacity-90">
+          {p.discoveryLabel}
         </span>
       </span>
     </Link>

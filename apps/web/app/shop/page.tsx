@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 300;
+export const dynamicParams = true;
 
 /*
  * The Bookshop.
@@ -31,7 +32,24 @@ export const revalidate = 300;
  * once, quietly. Every product page says it again at the price. Nobody
  * should reach a button that takes money the House cannot honour.
  */
-export default async function ShopPage() {
+/** The customer-facing filters, built from the kinds the editor already has. */
+const FILTERS: { key: string; label: string; kinds: string[] }[] = [
+  { key: 'all', label: 'All', kinds: [] },
+  { key: 'ebooks', label: 'Ebooks', kinds: ['ebook'] },
+  { key: 'journals', label: 'Journals', kinds: ['journal'] },
+  { key: 'anthologies', label: 'Anthologies', kinds: ['anthology'] },
+  { key: 'collections', label: 'Collections', kinds: ['bundle'] },
+];
+
+function formatBytes(bytes: number | null): string | null {
+  if (!bytes) return null;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export default async function ShopPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
+  const { kind: kindParam } = await searchParams;
+  const filter = FILTERS.find((f) => f.key === kindParam) ?? FILTERS[0];
   const [allProducts, placed, ordered, house, stories] = await Promise.all([
     getProducts(),
     getFeaturedOne('shop_hero'),
@@ -49,7 +67,11 @@ export default async function ShopPage() {
     (placed && products.find((p) => p.slug === placed.slug)) ??
     products.find((p) => p.featured) ??
     products[0];
-  const rest = products.filter((p) => p.slug !== hero?.slug);
+  const shown = filter.kinds.length ? products.filter((p) => filter.kinds.includes(p.kind)) : products;
+  // The featured book stands at the top whatever the filter; the shelf
+  // below holds the rest of what the filter allows.
+  const rest = shown.filter((p) => p.slug !== hero?.slug);
+  const heroSample = (hero?.previews ?? []).find((p) => p.kind === 'pdf');
   const heroEyebrow = placed?.headline ?? hero?.eyebrow;
   const heroQuote = placed?.blurb ?? hero?.pullQuote;
   const open = isPaymentsConfigured();
@@ -139,7 +161,7 @@ export default async function ShopPage() {
                   href={`/shop/${hero.slug}` as Route}
                   className="rounded bg-gold px-7 py-3 font-ui text-sm text-ink transition-opacity hover:opacity-90"
                 >
-                  {open ? hero.ctaLabel : 'Read about it'}
+                  {open ? hero.discoveryLabel : 'Read about it'}
                 </Link>
                 <span className="font-ui text-sm text-grey-muted">
                   {hero.priceLabel}
@@ -147,18 +169,69 @@ export default async function ShopPage() {
                 </span>
               </div>
             </div>
+
+            {/* What is actually in the file: the active formats, by name and size, and the sample if there is one. */}
+            {(hero.files.length > 0 || heroSample) && (
+              <aside className="border-t border-rule pt-6 text-left lg:col-start-2 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                <ul className="space-y-3">
+                  {hero.files.map((f) => (
+                    <li key={f.format} className="flex items-center gap-3">
+                      <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded border border-gold/40 font-mono text-micro uppercase text-gold">{f.format}</span>
+                      <span className="font-ui text-sm text-ivory">
+                        {f.format} edition{formatBytes(f.sizeBytes) && <span className="text-grey-muted"> ({formatBytes(f.sizeBytes)})</span>}
+                      </span>
+                    </li>
+                  ))}
+                  {heroSample && (
+                    <li>
+                      <a href={heroSample.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 font-ui text-sm text-gold transition-colors hover:text-gold-soft">
+                        <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded border border-gold/40 font-mono text-micro text-gold">✦</span>
+                        Read a free sample{heroSample.title ? ` (${heroSample.title})` : ''} →
+                      </a>
+                    </li>
+                  )}
+                </ul>
+                <p className="mt-4 max-w-xs font-ui text-xs leading-relaxed text-grey-muted">
+                  {hero.files.length > 1 ? 'Every format is included in your purchase.' : 'Included in your purchase.'} Access it in your Soulfables library after payment.
+                </p>
+              </aside>
+            )}
           </article>
         </section>
       )}
 
-      {rest.length > 0 && (
-        <section className="mx-auto max-w-page px-5 py-20 sm:px-8">
-          <div className="mb-8 flex items-baseline justify-between gap-4">
-            <p className="sf-eyebrow">The collection</p>
-            <p className="font-ui text-xs text-grey-muted">
-              {products.length} {products.length === 1 ? 'title' : 'titles'}
-            </p>
+      <section className="mx-auto max-w-page px-5 py-20 sm:px-8">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="font-display text-3xl font-light text-ivory">The Collection</h2>
+            <p className="mt-2 font-ui text-sm text-grey-muted">Stories, journals, and reflection tools to help you heal, grow, and become.</p>
           </div>
+          <p className="font-ui text-xs text-grey-muted">
+            {shown.length} {shown.length === 1 ? 'title' : 'titles'}
+          </p>
+        </div>
+        <nav aria-label="Kinds" className="mb-8 flex flex-wrap gap-2">
+          {FILTERS.map((f) => {
+            const active = f.key === filter.key;
+            const count = f.kinds.length ? products.filter((p) => f.kinds.includes(p.kind)).length : products.length;
+            if (!active && count === 0) return null;
+            return (
+              <Link
+                key={f.key}
+                href={(f.key === 'all' ? '/shop' : `/shop?kind=${f.key}`) as Route}
+                aria-current={active ? 'page' : undefined}
+                className={
+                  active
+                    ? 'rounded-full bg-gold px-4 py-1.5 font-ui text-xs text-ink'
+                    : 'rounded-full border border-rule px-4 py-1.5 font-ui text-xs text-grey transition-colors hover:border-gold/40 hover:text-ivory'
+                }
+              >
+                {f.label}
+              </Link>
+            );
+          })}
+        </nav>
+        {rest.length > 0 ? (
           <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {rest.map((p) => (
               <li key={p.slug}>
@@ -166,8 +239,12 @@ export default async function ShopPage() {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        ) : (
+          <p className="rounded-lg border border-rule bg-ink-raised px-6 py-10 text-center font-ui text-sm text-grey-muted">
+            {hero && filter.kinds.includes(hero.kind) ? 'The one above is the only one of its kind, for now.' : 'Nothing of that kind yet. The letter will say when there is.'}
+          </p>
+        )}
+      </section>
 
       {premiumStories.length > 0 && (
         <section className="border-t border-rule">

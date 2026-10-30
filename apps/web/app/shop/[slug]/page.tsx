@@ -8,6 +8,7 @@ import { isPaymentsConfigured } from '@/lib/payments/provider';
 import { BuyForm } from '@/components/buy-form';
 import { Cover } from '@/components/cover-art';
 import { ProductCard, kindLabel } from '@/components/product-card';
+import { Cover as SmallCover } from '@/components/cover-art';
 import Image from 'next/image';
 
 /*
@@ -77,7 +78,14 @@ export default async function ProductPage({
   const product = products.find((p) => p.slug === slug);
   if (!product) notFound();
 
-  const others = products.filter((p) => p.slug !== slug).slice(0, 4);
+  // The owner's chosen companions first; when none are chosen, the rest of
+  // the shop, so the heading is always true.
+  const chosen = (product.related ?? [])
+    .map((r) => products.find((p) => p.slug === r.slug))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p) && p!.slug !== slug);
+  const others = (chosen.length ? chosen : products.filter((p) => p.slug !== slug)).slice(0, 4);
+  const samples = (product.previews ?? []).filter((p) => p.kind === 'pdf');
+  const pages = (product.previews ?? []).filter((p) => p.kind === 'image');
   const open = isPaymentsConfigured();
   const paragraphs = (product.description ?? '').split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
 
@@ -176,9 +184,30 @@ export default async function ProductPage({
                   <span>{product.formats.join(' + ')}</span>
                 </>
               )}
+              {product.pageCount ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{product.pageCount} pages</span>
+                </>
+              ) : null}
               <span aria-hidden="true">·</span>
               <span>Published by Soulfables</span>
             </p>
+            {samples.length > 0 && (
+              <p className="mt-5 flex flex-wrap justify-center gap-3 lg:justify-start">
+                {samples.map((sm) => (
+                  <a
+                    key={sm.id}
+                    href={sm.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded border border-gold/50 px-4 py-2 font-ui text-xs uppercase tracking-[0.14em] text-gold transition-all hover:bg-gold hover:text-ink"
+                  >
+                    <span aria-hidden="true">✦</span> Read a free sample{sm.title ? ` · ${sm.title}` : ''}
+                  </a>
+                ))}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -205,6 +234,55 @@ export default async function ProductPage({
               </>
             )}
 
+            {product.idealFor && (
+              <div className="mt-10 rounded-lg border border-gold/30 bg-gold-dim px-6 py-5">
+                <p className="sf-eyebrow">Ideal for</p>
+                <p className="mt-3 max-w-measure font-reading text-lg leading-relaxed text-ivory">{product.idealFor}</p>
+              </div>
+            )}
+
+            {pages.length > 0 && (
+              <div className="mt-12 border-t border-rule pt-10">
+                <p className="sf-eyebrow">A look inside</p>
+                <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {pages.map((pg) => (
+                    <li key={pg.id}>
+                      <a href={pg.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-sm ring-1 ring-ivory/10 transition-transform duration-slow ease-house hover:-translate-y-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={pg.url} alt={pg.title ?? `${product.title}, a page`} className="aspect-[3/4] w-full object-cover" loading="lazy" />
+                      </a>
+                      {pg.title && <p className="mt-2 font-ui text-xs text-grey-muted">{pg.title}</p>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(product.contents?.length ?? 0) > 0 && (
+              <div className="mt-12 border-t border-rule pt-10">
+                <p className="sf-eyebrow">Inside this collection</p>
+                <p className="mt-2 font-ui text-sm text-grey-muted">
+                  {product.contents!.length} {product.contents!.length === 1 ? 'title' : 'titles'}, every one placed in your library the moment payment clears.
+                </p>
+                <ul className="mt-5 divide-y divide-rule overflow-hidden rounded-lg border border-rule bg-ink-raised">
+                  {product.contents!.map((c) => (
+                    <li key={c.slug}>
+                      <Link href={`/shop/${c.slug}` as Route} className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-ink">
+                        <span className="relative aspect-[2/3] w-12 shrink-0 overflow-hidden rounded-sm ring-1 ring-ivory/10">
+                          <SmallCover src={c.coverImage} title={c.title} author="" shelf={c.kind === 'journal' ? 'healing' : 'love'} sizes="3rem" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-display text-lg leading-snug text-ivory transition-colors group-hover:text-gold">{c.title}</span>
+                          <span className="block font-ui text-xs text-grey-muted">{kindLabel(c.kind)}</span>
+                        </span>
+                        <span aria-hidden="true" className="text-grey-muted">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="mt-12 border-t border-rule pt-10">
               <p className="sf-eyebrow">What you get</p>
               <ul className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -216,7 +294,7 @@ export default async function ProductPage({
                       </span>
                       <span className="min-w-0">
                         <span className="block font-ui text-sm text-ivory">
-                          {f.format} file
+                          {f.format} edition
                           {formatBytes(f.sizeBytes) && (
                             <span className="text-grey-muted"> · {formatBytes(f.sizeBytes)}</span>
                           )}
@@ -276,7 +354,7 @@ export default async function ProductPage({
               </p>
 
               {open ? (
-                <BuyForm slug={product.slug} ctaLabel={product.ctaLabel} />
+                <BuyForm slug={product.slug} ctaLabel={product.purchaseLabel} />
               ) : (
                 <div className="mt-7 border-t border-rule pt-6">
                   <p className="font-ui text-sm text-ivory">Not on sale yet.</p>
@@ -307,7 +385,7 @@ export default async function ProductPage({
       {others.length > 0 && (
         <section className="border-t border-rule">
           <div className="mx-auto max-w-page px-5 py-16 sm:px-8">
-            <p className="sf-eyebrow mb-8">Also in the collection</p>
+            <p className="sf-eyebrow mb-8">You may also find meaning in</p>
             <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {others.map((p) => (
                 <li key={p.slug}>

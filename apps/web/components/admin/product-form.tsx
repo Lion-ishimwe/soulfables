@@ -18,10 +18,21 @@ export type ProductDraft = {
   eyebrow?: string | null;
   pullQuote?: string | null;
   ctaLabel?: string | null;
+  pageCount?: number | null;
+  idealFor?: string | null;
   status?: string;
   currency?: string;
   price?: number;
+  /** Ids of the products chosen for "You may also find meaning in". */
+  relatedIds?: string[];
+  /** For a collection: the ids of the products inside it. */
+  contentIds?: string[];
 };
+
+/** Another product, for the pickers. */
+export type ProductChoice = { id: string; title: string; kind: string; status: string };
+
+const KIND_WORD: Record<string, string> = { ebook: 'ebook', anthology: 'anthology', journal: 'journal', deck: 'card deck', audio: 'audio', bundle: 'collection' };
 
 function Save() {
   const { pending } = useFormStatus();
@@ -36,7 +47,7 @@ function Save() {
   );
 }
 
-export function ProductForm({ draft }: { draft: ProductDraft }) {
+export function ProductForm({ draft, products = [] }: { draft: ProductDraft; products?: ProductChoice[] }) {
   const [state, formAction] = useActionState<ProductActionResult, FormData>(
     saveProduct,
     {},
@@ -45,6 +56,11 @@ export function ProductForm({ draft }: { draft: ProductDraft }) {
   const [title, setTitle] = useState(draft.title ?? '');
   const [slug, setSlug] = useState(draft.slug ?? '');
   const [slugTouched, setSlugTouched] = useState(Boolean(draft.slug));
+  const [kind, setKind] = useState(draft.kind ?? 'ebook');
+  const [currency, setCurrency] = useState(draft.currency ?? 'USD');
+  const [price, setPrice] = useState(draft.price != null ? String(draft.price) : '');
+  const others = products.filter((p) => p.id !== draft.id);
+  const money = price ? `${currency.toUpperCase() === 'USD' ? '$' : currency.toUpperCase() + ' '}${Number(price).toFixed(2)}` : '';
 
   function onTitle(v: string) {
     setTitle(v);
@@ -119,11 +135,73 @@ export function ProductForm({ draft }: { draft: ProductDraft }) {
           />
 
           <Field
-            label="Button label"
+            label="Bookshop invitation"
             name="ctaLabel"
-            defaultValue={draft.ctaLabel ?? 'Buy'}
-            hint="e.g. Come home to yourself"
+            defaultValue={draft.ctaLabel ?? ''}
+            hint="The button on the card in the Bookshop, in your words: e.g. Come home to yourself. Left empty, it says Open the ebook."
           />
+          <p className="-mt-2 mb-5 text-xs text-grey-muted">
+            The purchase button on the product page is made for you: <span className="text-ivory">Buy {KIND_WORD[kind] ?? kind}{money ? ` — ${money}` : ''}</span>
+          </p>
+
+          <div className="mb-5 grid gap-x-6 sm:grid-cols-[8rem_1fr]">
+            <Field
+              label="Pages"
+              name="pageCount"
+              type="number"
+              defaultValue={draft.pageCount ?? ''}
+              hint="Optional. Shown when set."
+            />
+            <TextArea
+              label="Ideal for"
+              name="idealFor"
+              rows={3}
+              defaultValue={draft.idealFor}
+              hint="Optional. Who would get the most from this: e.g. Anyone rebuilding after a betrayal, one quiet page at a time."
+            />
+          </div>
+
+          {others.length > 0 && (
+            <fieldset className="mb-5 border border-rule p-4">
+              <legend className="sf-eyebrow px-1">You may also find meaning in</legend>
+              <p className="mb-3 text-xs text-grey-muted">Tick the products to show near the bottom of this page. Untick all and the Bookshop chooses for you.</p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {others.map((p) => (
+                  <li key={p.id}>
+                    <label className="flex items-start gap-2 text-sm text-ivory">
+                      <input type="checkbox" name="related" value={p.id} defaultChecked={draft.relatedIds?.includes(p.id)} className="mt-1 accent-[rgb(var(--c-gold))]" />
+                      <span>
+                        {p.title} <span className="text-grey-muted">· {KIND_WORD[p.kind] ?? p.kind}{p.status !== 'published' ? ' · not on sale' : ''}</span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
+          )}
+
+          {kind === 'bundle' && (
+            <fieldset className="mb-5 border border-gold/40 p-4">
+              <legend className="sf-eyebrow px-1">Inside this collection</legend>
+              <p className="mb-3 text-xs text-grey-muted">Every ticked product is granted to the buyer the moment payment clears, and listed on the page.</p>
+              {others.filter((p) => p.kind !== 'bundle').length === 0 ? (
+                <p className="text-sm text-grey-muted">No other products yet.</p>
+              ) : (
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {others.filter((p) => p.kind !== 'bundle').map((p) => (
+                    <li key={p.id}>
+                      <label className="flex items-start gap-2 text-sm text-ivory">
+                        <input type="checkbox" name="contents" value={p.id} defaultChecked={draft.contentIds?.includes(p.id)} className="mt-1 accent-[rgb(var(--c-gold))]" />
+                        <span>
+                          {p.title} <span className="text-grey-muted">· {KIND_WORD[p.kind] ?? p.kind}{p.status !== 'published' ? ' · not on sale' : ''}</span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </fieldset>
+          )}
         </div>
 
         <aside className="min-w-0 lg:border-l lg:border-rule lg:pl-8">
@@ -154,31 +232,36 @@ export function ProductForm({ draft }: { draft: ProductDraft }) {
             ]}
           />
 
-          <Select
-            label="Kind"
-            name="kind"
-            defaultValue={draft.kind ?? 'ebook'}
-            options={[
-              { value: 'ebook', label: 'Ebook' },
-              { value: 'anthology', label: 'Anthology' },
-              { value: 'journal', label: 'Journal' },
-              { value: 'deck', label: 'Card deck' },
-              { value: 'audio', label: 'Audio' },
-              { value: 'bundle', label: 'Bundle' },
-            ]}
-            hint="A bundle grants everything inside it on purchase."
-          />
+          <div className="mb-5">
+            <label htmlFor="p-kind" className="sf-eyebrow mb-2 block">
+              Kind
+            </label>
+            <select
+              id="p-kind"
+              name="kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+              className="w-full border border-rule bg-ink-raised px-3 py-2.5 text-sm text-ivory outline-none focus:border-gold/50"
+            >
+              <option value="ebook">Ebook</option>
+              <option value="anthology">Anthology</option>
+              <option value="journal">Journal</option>
+              <option value="deck">Card deck</option>
+              <option value="audio">Audio</option>
+              <option value="bundle">Collection (bundle)</option>
+            </select>
+            <p className="mt-2 text-xs text-grey-muted">A collection grants everything inside it on purchase. Visitors see the word Collection.</p>
+          </div>
 
           <div className="mb-5 grid grid-cols-[5rem_1fr] gap-3">
-            <Field label="Currency" name="currency" defaultValue={draft.currency ?? 'USD'} required />
-            <Field
-              label="Price"
-              name="price"
-              type="number"
-              defaultValue={draft.price ?? ''}
-              required
-              placeholder="7.99"
-            />
+            <div className="mb-5">
+              <label htmlFor="p-currency" className="sf-eyebrow mb-2 block">Currency</label>
+              <input id="p-currency" name="currency" required value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full border border-rule bg-ink-raised px-3 py-2.5 text-sm text-ivory outline-none focus:border-gold/50" />
+            </div>
+            <div className="mb-5">
+              <label htmlFor="p-price" className="sf-eyebrow mb-2 block">Price</label>
+              <input id="p-price" name="price" type="number" step="0.01" required placeholder="7.99" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full border border-rule bg-ink-raised px-3 py-2.5 text-sm text-ivory outline-none focus:border-gold/50" />
+            </div>
           </div>
           <p className="-mt-2 mb-5 text-xs text-grey-muted">
             In normal units — 7.99, not 799. Stored to the cent.

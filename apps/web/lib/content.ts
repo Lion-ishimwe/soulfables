@@ -117,7 +117,48 @@ export type Product = {
   createdAt?: string | null;
   /** The stories a purchase opens, when the book is a story rather than a file. */
   stories?: { slug: string; title: string }[];
+  /** Pages, when the owner said how many. */
+  pageCount?: number | null;
+  /** Who this is for, in the owner's words. */
+  idealFor?: string | null;
+  /** The purchase button, made from the kind, the currency and the price. */
+  purchaseLabel: string;
+  /** The Bookshop's invitation on the card, separate from the purchase button. */
+  discoveryLabel: string;
+  /** What may be seen before buying: a sample PDF or page images. */
+  previews?: { id: string; kind: 'pdf' | 'image'; title: string | null; url: string; sizeBytes: number | null }[];
+  /** For a collection: what is inside, in order. */
+  contents?: { slug: string; title: string; kind: string; coverImage: string | null }[];
+  /** Chosen by the owner for "You may also find meaning in". */
+  related?: { slug: string }[];
 };
+
+/** What a visitor is told a kind is called. The kind stays "bundle" inside. */
+export const KIND_LABELS: Record<string, string> = {
+  ebook: 'Ebook',
+  anthology: 'Anthology',
+  bundle: 'Collection',
+  journal: 'Journal',
+  deck: 'Card deck',
+  audio: 'Audio',
+};
+
+export function kindLabel(kind: string): string {
+  return KIND_LABELS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+/** "Buy ebook — $10": the one honest button, never typed by hand. */
+export function purchaseLabelFor(kind: string, priceLabel: string): string {
+  const what = kindLabel(kind).toLowerCase();
+  return priceLabel ? `Buy ${what} — ${priceLabel}` : `Buy ${what}`;
+}
+
+/** The card's invitation. The owner's words when given; otherwise a quiet door. */
+export function discoveryLabelFor(kind: string, ctaLabel: string | null | undefined): string {
+  const given = (ctaLabel ?? '').trim();
+  if (given && !/^(buy|view|buy now)$/i.test(given)) return given;
+  return `Open the ${kindLabel(kind).toLowerCase()}`;
+}
 
 /** Demo mode swaps the whole data source; see lib/demo/mode.ts. */
 const isConfigured = !isDemoMode();
@@ -153,13 +194,18 @@ const STORIES: StoryCard[] = [
   { id: 'demo-the-sister-who-left-and-returned', slug: 'the-sister-who-left-and-returned', title: 'The Sister Who Left and Returned', subtitle: 'Family is not the tie that binds — it is the river that keeps flowing.', author: 'Caelum Orr', readingMinutes: 11, shelf: 'hope', access: 'free' },
 ];
 
-const PRODUCTS: Product[] = [
+/** Demo products are written without the derived labels; they are filled in here. */
+function withLabels(list: Omit<Product, 'purchaseLabel' | 'discoveryLabel'>[]): Product[] {
+  return list.map((p) => ({ ...p, purchaseLabel: purchaseLabelFor(p.kind, p.priceLabel), discoveryLabel: discoveryLabelFor(p.kind, p.ctaLabel) }));
+}
+
+const PRODUCTS: Product[] = withLabels([
   { id: 'demo-the-version-of-me-you-broke', slug: 'the-version-of-me-you-broke', title: 'The Version Of Me You Broke', subtitle: 'A Soulfables Original by Apophia Kamwine', kind: 'ebook', eyebrow: 'Soulfables Original · New Release', pullQuote: 'You didn’t lose yourself forever. You were waiting to come home.', ctaLabel: 'Come home to yourself', priceLabel: '$7.99', formats: ['EPUB', 'PDF'], price: { unitAmount: 799, currency: 'USD' }, description: null, files: [{ format: 'EPUB', sizeBytes: null }, { format: 'PDF', sizeBytes: null }], featured: true },
   { id: 'demo-the-soulfables-library', slug: 'the-soulfables-library', title: 'The Soulfables Library', subtitle: 'Your Complete Sanctuary', kind: 'bundle', eyebrow: 'The Librarian’s Collection', pullQuote: 'Every story, every journal, every reflection — kept together in one library.', ctaLabel: 'Explore the complete library', priceLabel: '$45', formats: ['EPUB', 'PDF'], price: { unitAmount: 4500, currency: 'USD' }, description: null, files: [{ format: 'EPUB', sizeBytes: null }, { format: 'PDF', sizeBytes: null }], featured: false },
   { id: 'demo-heartbreak-anthology', slug: 'heartbreak-anthology', title: 'Heartbreak Anthology', subtitle: 'Stories for the Aftermath', kind: 'anthology', eyebrow: 'Your Signature Collection', pullQuote: 'The collection that introduced thousands of readers to Soulfables.', ctaLabel: 'Begin with heartbreak', priceLabel: '$16', formats: ['EPUB', 'PDF'], price: { unitAmount: 1600, currency: 'USD' }, description: null, files: [{ format: 'EPUB', sizeBytes: null }, { format: 'PDF', sizeBytes: null }], featured: false },
   { id: 'demo-the-soul-journal', slug: 'the-soul-journal', title: 'The Soul Journal', subtitle: 'A Companion for Quiet Reflection', kind: 'journal', eyebrow: 'The Everyday Companion', pullQuote: 'A quiet place to write after every story.', ctaLabel: 'Start writing', priceLabel: '$18', formats: ['PDF'], price: { unitAmount: 1800, currency: 'USD' }, description: null, files: [{ format: 'PDF', sizeBytes: null }], featured: false },
   { id: 'demo-the-reflection-deck', slug: 'the-reflection-deck', title: 'The Reflection Deck', subtitle: 'Questions for the Quiet Moments', kind: 'deck', eyebrow: 'The Giftable Experience', pullQuote: '52 questions for the moments that ask something of you.', ctaLabel: 'Draw your first card', priceLabel: '$15', formats: ['PDF'], price: { unitAmount: 1500, currency: 'USD' }, description: null, files: [{ format: 'PDF', sizeBytes: null }], featured: false },
-];
+]);
 
 /** The journey graph, as seeded. Direction is from the shelf's point of view. */
 const JOURNEYS: Record<string, { from: string[]; to: string[] }> = {
@@ -389,28 +435,81 @@ async function fetchGetProducts(): Promise<Product[]> {
   if (!isConfigured) return PRODUCTS;
   const { createPublicClient } = await import('./supabase/server');
   const supabase = createPublicClient();
-  const { data } = await supabase
-    .from('products')
-    .select('id, slug, title, subtitle, description, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, created_at, product_prices(currency, unit_amount, is_default), product_files(format, file_size_bytes, is_active), product_shelves(shelves(slug)), product_stories(stories(slug, title))')
-    .eq('status', 'published')
-    .order('sort_order');
+  /*
+   * The files table is readable only by staff and by owners, which is the
+   * right rule for downloads and the wrong one for a shop window: a
+   * visitor's page saw no files and said "being prepared" about books
+   * whose files were uploaded weeks before. product_formats is the public
+   * view of the active formats, with no path in it. The small link
+   * tables are read whole and matched up here; four cheap reads, cached
+   * with the rest.
+   */
+  const [{ data }, { data: formatRows }, { data: previewRows }, { data: bundleRows }, { data: relatedRows }] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, slug, title, subtitle, description, kind, eyebrow, pull_quote, cta_label, is_featured, cover_image, created_at, page_count, ideal_for, product_prices(currency, unit_amount, is_default), product_shelves(shelves(slug)), product_stories(stories(slug, title))')
+      .eq('status', 'published')
+      .order('sort_order'),
+    supabase.from('product_formats').select('product_id, format, file_size_bytes'),
+    supabase.from('product_previews').select('id, product_id, kind, title, public_url, file_size_bytes').order('sort_order'),
+    supabase.from('product_bundle_items').select('bundle_id, child_id, sort_order').order('sort_order'),
+    supabase.from('product_related').select('product_id, related_id, sort_order').order('sort_order'),
+  ]);
 
-  return (data ?? []).map((r: Record<string, unknown>) => {
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const byId = new Map(rows.map((r) => [r.id as string, r]));
+  const formatsOf = new Map<string, { format: string; sizeBytes: number | null }[]>();
+  for (const f of (formatRows ?? []) as { product_id: string; format: string; file_size_bytes: number | null }[]) {
+    const list = formatsOf.get(f.product_id) ?? [];
+    list.push({ format: f.format.toUpperCase(), sizeBytes: f.file_size_bytes ?? null });
+    formatsOf.set(f.product_id, list);
+  }
+  const previewsOf = new Map<string, NonNullable<Product['previews']>>();
+  for (const p of (previewRows ?? []) as { id: string; product_id: string; kind: 'pdf' | 'image'; title: string | null; public_url: string; file_size_bytes: number | null }[]) {
+    const list = previewsOf.get(p.product_id) ?? [];
+    list.push({ id: p.id, kind: p.kind, title: p.title, url: p.public_url, sizeBytes: p.file_size_bytes });
+    previewsOf.set(p.product_id, list);
+  }
+  const contentsOf = new Map<string, NonNullable<Product['contents']>>();
+  for (const b of (bundleRows ?? []) as { bundle_id: string; child_id: string }[]) {
+    const child = byId.get(b.child_id);
+    if (!child) continue;
+    const list = contentsOf.get(b.bundle_id) ?? [];
+    list.push({ slug: child.slug as string, title: child.title as string, kind: child.kind as string, coverImage: (child.cover_image as string) ?? null });
+    contentsOf.set(b.bundle_id, list);
+  }
+  const relatedOf = new Map<string, { slug: string }[]>();
+  for (const l of (relatedRows ?? []) as { product_id: string; related_id: string }[]) {
+    const other = byId.get(l.related_id);
+    if (!other) continue;
+    const list = relatedOf.get(l.product_id) ?? [];
+    list.push({ slug: other.slug as string });
+    relatedOf.set(l.product_id, list);
+  }
+
+  return rows.map((r: Record<string, unknown>) => {
     const prices = (r.product_prices as { currency: string; unit_amount: number; is_default: boolean }[]) ?? [];
     const price = prices.find((p) => p.is_default) ?? prices[0];
-    const files = ((r.product_files as { format: string; file_size_bytes: number | null; is_active: boolean }[]) ?? [])
-      .filter((f) => f.is_active !== false)
-      .map((f) => ({ format: f.format.toUpperCase(), sizeBytes: f.file_size_bytes ?? null }));
+    const files = (formatsOf.get(r.id as string) ?? []).sort((a, b) => a.format.localeCompare(b.format));
+    const priceLabel = price ? formatMoney(price.unit_amount, price.currency) : '';
+    const kind = r.kind as string;
     return {
       id: r.id as string,
       slug: r.slug as string,
       title: r.title as string,
       subtitle: (r.subtitle as string) ?? '',
-      kind: r.kind as string,
+      kind,
       eyebrow: (r.eyebrow as string) ?? '',
       pullQuote: (r.pull_quote as string) ?? '',
       ctaLabel: (r.cta_label as string) ?? 'View',
-      priceLabel: price ? formatMoney(price.unit_amount, price.currency) : '',
+      priceLabel,
+      purchaseLabel: purchaseLabelFor(kind, priceLabel),
+      discoveryLabel: discoveryLabelFor(kind, r.cta_label as string | null),
+      pageCount: (r.page_count as number) ?? null,
+      idealFor: (r.ideal_for as string) ?? null,
+      previews: previewsOf.get(r.id as string) ?? [],
+      contents: contentsOf.get(r.id as string) ?? [],
+      related: relatedOf.get(r.id as string) ?? [],
       price: price ? { unitAmount: price.unit_amount, currency: price.currency } : null,
       description: (r.description as string) ?? null,
       formats: files.map((f) => f.format),
@@ -440,14 +539,6 @@ function shelfOfProduct(joined: unknown): string {
   const one = Array.isArray(first) ? first[0] : first;
   return one?.slug ?? '';
 }
-
-const KIND_LABELS: Record<string, string> = {
-  ebook: 'Ebook',
-  anthology: 'Anthology',
-  bundle: 'Bundle',
-  journal: 'Journal',
-  deck: 'Card deck',
-};
 
 /**
  * A book from the Bookshop, standing on the Library shelf.
