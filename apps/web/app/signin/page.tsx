@@ -41,7 +41,7 @@ export default async function SignInPage({
         demo ? null : (
           <>
             <p>
-              No account yet? <AuthLink href="/signup">Join the House</AuthLink>
+              No account yet? <AuthLink href="/signup">Sign up</AuthLink>
             </p>
             <p className="mt-2">
               <AuthLink href="/reset-password">Forgotten your password?</AuthLink>
