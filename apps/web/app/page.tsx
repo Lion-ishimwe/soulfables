@@ -202,10 +202,10 @@ export default async function HomePage() {
               Enter the library
             </Link>
             <Link
-              href={'/companion' as Route}
+              href={'/shop' as Route}
               className="font-ui text-sm text-grey transition-colors hover:text-ivory"
             >
-              Meet the Librarian →
+              Explore the Bookshop →
             </Link>
           </div>
         </div>
