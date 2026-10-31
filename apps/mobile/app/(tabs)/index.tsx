@@ -58,7 +58,7 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
-      <ScreenHeader wordmark actions={[{ glyph: '⌕', label: 'Search', onPress: () => router.navigate({ pathname: '/(tabs)/library', params: { search: '1' } }) }]} />
+      <ScreenHeader wordmark actions={[{ glyph: '✦', label: 'Librarian', onPress: () => router.push('/librarian') }, { glyph: '⌕', label: 'Search', onPress: () => router.navigate({ pathname: '/(tabs)/library', params: { search: '1' } }) }]} />
       <ScrollView
         contentContainerStyle={ui.page}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.gold} />}
@@ -140,10 +140,10 @@ export default function HomeScreen() {
           </>
         )}
 
-        <SectionHead title="The Librarian" />
-        <Pressable style={ui.card} onPress={() => router.push('/librarian')}>
-          <Muted>Tell the Librarian what kind of night it is, and she will find a story that meets it.</Muted>
-          <Text style={ui.link}>Ask the Librarian →</Text>
+        <SectionHead title="The Bookshop" />
+        <Pressable style={ui.card} onPress={() => router.push('/shop')}>
+          <Muted>Books, journals and collections to keep, and the stories held for Premium.</Muted>
+          <Text style={ui.link}>Explore the Bookshop →</Text>
         </Pressable>
       </ScrollView>
     </View>
